@@ -87,3 +87,12 @@ create policy "Organizers can create trips"
   on trips for insert
   to authenticated
   with check (created_by = auth.uid());
+
+-- RLS policies only take effect once a role already has table-level
+-- privileges — without these grants every query 403s with "permission
+-- denied for table X" regardless of policy.
+grant usage on schema public to anon, authenticated, service_role;
+grant all on all tables in schema public to anon, authenticated, service_role;
+grant all on all sequences in schema public to anon, authenticated, service_role;
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;

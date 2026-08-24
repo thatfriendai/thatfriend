@@ -8,9 +8,17 @@ export async function signUp(_prevState: unknown, formData: FormData) {
   const password = String(formData.get("password") ?? "");
 
   const supabase = await createClient();
-  const { error } = await supabase.auth.signUp({ email, password });
+  const { data, error } = await supabase.auth.signUp({ email, password });
 
   if (error) return { error: error.message };
+
+  // If email confirmation is required, signUp succeeds but returns no
+  // session — there's nothing to redirect into yet.
+  if (!data.session) {
+    return {
+      message: "Check your email to confirm your account, then log in.",
+    };
+  }
 
   redirect("/trips");
 }

@@ -6,7 +6,7 @@ import { signInWithGoogle } from "@/app/auth/actions";
 type AuthAction = (
   prevState: unknown,
   formData: FormData
-) => Promise<{ error: string } | void>;
+) => Promise<{ error?: string; message?: string } | void>;
 
 export function AuthForm({
   action,
@@ -42,6 +42,11 @@ export function AuthForm({
         {state?.error && (
           <p className="text-sm text-red-600 dark:text-red-400">
             {state.error}
+          </p>
+        )}
+        {state?.message && (
+          <p className="text-sm text-green-700 dark:text-green-400">
+            {state.message}
           </p>
         )}
         <button
