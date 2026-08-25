@@ -19,34 +19,36 @@ export default async function TripsPage() {
     .returns<Trip[]>();
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 px-4 py-12">
+    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 bg-cream px-4 py-12">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Your trips</h1>
+        <h1 className="font-display text-3xl text-ink">Your trips</h1>
         <form action={signOut}>
-          <button className="text-sm text-zinc-500 underline">Log out</button>
+          <button className="text-sm text-muted hover:text-ink">
+            Log out
+          </button>
         </form>
       </div>
 
       <Link
         href="/trips/new"
-        className="w-fit rounded bg-foreground px-4 py-2 text-sm font-medium text-background"
+        className="w-fit rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-cream hover:bg-ink"
       >
         + Create a trip
       </Link>
 
       {!trips || trips.length === 0 ? (
-        <p className="text-sm text-zinc-500">No trips yet.</p>
+        <p className="text-sm text-muted">No trips yet.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {trips.map((trip) => (
             <li key={trip.id}>
               <Link
                 href={`/trip/${trip.id}`}
-                className="block rounded border border-zinc-200 px-4 py-3 hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-900"
+                className="block rounded-2xl border border-border bg-card px-5 py-4 hover:border-accent"
               >
-                <p className="font-medium">{trip.name}</p>
+                <p className="font-display text-lg text-ink">{trip.name}</p>
                 {trip.target_dates && (
-                  <p className="text-sm text-zinc-500">{trip.target_dates}</p>
+                  <p className="text-sm text-muted">{trip.target_dates}</p>
                 )}
               </Link>
             </li>

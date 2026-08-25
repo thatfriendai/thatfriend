@@ -11,63 +11,60 @@ type AuthAction = (
 export function AuthForm({
   action,
   submitLabel,
+  tripName,
 }: {
   action: AuthAction;
   submitLabel: string;
+  tripName?: string;
 }) {
   const [state, formAction, pending] = useActionState(action, null);
 
   return (
-    <div className="flex w-full max-w-sm flex-col gap-4">
-      <form action={formAction} className="flex flex-col gap-3">
-        <label className="flex flex-col gap-1 text-sm">
+    <div className="flex w-full max-w-sm flex-col gap-5">
+      <form action={formAction} className="flex flex-col gap-4">
+        {tripName && <input type="hidden" name="trip_name" value={tripName} />}
+        <label className="flex flex-col gap-1.5 text-sm text-ink/80">
           Email
           <input
             type="email"
             name="email"
             required
-            className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className="rounded-xl border border-border bg-card px-4 py-2.5 text-ink focus:border-accent focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-sm">
+        <label className="flex flex-col gap-1.5 text-sm text-ink/80">
           Password
           <input
             type="password"
             name="password"
             required
             minLength={6}
-            className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+            className="rounded-xl border border-border bg-card px-4 py-2.5 text-ink focus:border-accent focus:outline-none"
           />
         </label>
-        {state?.error && (
-          <p className="text-sm text-red-600 dark:text-red-400">
-            {state.error}
-          </p>
-        )}
+        {state?.error && <p className="text-sm text-red-700">{state.error}</p>}
         {state?.message && (
-          <p className="text-sm text-green-700 dark:text-green-400">
-            {state.message}
-          </p>
+          <p className="text-sm text-accent">{state.message}</p>
         )}
         <button
           type="submit"
           disabled={pending}
-          className="rounded bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+          className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-cream hover:bg-ink disabled:opacity-50"
         >
           {pending ? "Please wait…" : submitLabel}
         </button>
       </form>
 
-      <div className="flex items-center gap-3 text-xs text-zinc-500">
-        <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+      <div className="flex items-center gap-3 text-xs text-muted">
+        <div className="h-px flex-1 bg-border" />
         or
-        <div className="h-px flex-1 bg-zinc-200 dark:bg-zinc-800" />
+        <div className="h-px flex-1 bg-border" />
       </div>
 
       <form action={signInWithGoogle}>
         <button
           type="submit"
-          className="w-full rounded border border-zinc-300 px-4 py-2 text-sm font-medium dark:border-zinc-700"
+          className="w-full rounded-full border border-border px-5 py-2.5 text-sm font-medium text-ink hover:bg-card"
         >
           Continue with Google
         </button>

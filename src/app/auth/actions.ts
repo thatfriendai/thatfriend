@@ -20,7 +20,8 @@ export async function signUp(_prevState: unknown, formData: FormData) {
     };
   }
 
-  redirect("/trips");
+  const tripName = String(formData.get("trip_name") ?? "").trim();
+  redirect(tripName ? `/trips/new?tripName=${encodeURIComponent(tripName)}` : "/trips");
 }
 
 export async function signIn(_prevState: unknown, formData: FormData) {

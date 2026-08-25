@@ -1,26 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --color-cream: oklch(0.965 0.012 75);
+  --color-card: oklch(0.995 0.004 75);
+  --color-ink: oklch(0.22 0.02 50);
+  --color-muted: oklch(0.52 0.02 60);
+  --color-border: oklch(0.88 0.015 70);
+  --color-accent: oklch(0.48 0.1 325);
+  --color-accent-light: oklch(0.62 0.11 325);
+  --color-dark: oklch(0.17 0.015 280);
+  --color-dark-muted: oklch(0.68 0.02 280);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --color-cream: var(--color-cream);
+  --color-card: var(--color-card);
+  --color-ink: var(--color-ink);
+  --color-muted: var(--color-muted);
+  --color-border: var(--color-border);
+  --color-accent: var(--color-accent);
+  --color-accent-light: var(--color-accent-light);
+  --color-dark: var(--color-dark);
+  --color-dark-muted: var(--color-dark-muted);
+  --font-display: var(--font-display);
+  --font-body: var(--font-body);
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-body), system-ui, sans-serif;
+}
+
+@layer base {
+  a {
+    color: var(--color-accent);
+  }
+  a:hover {
+    color: var(--color-accent-light);
+  }
 }

@@ -48,15 +48,15 @@ export function GuestIdentityProvider({
 
   if (!name) {
     return (
-      <div className="rounded border border-zinc-200 p-4 dark:border-zinc-800">
+      <div className="rounded-2xl border border-border bg-card p-5">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             saveName(draftName);
           }}
-          className="flex flex-col gap-2 sm:flex-row sm:items-end"
+          className="flex flex-col gap-3 sm:flex-row sm:items-end"
         >
-          <label className="flex flex-1 flex-col gap-1 text-sm">
+          <label className="flex flex-1 flex-col gap-1.5 text-sm text-ink/80">
             What&apos;s your name?
             <input
               type="text"
@@ -64,12 +64,12 @@ export function GuestIdentityProvider({
               onChange={(e) => setDraftName(e.target.value)}
               required
               placeholder="So we know who added what"
-              className="rounded border border-zinc-300 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900"
+              className="rounded-xl border border-border bg-cream px-4 py-2.5 text-ink focus:border-accent focus:outline-none"
             />
           </label>
           <button
             type="submit"
-            className="rounded bg-foreground px-4 py-2 text-sm font-medium text-background"
+            className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-cream hover:bg-ink"
           >
             Continue
           </button>

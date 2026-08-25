@@ -63,16 +63,11 @@ export function PlaceMap({
 
   if (!apiKey) {
     return (
-      <p className="text-sm text-red-600 dark:text-red-400">
-        Google Maps API key is not configured.
-      </p>
+      <p className="text-sm text-red-700">Google Maps API key is not configured.</p>
     );
   }
 
   return (
-    <div
-      ref={mapRef}
-      className="h-80 w-full rounded border border-zinc-200 dark:border-zinc-800"
-    />
+    <div ref={mapRef} className="h-80 w-full rounded-2xl border border-border" />
   );
 }

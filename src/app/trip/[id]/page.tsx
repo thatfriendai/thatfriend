@@ -43,19 +43,21 @@ export default async function TripPage({
     .returns<PlaceWithParticipant[]>();
 
   return (
-    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 px-4 py-10">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-semibold">{trip.name}</h1>
-        {trip.target_dates && (
-          <p className="text-zinc-500">{trip.target_dates}</p>
-        )}
+    <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col gap-10 bg-cream px-4 py-10">
+      <div className="flex flex-col gap-3">
+        <h1 className="font-display text-4xl text-ink">{trip.name}</h1>
+        {trip.target_dates && <p className="text-muted">{trip.target_dates}</p>}
         <div>
           <CopyLinkButton />
         </div>
       </div>
 
       <GuestIdentityProvider tripId={trip.id}>
-        <PreferencesSection tripId={trip.id} preferences={preferences ?? []} />
+        <PreferencesSection
+          tripId={trip.id}
+          preferences={preferences ?? []}
+          visibility={trip.preferences_visibility}
+        />
         <PlacesSection
           tripId={trip.id}
           places={places ?? []}

@@ -13,7 +13,7 @@ export function CopyLinkButton() {
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
       }}
-      className="rounded border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700"
+      className="w-fit rounded-full border border-border bg-card px-4 py-2 text-sm text-ink hover:border-accent"
     >
       {copied ? "Link copied!" : "Copy shareable link"}
     </button>

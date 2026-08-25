@@ -12,6 +12,10 @@ create table if not exists trips (
   target_dates text,
   status text not null default 'planning',
   created_by uuid not null references auth.users (id) on delete cascade,
+  -- Whether everyone's preferences show real names or "Anonymous" — a
+  -- trip-wide setting anyone in the group can flip, not a per-submission
+  -- choice, so it's never half-public-half-private.
+  preferences_visibility text not null default 'public' check (preferences_visibility in ('public', 'private')),
   created_at timestamptz not null default now()
 );
 
@@ -40,7 +44,6 @@ create table if not exists preferences (
   value text not null,
   type text not null check (type in ('Preference', 'Constraint', 'Veto')),
   source_text text,
-  is_anonymous boolean not null default false,
   created_at timestamptz not null default now()
 );
 

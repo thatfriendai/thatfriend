@@ -4,11 +4,29 @@ import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOrCreateParticipant } from "@/lib/participants";
 import { extractPreferences } from "@/lib/claude/extract-preference";
+import type { PreferencesVisibility } from "@/lib/supabase/types";
 
 interface ActionResult {
   error?: string;
   success?: boolean;
   participantId?: string;
+}
+
+export async function setPreferencesVisibility(
+  tripId: string,
+  visibility: PreferencesVisibility
+): Promise<{ error?: string }> {
+  const admin = createAdminClient();
+
+  const { error } = await admin
+    .from("trips")
+    .update({ preferences_visibility: visibility })
+    .eq("id", tripId);
+
+  if (error) return { error: error.message };
+
+  revalidatePath(`/trip/${tripId}`);
+  return {};
 }
 
 export async function submitPreference(
@@ -20,7 +38,6 @@ export async function submitPreference(
   const existingParticipantId =
     (formData.get("participant_id") as string) || null;
   const text = String(formData.get("text") ?? "").trim();
-  const isAnonymous = formData.get("is_anonymous") === "on";
 
   if (!tripId) return { error: "Missing trip." };
   if (!participantName) return { error: "Enter your name first." };
@@ -65,7 +82,6 @@ export async function submitPreference(
       value: pref.value,
       type: pref.type,
       source_text: text,
-      is_anonymous: isAnonymous,
     }))
   );
 

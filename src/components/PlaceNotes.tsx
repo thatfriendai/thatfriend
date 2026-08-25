@@ -28,12 +28,12 @@ export function PlaceNotes({
   );
 
   return (
-    <div className="mt-2 flex flex-col gap-2 border-t border-zinc-100 pt-2 dark:border-zinc-800">
+    <div className="mt-2 flex flex-col gap-2 border-t border-border pt-2">
       {sorted.length > 0 && (
         <ul className="flex flex-col gap-1">
           {sorted.map((note) => (
-            <li key={note.id} className="text-xs text-zinc-600 dark:text-zinc-400">
-              <span className="font-medium">
+            <li key={note.id} className="text-xs text-ink/70">
+              <span className="font-medium text-ink">
                 {note.participants?.name ?? "Someone"}:
               </span>{" "}
               {note.text}
@@ -52,19 +52,17 @@ export function PlaceNotes({
           name="text"
           required
           placeholder="Add a note or paste a link…"
-          className="flex-1 rounded border border-zinc-300 px-2 py-1 text-xs dark:border-zinc-700 dark:bg-zinc-900"
+          className="flex-1 rounded-full border border-border bg-cream px-3 py-1.5 text-xs text-ink placeholder:text-muted focus:border-accent focus:outline-none"
         />
         <button
           type="submit"
           disabled={pending}
-          className="rounded border border-zinc-300 px-2 py-1 text-xs font-medium disabled:opacity-50 dark:border-zinc-700"
+          className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-ink hover:bg-cream disabled:opacity-50"
         >
           {pending ? "Adding…" : "Add"}
         </button>
       </form>
-      {state?.error && (
-        <p className="text-xs text-red-600 dark:text-red-400">{state.error}</p>
-      )}
+      {state?.error && <p className="text-xs text-red-700">{state.error}</p>}
     </div>
   );
 }

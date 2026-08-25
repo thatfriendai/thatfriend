@@ -32,14 +32,14 @@ export function PlacesSection({
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-lg font-semibold">Places</h2>
+      <h2 className="font-display text-2xl text-ink">Places</h2>
 
       <PlaceSearch apiKey={googleMapsApiKey} onSelect={setSelected} />
 
       {selected && (
         <form
           action={formAction}
-          className="flex flex-col gap-2 rounded border border-zinc-200 p-3 dark:border-zinc-800"
+          className="flex flex-col gap-3 rounded-2xl border border-border bg-card p-4"
         >
           <input type="hidden" name="trip_id" value={tripId} />
           <input type="hidden" name="participant_name" value={name} />
@@ -49,23 +49,21 @@ export function PlacesSection({
           <input type="hidden" name="lat" value={selected.lat} />
           <input type="hidden" name="lng" value={selected.lng} />
           <input type="hidden" name="category" value={selected.category} />
-          <p className="text-sm font-medium">{selected.name}</p>
-          <p className="text-xs text-zinc-500">{selected.address}</p>
-          {state?.error && (
-            <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
-          )}
+          <p className="font-display text-lg text-ink">{selected.name}</p>
+          <p className="-mt-2 text-xs text-muted">{selected.address}</p>
+          {state?.error && <p className="text-sm text-red-700">{state.error}</p>}
           <div className="flex gap-2">
             <button
               type="submit"
               disabled={pending}
-              className="rounded bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
+              className="rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-cream hover:bg-ink disabled:opacity-50"
             >
               {pending ? "Adding…" : "Add to trip"}
             </button>
             <button
               type="button"
               onClick={() => setSelected(null)}
-              className="rounded border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
+              className="rounded-full border border-border px-5 py-2.5 text-sm text-ink hover:bg-cream"
             >
               Cancel
             </button>
@@ -76,19 +74,19 @@ export function PlacesSection({
       <div className="grid gap-4 sm:grid-cols-2">
         <PlaceMap apiKey={googleMapsApiKey} places={places} />
         {places.length === 0 ? (
-          <p className="text-sm text-zinc-500">No places added yet.</p>
+          <p className="text-sm text-muted">No places added yet.</p>
         ) : (
-          <ul className="flex flex-col gap-2">
+          <ul className="flex flex-col gap-3">
             {places.map((place) => (
               <li
                 key={place.id}
-                className="rounded border border-zinc-200 px-3 py-2 text-sm dark:border-zinc-800"
+                className="rounded-2xl border border-border bg-card px-4 py-3 text-sm"
               >
-                <p className="font-medium">{place.name}</p>
+                <p className="font-display text-lg text-ink">{place.name}</p>
                 {place.address && (
-                  <p className="text-xs text-zinc-500">{place.address}</p>
+                  <p className="text-xs text-muted">{place.address}</p>
                 )}
-                <p className="mt-1 text-xs text-zinc-500">
+                <p className="mt-1.5 text-xs text-muted">
                   Added by {place.participants?.name ?? "Someone"}
                 </p>
                 <PlaceNotes

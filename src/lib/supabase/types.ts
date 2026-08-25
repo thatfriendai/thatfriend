@@ -11,12 +11,15 @@ export type PreferenceCategory =
 
 export type PreferenceType = "Preference" | "Constraint" | "Veto";
 
+export type PreferencesVisibility = "public" | "private";
+
 export interface Trip {
   id: string;
   name: string;
   target_dates: string | null;
   status: TripStatus;
   created_by: string;
+  preferences_visibility: PreferencesVisibility;
   created_at: string;
 }
 
@@ -37,7 +40,6 @@ export interface Preference {
   value: string;
   type: PreferenceType;
   source_text: string | null;
-  is_anonymous: boolean;
   created_at: string;
 }
 

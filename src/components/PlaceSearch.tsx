@@ -62,14 +62,14 @@ export function PlaceSearch({
 
   if (!apiKey) {
     return (
-      <p className="text-sm text-red-600 dark:text-red-400">
+      <p className="text-sm text-red-700">
         Google Maps API key is not configured.
       </p>
     );
   }
 
   if (error) {
-    return <p className="text-sm text-red-600 dark:text-red-400">{error}</p>;
+    return <p className="text-sm text-red-700">{error}</p>;
   }
 
   return <div ref={containerRef} />;
