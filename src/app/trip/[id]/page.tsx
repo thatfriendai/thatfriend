@@ -9,6 +9,8 @@ import { GuestIdentityProvider } from "@/components/GuestIdentity";
 import { PreferencesSection } from "@/components/PreferencesSection";
 import { PlacesSection } from "@/components/PlacesSection";
 import { CopyLinkButton } from "@/components/CopyLinkButton";
+import { WhatsAppConnect } from "@/components/WhatsAppConnect";
+import { WhatsAppNudge } from "@/components/WhatsAppNudge";
 
 export default async function TripPage({
   params,
@@ -53,11 +55,16 @@ export default async function TripPage({
       </div>
 
       <GuestIdentityProvider tripId={trip.id}>
+        <WhatsAppConnect
+          tripId={trip.id}
+          whatsappNumber={process.env.NEXT_PUBLIC_WHATSAPP_DISPLAY_NUMBER ?? ""}
+        />
         <PreferencesSection
           tripId={trip.id}
           preferences={preferences ?? []}
           visibility={trip.preferences_visibility}
         />
+        <WhatsAppNudge tripId={trip.id} />
         <PlacesSection
           tripId={trip.id}
           places={places ?? []}

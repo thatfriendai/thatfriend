@@ -29,6 +29,15 @@ export interface Participant {
   name: string;
   email: string | null;
   role: ParticipantRole;
+  phone_number: string | null;
+  created_at: string;
+}
+
+export interface WhatsAppConnectCode {
+  id: string;
+  trip_id: string;
+  participant_id: string;
+  code: string;
   created_at: string;
 }
 

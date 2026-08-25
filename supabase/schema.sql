@@ -28,10 +28,30 @@ create table if not exists participants (
   name text not null,
   email text,
   role text not null default 'guest' check (role in ('organizer', 'guest')),
+  -- E.164 phone number (e.g. "+15551234567"), set once someone links
+  -- WhatsApp. A phone can only be linked to one participant at a time —
+  -- linking it elsewhere moves it, it doesn't duplicate — so an inbound
+  -- WhatsApp message maps to exactly one (trip, participant).
+  phone_number text,
   created_at timestamptz not null default now()
 );
 
 create index if not exists participants_trip_id_idx on participants (trip_id);
+create unique index if not exists participants_phone_number_idx
+  on participants (phone_number) where phone_number is not null;
+
+-- ---------------------------------------------------------------------------
+-- whatsapp_connect_codes — short-lived codes used once to link a phone
+-- number to a participant ("text CONNECT-XY7Q to +1... to link WhatsApp").
+-- Consumed (deleted) as soon as the code is used.
+-- ---------------------------------------------------------------------------
+create table if not exists whatsapp_connect_codes (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references trips (id) on delete cascade,
+  participant_id uuid not null references participants (id) on delete cascade,
+  code text not null unique,
+  created_at timestamptz not null default now()
+);
 
 -- ---------------------------------------------------------------------------
 -- preferences
@@ -98,6 +118,7 @@ alter table participants enable row level security;
 alter table preferences enable row level security;
 alter table places enable row level security;
 alter table place_notes enable row level security;
+alter table whatsapp_connect_codes enable row level security;
 
 create policy "Organizers can view their own trips"
   on trips for select
