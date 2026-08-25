@@ -20,52 +20,69 @@ export interface ExtractedPreference {
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-export async function extractPreference(
+export async function extractPreferences(
   sourceText: string
-): Promise<ExtractedPreference> {
+): Promise<ExtractedPreference[]> {
   const message = await client.messages.create({
     model: "claude-sonnet-5",
-    max_tokens: 512,
+    max_tokens: 1024,
     system: EXTRACTION_SYSTEM_PROMPT,
     messages: [{ role: "user", content: sourceText }],
     tools: [
       {
-        name: "record_preference",
-        description: "Record one structured preference extracted from the message.",
+        name: "record_preferences",
+        description:
+          "Record every distinct structured preference extracted from the message.",
         input_schema: {
           type: "object",
           properties: {
-            category: { type: "string", enum: CATEGORIES },
-            type: { type: "string", enum: TYPES },
-            value: { type: "string" },
+            preferences: {
+              type: "array",
+              items: {
+                type: "object",
+                properties: {
+                  category: { type: "string", enum: CATEGORIES },
+                  type: { type: "string", enum: TYPES },
+                  value: { type: "string" },
+                },
+                required: ["category", "type", "value"],
+              },
+            },
           },
-          required: ["category", "type", "value"],
+          required: ["preferences"],
         },
       },
     ],
-    tool_choice: { type: "tool", name: "record_preference" },
+    tool_choice: { type: "tool", name: "record_preferences" },
   });
 
   const toolUse = message.content.find((block) => block.type === "tool_use");
   if (!toolUse || toolUse.type !== "tool_use") {
-    throw new Error("Claude did not return a structured preference.");
+    throw new Error("Claude did not return structured preferences.");
   }
 
-  const input = toolUse.input as Record<string, unknown>;
-  const category = input.category as string;
-  const type = input.type as string;
-  const value = input.value as string;
-
-  if (!CATEGORIES.includes(category as PreferenceCategory)) {
-    throw new Error(`Unexpected category from Claude: ${category}`);
-  }
-  if (!TYPES.includes(type as PreferenceType)) {
-    throw new Error(`Unexpected type from Claude: ${type}`);
+  const input = toolUse.input as { preferences?: unknown };
+  if (!Array.isArray(input.preferences)) {
+    throw new Error("Claude did not return a preferences list.");
   }
 
-  return {
-    category: category as PreferenceCategory,
-    type: type as PreferenceType,
-    value,
-  };
+  return input.preferences.map((item, index) => {
+    const entry = item as Record<string, unknown>;
+    const category = entry.category as string;
+    const type = entry.type as string;
+    const value = entry.value as string;
+
+    if (!CATEGORIES.includes(category as PreferenceCategory)) {
+      throw new Error(`Unexpected category from Claude at index ${index}: ${category}`);
+    }
+    if (!TYPES.includes(type as PreferenceType)) {
+      throw new Error(`Unexpected type from Claude at index ${index}: ${type}`);
+    }
+
+    return {
+      category: category as PreferenceCategory,
+      type: type as PreferenceType,
+      value,
+    };
+  });
 }

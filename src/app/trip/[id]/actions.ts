@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getOrCreateParticipant } from "@/lib/participants";
-import { extractPreference } from "@/lib/claude/extract-preference";
+import { extractPreferences } from "@/lib/claude/extract-preference";
 
 interface ActionResult {
   error?: string;
@@ -41,7 +41,7 @@ export async function submitPreference(
 
   let extracted;
   try {
-    extracted = await extractPreference(text);
+    extracted = await extractPreferences(text);
   } catch (e) {
     return {
       error: e instanceof Error ? e.message : "Could not process that message.",
@@ -49,14 +49,23 @@ export async function submitPreference(
     };
   }
 
-  const { error } = await admin.from("preferences").insert({
-    trip_id: tripId,
-    participant_id: participantId,
-    category: extracted.category,
-    value: extracted.value,
-    type: extracted.type,
-    source_text: text,
-  });
+  if (extracted.length === 0) {
+    return {
+      error: "Couldn't find a preference in that message — try rephrasing.",
+      participantId,
+    };
+  }
+
+  const { error } = await admin.from("preferences").insert(
+    extracted.map((pref) => ({
+      trip_id: tripId,
+      participant_id: participantId,
+      category: pref.category,
+      value: pref.value,
+      type: pref.type,
+      source_text: text,
+    }))
+  );
 
   if (error) return { error: error.message, participantId };
 
