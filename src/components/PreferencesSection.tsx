@@ -21,6 +21,11 @@ export function PreferencesSection({
     if (state?.success) formRef.current?.reset();
   }, [state, setParticipantId]);
 
+  // Hidden until this participant has logged at least one preference of
+  // their own — seeing others' answers first anchors people toward them,
+  // which defeats the point of asking everyone independently.
+  const unlocked = preferences.some((pref) => pref.participant_id === participantId);
+
   return (
     <section className="flex flex-col gap-4">
       <h2 className="text-lg font-semibold">Preferences</h2>
@@ -48,7 +53,12 @@ export function PreferencesSection({
         </button>
       </form>
 
-      {preferences.length === 0 ? (
+      {!unlocked ? (
+        <p className="text-sm text-zinc-500">
+          Add your own preference to see what everyone else said — this keeps
+          answers independent instead of anchored on each other.
+        </p>
+      ) : preferences.length === 0 ? (
         <p className="text-sm text-zinc-500">No preferences logged yet.</p>
       ) : (
         <ul className="flex flex-col gap-2">
