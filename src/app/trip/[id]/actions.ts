@@ -20,6 +20,7 @@ export async function submitPreference(
   const existingParticipantId =
     (formData.get("participant_id") as string) || null;
   const text = String(formData.get("text") ?? "").trim();
+  const isAnonymous = formData.get("is_anonymous") === "on";
 
   if (!tripId) return { error: "Missing trip." };
   if (!participantName) return { error: "Enter your name first." };
@@ -64,6 +65,7 @@ export async function submitPreference(
       value: pref.value,
       type: pref.type,
       source_text: text,
+      is_anonymous: isAnonymous,
     }))
   );
 
@@ -115,6 +117,48 @@ export async function addPlace(
     lng,
     category: category || null,
     added_by: participantId,
+  });
+
+  if (error) return { error: error.message, participantId };
+
+  revalidatePath(`/trip/${tripId}`);
+  return { success: true, participantId };
+}
+
+export async function addPlaceNote(
+  _prevState: ActionResult | null,
+  formData: FormData
+): Promise<ActionResult> {
+  const tripId = String(formData.get("trip_id") ?? "");
+  const placeId = String(formData.get("place_id") ?? "");
+  const participantName = String(formData.get("participant_name") ?? "").trim();
+  const existingParticipantId =
+    (formData.get("participant_id") as string) || null;
+  const text = String(formData.get("text") ?? "").trim();
+
+  if (!tripId || !placeId) return { error: "Missing place." };
+  if (!participantName) return { error: "Enter your name first." };
+  if (!text) return { error: "Write a note first." };
+
+  const admin = createAdminClient();
+
+  let participantId: string;
+  try {
+    participantId = await getOrCreateParticipant(
+      admin,
+      tripId,
+      participantName,
+      existingParticipantId
+    );
+  } catch (e) {
+    return { error: e instanceof Error ? e.message : "Could not identify you." };
+  }
+
+  const { error } = await admin.from("place_notes").insert({
+    trip_id: tripId,
+    place_id: placeId,
+    participant_id: participantId,
+    text,
   });
 
   if (error) return { error: error.message, participantId };

@@ -5,6 +5,7 @@ import { addPlace } from "@/app/trip/[id]/actions";
 import { useGuestIdentity } from "@/components/GuestIdentity";
 import { PlaceSearch, type SelectedPlace } from "@/components/PlaceSearch";
 import { PlaceMap } from "@/components/PlaceMap";
+import { PlaceNotes } from "@/components/PlaceNotes";
 import type { PlaceWithParticipant } from "@/lib/supabase/types";
 
 export function PlacesSection({
@@ -90,6 +91,11 @@ export function PlacesSection({
                 <p className="mt-1 text-xs text-zinc-500">
                   Added by {place.participants?.name ?? "Someone"}
                 </p>
+                <PlaceNotes
+                  tripId={tripId}
+                  placeId={place.id}
+                  notes={place.place_notes}
+                />
               </li>
             ))}
           </ul>

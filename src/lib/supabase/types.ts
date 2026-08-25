@@ -37,6 +37,7 @@ export interface Preference {
   value: string;
   type: PreferenceType;
   source_text: string | null;
+  is_anonymous: boolean;
   created_at: string;
 }
 
@@ -52,10 +53,24 @@ export interface Place {
   created_at: string;
 }
 
+export interface PlaceNote {
+  id: string;
+  trip_id: string;
+  place_id: string;
+  participant_id: string | null;
+  text: string;
+  created_at: string;
+}
+
 export interface PreferenceWithParticipant extends Preference {
+  participants: Pick<Participant, "id" | "name" | "role"> | null;
+}
+
+export interface PlaceNoteWithParticipant extends PlaceNote {
   participants: Pick<Participant, "id" | "name" | "role"> | null;
 }
 
 export interface PlaceWithParticipant extends Place {
   participants: Pick<Participant, "id" | "name" | "role"> | null;
+  place_notes: PlaceNoteWithParticipant[];
 }

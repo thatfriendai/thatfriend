@@ -40,6 +40,7 @@ create table if not exists preferences (
   value text not null,
   type text not null check (type in ('Preference', 'Constraint', 'Veto')),
   source_text text,
+  is_anonymous boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -63,6 +64,22 @@ create table if not exists places (
 create index if not exists places_trip_id_idx on places (trip_id);
 
 -- ---------------------------------------------------------------------------
+-- place_notes — freeform notes/links attached to a saved place ("my friend
+-- loved this", a pasted article link), for gathering itinerary research in
+-- one spot rather than a group chat.
+-- ---------------------------------------------------------------------------
+create table if not exists place_notes (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references trips (id) on delete cascade,
+  place_id uuid not null references places (id) on delete cascade,
+  participant_id uuid references participants (id) on delete set null,
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists place_notes_place_id_idx on place_notes (place_id);
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security
 --
 -- Guests reach trip data only by knowing a trip's unguessable UUID (the
@@ -77,6 +94,7 @@ alter table trips enable row level security;
 alter table participants enable row level security;
 alter table preferences enable row level security;
 alter table places enable row level security;
+alter table place_notes enable row level security;
 
 create policy "Organizers can view their own trips"
   on trips for select

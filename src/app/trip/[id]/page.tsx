@@ -35,7 +35,9 @@ export default async function TripPage({
 
   const { data: places } = await admin
     .from("places")
-    .select("*, participants(id, name, role)")
+    .select(
+      "*, participants(id, name, role), place_notes(*, participants(id, name, role))"
+    )
     .eq("trip_id", id)
     .order("created_at", { ascending: false })
     .returns<PlaceWithParticipant[]>();

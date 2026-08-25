@@ -41,6 +41,10 @@ export function PreferencesSection({
           placeholder='e.g. "I can only do the first week of Oct" or "budget is $800 max"'
           className="rounded border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
         />
+        <label className="flex items-center gap-2 text-xs text-zinc-500">
+          <input type="checkbox" name="is_anonymous" />
+          Keep my name off this — show it as &quot;Anonymous&quot; instead
+        </label>
         {state?.error && (
           <p className="text-sm text-red-600 dark:text-red-400">{state.error}</p>
         )}
@@ -75,8 +79,8 @@ export function PreferencesSection({
               </div>
               <p className="mt-1">{pref.value}</p>
               <p className="mt-1 text-xs text-zinc-500">
-                — {pref.participants?.name ?? "Someone"}
-                {pref.source_text && (
+                — {pref.is_anonymous ? "Anonymous" : pref.participants?.name ?? "Someone"}
+                {!pref.is_anonymous && pref.source_text && (
                   <span className="italic"> · &quot;{pref.source_text}&quot;</span>
                 )}
               </p>
