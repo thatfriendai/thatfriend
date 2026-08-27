@@ -84,6 +84,24 @@ create table if not exists planner_invites (
 create index if not exists planner_invites_trip_idx on planner_invites (trip_id);
 
 -- ---------------------------------------------------------------------------
+-- planner_preferences — Phase 2. Scoped to (trip_id, user_id), never
+-- global: the whole product promise is that a cheap week with one group
+-- doesn't follow you to the next trip.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_preferences (
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  stay_max integer,
+  flight_max integer,
+  food_max integer,
+  pace text check (pace in ('Slow', 'Balanced', 'Packed')),
+  interests text[] not null default '{}',
+  non_negotiable text,
+  updated_at timestamptz not null default now(),
+  primary key (trip_id, user_id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to
@@ -93,7 +111,8 @@ alter table planner_users enable row level security;
 alter table planner_trips enable row level security;
 alter table planner_memberships enable row level security;
 alter table planner_invites enable row level security;
+alter table planner_preferences enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
-grant all on planner_users, planner_trips, planner_memberships, planner_invites
+grant all on planner_users, planner_trips, planner_memberships, planner_invites, planner_preferences
   to anon, authenticated, service_role;

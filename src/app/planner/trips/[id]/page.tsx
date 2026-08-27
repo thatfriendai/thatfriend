@@ -54,6 +54,13 @@ export default async function PlannerTripPage({
     .limit(1)
     .maybeSingle();
 
+  const { data: myPref } = await admin
+    .from("planner_preferences")
+    .select("trip_id")
+    .eq("trip_id", id)
+    .eq("user_id", user.id)
+    .maybeSingle();
+
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const roster = (members ?? []).map((m) => {
     const person = m.planner_users as unknown as {
@@ -99,6 +106,18 @@ export default async function PlannerTripPage({
               </div>
             ))}
           </div>
+          <Link
+            href={`/planner/trips/${id}/preferences`}
+            className="px-1 text-[13.5px] text-body hover:text-accent"
+          >
+            Your preferences
+          </Link>
+          <Link
+            href={`/planner/trips/${id}/convergence`}
+            className="rounded-full border border-input-border bg-card px-4 py-2 text-[13.5px] text-ink hover:border-ink"
+          >
+            Where we landed
+          </Link>
         </div>
       </header>
 
@@ -153,13 +172,33 @@ export default async function PlannerTripPage({
           </div>
         </div>
 
+        {!myPref && (
+          <div className="mb-8 flex items-center justify-between gap-6 rounded-2xl border border-warm-border bg-warm-bg p-6.5">
+            <div>
+              <p className="mb-1.5 text-xl font-display text-ink">
+                What would make this trip good for you?
+              </p>
+              <p className="text-[15px] text-body">
+                Four quick questions — budget, pace, and the one thing you
+                wouldn&rsquo;t compromise on.
+              </p>
+            </div>
+            <Link
+              href={`/planner/trips/${id}/preferences`}
+              className="rounded-full bg-ink px-6 py-3 text-[15px] whitespace-nowrap text-cream hover:bg-accent"
+            >
+              Add my preferences
+            </Link>
+          </div>
+        )}
+
         <div className="rounded-2xl border border-dashed border-input-border p-7 text-center">
           <p className="mb-1.5 text-xl font-display text-ink">
-            The plan, decisions, and map land here next
+            The itinerary, decisions, and map land here next
           </p>
           <p className="text-[15px] text-body">
-            Preferences, the convergence view, itinerary, and decisions are
-            the next phases of the build.
+            Days, saved places, and open decisions are the next phases of
+            the build.
           </p>
         </div>
       </div>

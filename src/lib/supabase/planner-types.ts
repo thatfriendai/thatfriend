@@ -1,6 +1,7 @@
 export type TripPrivacy = "private" | "open";
 export type MembershipRole = "owner" | "member";
 export type InviteChannel = "email" | "sms" | "link";
+export type Pace = "Slow" | "Balanced" | "Packed";
 
 export interface PlannerUser {
   id: string;
@@ -40,4 +41,16 @@ export interface PlannerInvite {
   sent_to: string | null;
   accepted_by: string | null;
   created_at: string;
+}
+
+export interface PlannerPreference {
+  trip_id: string;
+  user_id: string;
+  stay_max: number | null;
+  flight_max: number | null;
+  food_max: number | null;
+  pace: Pace | null;
+  interests: string[];
+  non_negotiable: string | null;
+  updated_at: string;
 }

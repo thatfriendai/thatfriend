@@ -56,7 +56,7 @@ export async function GET(request: Request) {
         .update({ accepted_by: plannerUser.id })
         .eq("id", invite.id);
 
-      return NextResponse.redirect(`${origin}/planner/trips/${invite.trip_id}`);
+      return NextResponse.redirect(`${origin}/planner/trips/${invite.trip_id}/preferences`);
     }
   }
 

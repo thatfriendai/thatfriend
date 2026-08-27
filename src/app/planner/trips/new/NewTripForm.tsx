@@ -104,7 +104,7 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
       });
     }
 
-    router.push(`/planner/trips/${data.trip.id}`);
+    router.push(`/planner/trips/${data.trip.id}/preferences`);
   }
 
   return (
