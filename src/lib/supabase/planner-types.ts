@@ -2,6 +2,7 @@ export type TripPrivacy = "private" | "open";
 export type MembershipRole = "owner" | "member";
 export type InviteChannel = "email" | "sms" | "link";
 export type Pace = "Slow" | "Balanced" | "Packed";
+export type PlaceKind = "Restaurants" | "Bars" | "Museums" | "Activities" | "Other";
 
 export interface PlannerUser {
   id: string;
@@ -53,4 +54,35 @@ export interface PlannerPreference {
   interests: string[];
   non_negotiable: string | null;
   updated_at: string;
+}
+
+export interface PlannerDay {
+  id: string;
+  trip_id: string;
+  date: string;
+  city: string | null;
+  color: string;
+}
+
+export interface PlannerItineraryItem {
+  id: string;
+  day_id: string;
+  trip_id: string;
+  text: string;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PlannerPlace {
+  id: string;
+  trip_id: string;
+  day_id: string | null;
+  name: string;
+  kind: PlaceKind;
+  note: string | null;
+  map_x: number;
+  map_y: number;
+  added_by: string | null;
+  created_at: string;
 }

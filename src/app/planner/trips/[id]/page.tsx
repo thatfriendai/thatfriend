@@ -3,6 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { CopyInviteLink } from "./CopyInviteLink";
+import { ItineraryBoard } from "./ItineraryBoard";
+import { PlacesBoard } from "./PlacesBoard";
+import { ensureDays } from "@/lib/planner/days";
+import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
 const AVATAR_COLORS = ["#C9A227", "#6E8C6A", "#8A5A7A", "#4A453E", "#3F6E7A", "#B4664A"];
 
@@ -60,6 +64,37 @@ export default async function PlannerTripPage({
     .eq("trip_id", id)
     .eq("user_id", user.id)
     .maybeSingle();
+
+  const days = await ensureDays(admin, trip);
+  const dayIds = days.map((d) => d.id);
+
+  const { data: items } = dayIds.length
+    ? await admin
+        .from("planner_itinerary_items")
+        .select("*")
+        .in("day_id", dayIds)
+        .order("position", { ascending: true })
+    : { data: [] as PlannerItineraryItem[] };
+
+  const daysWithItems = days.map((d) => ({
+    ...d,
+    items: (items ?? []).filter((i) => i.day_id === d.id),
+  }));
+
+  const { data: placeRows } = await admin
+    .from("planner_places")
+    .select("*, planner_users(name, email)")
+    .eq("trip_id", id)
+    .order("created_at", { ascending: true });
+
+  const places = (placeRows ?? []).map((p) => {
+    const person = p.planner_users as unknown as {
+      name: string | null;
+      email: string | null;
+    } | null;
+    const who = person?.name || person?.email?.split("@")[0] || "Someone";
+    return { ...p, who };
+  });
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const roster = (members ?? []).map((m) => {
@@ -192,12 +227,37 @@ export default async function PlannerTripPage({
           </div>
         )}
 
+        <div className="mb-14">
+          <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
+            <span className="font-mono text-[11px] text-[#C0B8A8]">03</span>
+            <span className="text-[25px] font-display text-ink">The plan so far</span>
+            {daysWithItems.length > 0 && (
+              <span className="ml-auto text-[13.5px] text-muted">
+                Each day has its own colour on the map
+              </span>
+            )}
+          </div>
+          {daysWithItems.length > 0 ? (
+            <ItineraryBoard tripId={id} days={daysWithItems} />
+          ) : (
+            <div className="mb-14 rounded-2xl border border-dashed border-input-border p-7 text-center">
+              <p className="mb-1.5 font-display text-xl text-ink">No dates yet</p>
+              <p className="text-[15px] text-body">
+                Once this trip has dates, the day-by-day plan builds itself here.
+              </p>
+            </div>
+          )}
+        </div>
+
+        <PlacesBoard tripId={id} days={days} places={places} />
+
         <div className="rounded-2xl border border-dashed border-input-border p-7 text-center">
           <p className="mb-1.5 text-xl font-display text-ink">
-            The itinerary, decisions, and map land here next
+            Decisions land here next
           </p>
           <p className="text-[15px] text-body">
-            Days, saved places, and open decisions are the next phases of
+            Open votes, threaded notes, and pulling places in from a
+            pasted link or a forwarded screenshot are the next phases of
             the build.
           </p>
         </div>
