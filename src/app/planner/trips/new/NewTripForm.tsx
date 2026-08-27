@@ -257,7 +257,8 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
           Who&rsquo;s coming
         </label>
         <p className="mb-3 text-sm text-muted">
-          They get a link. Nobody needs an account to look.
+          They get a link. They&rsquo;ll sign in or create an account the
+          first time they open it.
         </p>
         {invitees.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">

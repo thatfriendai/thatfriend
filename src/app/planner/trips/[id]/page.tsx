@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { CopyInviteLink } from "./CopyInviteLink";
 import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
+import { DecisionsSection } from "./decisions/DecisionsSection";
 import { ensureDays } from "@/lib/planner/days";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
@@ -115,6 +116,25 @@ export default async function PlannerTripPage({
     const who = person?.name || person?.email?.split("@")[0] || "Someone";
     const placeNames = places.filter((p) => p.resource_id === r.id).map((p) => p.name);
     return { ...r, who, placeNames };
+  });
+
+  const { data: decisionRows } = await admin
+    .from("planner_decisions")
+    .select("*, planner_decision_options(id, label), planner_decision_votes(option_id), planner_decision_notes(id)")
+    .eq("trip_id", id)
+    .order("created_at", { ascending: false });
+
+  const decisions = (decisionRows ?? []).map((d) => {
+    const options = (d.planner_decision_options ?? []) as { id: string; label: string }[];
+    const votes = (d.planner_decision_votes ?? []) as { option_id: string }[];
+    const decidedOption = options.find((o) => o.id === d.decided_option_id);
+    return {
+      ...d,
+      optionCount: options.length,
+      voteCount: votes.length,
+      noteCount: (d.planner_decision_notes ?? []).length,
+      decidedLabel: decidedOption?.label ?? null,
+    };
   });
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -310,13 +330,15 @@ export default async function PlannerTripPage({
           </div>
         )}
 
+        <DecisionsSection tripId={id} decisions={decisions} totalMembers={roster.length} />
+
         <div className="rounded-2xl border border-dashed border-input-border p-7 text-center">
           <p className="mb-1.5 text-xl font-display text-ink">
-            Decisions land here next
+            WhatsApp lands here next
           </p>
           <p className="text-[15px] text-body">
-            Open votes and threaded notes are the last phase of the build
-            before WhatsApp.
+            Forwarding, nudges, and logging notes from the group thread are
+            the last phase of the build.
           </p>
         </div>
       </div>

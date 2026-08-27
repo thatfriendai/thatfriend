@@ -4,6 +4,7 @@ export type InviteChannel = "email" | "sms" | "link";
 export type Pace = "Slow" | "Balanced" | "Packed";
 export type PlaceKind = "Restaurants" | "Bars" | "Museums" | "Activities" | "Other";
 export type ResourceType = "link" | "text" | "screenshot";
+export type DecisionStatus = "open" | "closed";
 
 export interface PlannerUser {
   id: string;
@@ -96,5 +97,46 @@ export interface PlannerResource {
   label: string;
   source_url: string | null;
   added_by: string | null;
+  created_at: string;
+}
+
+export interface PlannerDecision {
+  id: string;
+  trip_id: string;
+  title: string;
+  why: string | null;
+  status: DecisionStatus;
+  decided_option_id: string | null;
+  created_by: string | null;
+  created_at: string;
+  closed_at: string | null;
+}
+
+export interface PlannerDecisionOption {
+  id: string;
+  decision_id: string;
+  trip_id: string;
+  label: string;
+  sub: string | null;
+  cost: string | null;
+  fors: string[];
+  against: string[];
+  position: number;
+  created_at: string;
+}
+
+export interface PlannerDecisionVote {
+  decision_id: string;
+  option_id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface PlannerDecisionNote {
+  id: string;
+  decision_id: string;
+  trip_id: string;
+  text: string;
+  created_by: string | null;
   created_at: string;
 }

@@ -8,9 +8,11 @@ import type { Pace, PlannerPreference } from "@/lib/supabase/planner-types";
 export function PreferencesForm({
   tripId,
   initial,
+  isPrivate,
 }: {
   tripId: string;
   initial: PlannerPreference | null;
+  isPrivate: boolean;
 }) {
   const router = useRouter();
   const [values, setValues] = useState<Record<string, number>>({
@@ -67,8 +69,9 @@ export function PreferencesForm({
           What you can spend
         </label>
         <p className="mb-5.5 text-sm text-muted">
-          Three numbers instead of one total. Nobody knows the whole cost
-          until the end.
+          {isPrivate
+            ? "Three numbers instead of one total. Nobody knows the whole cost until the end."
+            : "Three numbers instead of one total. Everyone can see these as you go."}
         </p>
         <div className="flex flex-col gap-6.5">
           {BUDGET_FIELDS.map((field) => (

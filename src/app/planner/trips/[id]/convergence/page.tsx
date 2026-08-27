@@ -159,8 +159,9 @@ export default async function ConvergencePage({
           Here&rsquo;s where everyone landed.
         </h1>
         <p className="mb-12 max-w-xl text-lg leading-relaxed text-body">
-          Nobody saw anyone else&rsquo;s numbers while they answered. This is
-          the overlap, which is the only part that matters.
+          {isPrivate
+            ? "Nobody saw anyone else’s numbers while they answered. This is the overlap, which is the only part that matters."
+            : "Everyone could see each other’s numbers as they answered. This is the overlap, which is the only part that matters."}
         </p>
 
         {overlaps.length > 0 ? (
@@ -236,7 +237,7 @@ export default async function ConvergencePage({
             href={`/planner/trips/${tripId}`}
             className="rounded-full bg-ink px-7.5 py-3.5 text-[15.5px] text-cream hover:bg-accent"
           >
-            Open the trip doc
+            Open the workspace
           </Link>
           <Link
             href={`/planner/trips/${tripId}/preferences`}

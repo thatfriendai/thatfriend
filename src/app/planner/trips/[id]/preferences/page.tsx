@@ -103,7 +103,7 @@ export default async function PreferencesPage({
             : "Everyone can see answers as they come in on this trip."}
         </p>
 
-        <PreferencesForm tripId={tripId} initial={myPref} />
+        <PreferencesForm tripId={tripId} initial={myPref} isPrivate={trip.privacy === "private"} />
       </div>
 
       <aside className="flex flex-col gap-6.5 border-l border-border bg-card px-7.5 py-8.5 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">

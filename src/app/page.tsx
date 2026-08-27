@@ -83,7 +83,7 @@ export default async function Home() {
       <section className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 px-6 py-16 sm:px-10 lg:grid-cols-[1.05fr_1fr] lg:py-24">
         <div>
           <p className="mb-7 font-mono text-[11px] tracking-[0.14em] text-muted uppercase">
-            The group trip that actually happens.
+            For the trip that&rsquo;s been &ldquo;a maybe&rdquo; since March.
           </p>
           <h1 className="mb-6 text-6xl leading-[1.02] font-display tracking-tight text-ink text-balance sm:text-7xl">
             Six people, one trip that <em className="text-accent not-italic italic">actually</em> happens.
@@ -143,6 +143,9 @@ export default async function Home() {
       <section id="workspace" className="bg-dark px-6 py-24 text-cream sm:px-10">
         <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-[1fr_1.15fr]">
           <div>
+            <p className="mb-6 font-mono text-[11.5px] tracking-[0.14em] text-muted uppercase">
+              The workspace
+            </p>
             <h2 className="mb-5 text-5xl leading-[1.06] font-display tracking-tight text-cream">
               No more asking your friend to send that list again.
             </h2>
@@ -151,20 +154,29 @@ export default async function Home() {
               trip plan, so That Friend can build the itinerary out of them
               instead of you scrolling back through six months of messages.
             </p>
-            <ul className="flex flex-col gap-3 text-[15.5px] text-[#E8E2D6]">
-              <li className="flex items-baseline gap-3">
-                <span className="font-mono text-xs text-accent">&rarr;</span>
-                Notes and links, with previews
-              </li>
-              <li className="flex items-baseline gap-3">
-                <span className="font-mono text-xs text-accent">&rarr;</span>
-                Saved lists and bookings in one spot
-              </li>
-              <li className="flex items-baseline gap-3">
-                <span className="font-mono text-xs text-accent">&rarr;</span>
-                Day-by-day itinerary alongside a live map
-              </li>
-            </ul>
+            <div className="flex max-w-md flex-col gap-6.5">
+              <div>
+                <p className="mb-2 text-2xl leading-tight font-display text-cream">
+                  Everything in one place.
+                </p>
+                <p className="text-base leading-relaxed text-dark-body text-pretty">
+                  Your saved recommendations live everywhere: notes, texts,
+                  old Google Docs. Add them here instead, and see every spot
+                  on a live map right next to the plan.
+                </p>
+              </div>
+              <div>
+                <p className="mb-2 text-2xl leading-tight font-display text-cream">
+                  A plan that makes sense.
+                </p>
+                <p className="text-base leading-relaxed text-dark-body text-pretty">
+                  That Friend turns your saved spots into day-by-day
+                  itineraries, grouped by neighborhood so you&rsquo;re not
+                  crossing the city twice in one day. Edit anything, anytime.
+                  It&rsquo;s your plan, just organized.
+                </p>
+              </div>
+            </div>
           </div>
           <div className="flex h-[400px] items-center justify-center rounded-2xl border border-dark-border bg-[repeating-linear-gradient(135deg,#222020_0_9px,#1B1917_9px_18px)]">
             <p className="rounded-md border border-dark-border px-3.5 py-2 font-mono text-[11.5px] tracking-wide text-muted">
@@ -178,26 +190,23 @@ export default async function Home() {
         <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2">
           <div>
             <p className="mb-6 font-mono text-[11.5px] tracking-[0.14em] text-muted uppercase">
-              Nobody has to be the nag
+              The reminders send themselves
             </p>
             <h2 className="mb-5 text-5xl leading-[1.06] font-display tracking-tight text-ink text-balance">
-              That Friend does the chasing, so you don&rsquo;t have to.
+              That Friend sends the reminders, so you don&rsquo;t have to.
             </h2>
             <p className="mb-5 max-w-lg text-lg leading-relaxed text-body text-pretty">
               Someone always ends up asking three times about dates,
-              deposits, and who still owes for the car. That Friend follows
-              up on open decisions, reminds people what they said
-              they&rsquo;d do, and closes the loop when everyone has
-              answered.
+              deposits, and who still owes for the car. That Friend sends
+              the reminders, tracks who&rsquo;s answered, and closes the
+              loop once everyone has.
             </p>
             <p className="mb-5 max-w-lg text-lg leading-relaxed text-body text-pretty">
               You stay the friend who&rsquo;s excited about the trip.
             </p>
             <p className="max-w-lg text-lg leading-relaxed text-body text-pretty">
-              It works over WhatsApp too. Save the That Friend number,
-              forward a coworker&rsquo;s message, and it lands back in the
-              app the same way, so the nudges reach everyone whether or not
-              they have the app open.
+              It works over WhatsApp too. Forward a recommendation you get
+              from a friend, and it&rsquo;s added to the trip automatically.
             </p>
           </div>
           <div className="flex flex-col gap-3">

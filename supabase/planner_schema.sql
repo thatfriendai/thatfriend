@@ -180,6 +180,73 @@ create index if not exists planner_resources_trip_idx on planner_resources (trip
 alter table planner_places add column if not exists resource_id uuid references planner_resources (id) on delete set null;
 
 -- ---------------------------------------------------------------------------
+-- planner_decisions / planner_decision_options / planner_decision_votes /
+-- planner_decision_notes — Phase 5. A decision has 2+ options; each member
+-- casts at most one vote per decision (re-voting overwrites, enforced by the
+-- primary key on (decision_id, user_id)). `decided_option_id` is set when
+-- the decision is closed — the option with the most votes at close time,
+-- computed in the route handler rather than in SQL.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_decisions (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  title text not null,
+  why text,
+  status text not null default 'open' check (status in ('open', 'closed')),
+  decided_option_id uuid,
+  created_by uuid references planner_users (id) on delete set null,
+  created_at timestamptz not null default now(),
+  closed_at timestamptz
+);
+
+create index if not exists planner_decisions_trip_idx on planner_decisions (trip_id);
+
+create table if not exists planner_decision_options (
+  id uuid primary key default gen_random_uuid(),
+  decision_id uuid not null references planner_decisions (id) on delete cascade,
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  label text not null,
+  sub text,
+  cost text,
+  fors text[] not null default '{}',
+  against text[] not null default '{}',
+  position integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists planner_decision_options_decision_idx on planner_decision_options (decision_id);
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'planner_decisions_decided_option_fk'
+  ) then
+    alter table planner_decisions
+      add constraint planner_decisions_decided_option_fk
+      foreign key (decided_option_id) references planner_decision_options (id) on delete set null;
+  end if;
+end $$;
+
+create table if not exists planner_decision_votes (
+  decision_id uuid not null references planner_decisions (id) on delete cascade,
+  option_id uuid not null references planner_decision_options (id) on delete cascade,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (decision_id, user_id)
+);
+
+create table if not exists planner_decision_notes (
+  id uuid primary key default gen_random_uuid(),
+  decision_id uuid not null references planner_decisions (id) on delete cascade,
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  text text not null,
+  created_by uuid references planner_users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists planner_decision_notes_decision_idx on planner_decision_notes (decision_id);
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to
@@ -194,8 +261,13 @@ alter table planner_days enable row level security;
 alter table planner_itinerary_items enable row level security;
 alter table planner_places enable row level security;
 alter table planner_resources enable row level security;
+alter table planner_decisions enable row level security;
+alter table planner_decision_options enable row level security;
+alter table planner_decision_votes enable row level security;
+alter table planner_decision_notes enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant all on planner_users, planner_trips, planner_memberships, planner_invites, planner_preferences,
-  planner_days, planner_itinerary_items, planner_places, planner_resources
+  planner_days, planner_itinerary_items, planner_places, planner_resources,
+  planner_decisions, planner_decision_options, planner_decision_votes, planner_decision_notes
   to anon, authenticated, service_role;
