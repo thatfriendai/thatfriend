@@ -1,46 +1,97 @@
-export function TripPreviewCard() {
-  const days = [
-    { label: "SAT 20", items: ["Chill dinner and no rush — we're on Thursday"] },
-    { label: "SUN 21", items: ["Market, Time Out Lisboa"] },
-    { label: "MON 22", items: [] },
-  ];
+const days = [
+  { label: "SAT 20", text: "Alfama walk\nDinner, Ramiro" },
+  { label: "SUN 21", text: "Market\nTrain to Lagos" },
+  { label: "MON 22", text: "open" },
+];
+
+const pins = [
+  { left: "26%", top: "24%", color: "#8A5A7A" },
+  { left: "52%", top: "41%", color: "#8A5A7A" },
+  { left: "34%", top: "63%", color: "#1B1917" },
+  { left: "66%", top: "76%", color: "#6E8C6A" },
+];
+
+export function TripPreviewCard({ dark = false }: { dark?: boolean }) {
+  const chromeBg = dark ? "#232120" : "var(--color-card)";
+  const chromeBorder = dark ? "#2F2C2B" : "var(--color-border-soft)";
+  const paneBg = dark ? "var(--color-dark)" : "var(--color-card)";
+  const textInk = dark ? "#F2EDE4" : "var(--color-ink)";
+  const textMuted = dark ? "#7E766C" : "var(--color-muted)";
+  const aiBoxBg = dark ? "#2B2430" : "var(--color-warm-bg)";
+  const aiBoxBorder = dark ? "#4A3F48" : "var(--color-warm-border)";
+  const barBg = dark ? "#302D2C" : "var(--color-border-soft)";
+  const mapBg = dark ? "#262423" : "#EFEDE4";
+  const mapGrid = dark ? "#2C2A29" : "#E6E3D7";
+  const dayBorder = dark ? "#2F2C2B" : "var(--color-border)";
+  const dayPanelBg = dark ? "var(--color-dark)" : "#FBF9F3";
 
   return (
-    <div className="w-full max-w-sm rounded-2xl border border-border bg-card p-4 shadow-[0_20px_50px_-20px_oklch(0.3_0.05_50/0.35)]">
-      <p className="text-[11px] tracking-wide text-muted">
-        thatfriend.co/lisbon-sept
-      </p>
-      <div className="mt-3 flex flex-col gap-1">
-        <p className="font-display text-xl text-ink">Lisbon &amp; the Algarve</p>
-        <p className="text-xs text-muted">19&ndash;27 SEPT &middot; 6 TRAVELLERS</p>
+    <div
+      className="w-full max-w-sm overflow-hidden rounded-2xl border"
+      style={{ borderColor: dayBorder, background: paneBg }}
+    >
+      <div
+        className="flex items-center gap-1.5 border-b px-3.5 py-2.5"
+        style={{ borderColor: chromeBorder, background: chromeBg }}
+      >
+        <span className="h-2 w-2 rounded-full" style={{ background: chromeBorder }} />
+        <span className="h-2 w-2 rounded-full" style={{ background: chromeBorder }} />
+        <span className="h-2 w-2 rounded-full" style={{ background: chromeBorder }} />
+        <span className="ml-2 font-mono text-[10px]" style={{ color: textMuted }}>
+          thatfriend.co/lisbon-sept
+        </span>
       </div>
-
-      <div className="mt-4 grid grid-cols-[64px_1fr] gap-3">
-        <div className="flex flex-col gap-3">
-          {days.map((day) => (
-            <div key={day.label} className="flex flex-col items-start">
-              <span className="text-[10px] font-medium tracking-wide text-muted">
-                {day.label}
-              </span>
-              <span className="mt-1 h-8 w-px bg-border" />
-            </div>
-          ))}
-        </div>
-        <div className="relative rounded-xl bg-dark/90 p-3">
-          <div className="absolute left-[18%] top-[30%] h-2.5 w-2.5 rounded-full border-2 border-white bg-accent" />
-          <div className="absolute left-[55%] top-[55%] h-2.5 w-2.5 rounded-full border-2 border-white bg-accent-light" />
-          <div className="absolute left-[38%] top-[75%] h-2.5 w-2.5 rounded-full border-2 border-white bg-dark-muted" />
-          <div className="flex h-full min-h-[132px] items-end">
-            <p className="rounded-lg bg-card px-2.5 py-1.5 text-[11px] text-ink shadow-sm">
-              &ldquo;My friend Ana said this place is worth the night&rdquo;
+      <div className="grid h-[240px] grid-cols-[1.1fr_1fr]">
+        <div className="flex flex-col gap-2.5 overflow-hidden p-4">
+          <p className="text-[15px] leading-tight font-display" style={{ color: textInk }}>
+            Lisbon &amp; the Algarve
+          </p>
+          <p className="font-mono text-[8.5px]" style={{ color: textMuted }}>
+            19&ndash;27 SEPT &middot; 6 TRAVELLERS
+          </p>
+          <div className="rounded-lg border px-2.5 py-2" style={{ background: aiBoxBg, borderColor: aiBoxBorder }}>
+            <p className="mb-1 font-mono text-[8px] tracking-wide" style={{ color: textMuted }}>
+              THAT FRIEND
+            </p>
+            <p className="text-[10px] leading-snug" style={{ color: textInk }}>
+              Day 3 has three dinners and no lunch. Want me to move one?
             </p>
           </div>
+          <div className="flex flex-col gap-1.5">
+            <div className="h-[5px] w-[90%] rounded" style={{ background: barBg }} />
+            <div className="h-[5px] w-[76%] rounded" style={{ background: barBg }} />
+            <div className="h-[5px] w-[84%] rounded" style={{ background: barBg }} />
+          </div>
+        </div>
+        <div
+          className="relative border-l bg-[length:30px_30px]"
+          style={{
+            borderColor: dayBorder,
+            background: mapBg,
+            backgroundImage: `linear-gradient(${mapGrid} 1px, transparent 1px), linear-gradient(90deg, ${mapGrid} 1px, transparent 1px)`,
+          }}
+        >
+          {pins.map((pin, i) => (
+            <span
+              key={i}
+              className="absolute h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2"
+              style={{ left: pin.left, top: pin.top, background: pin.color, borderColor: paneBg }}
+            />
+          ))}
         </div>
       </div>
-
-      <p className="mt-3 text-[10px] uppercase tracking-wide text-muted">
-        timeout.com &middot; saved by Maya
-      </p>
+      <div className="flex flex-col gap-2 border-t p-3" style={{ borderColor: dayBorder, background: dayPanelBg }}>
+        {days.map((d) => (
+          <div key={d.label} className="flex items-baseline gap-2.5">
+            <span className="w-14 font-mono text-[8.5px] tracking-wide" style={{ color: textMuted }}>
+              {d.label}
+            </span>
+            <span className="text-[10px] leading-tight whitespace-pre-line" style={{ color: textInk }}>
+              {d.text}
+            </span>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

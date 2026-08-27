@@ -7,6 +7,8 @@ export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
   const token = searchParams.get("token");
+  const name = searchParams.get("name");
+  const waOptIn = searchParams.get("wa") === "1";
 
   if (!code) {
     return NextResponse.redirect(`${origin}/planner/login?error=Could not sign in`);
@@ -23,8 +25,19 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/planner/login?error=Could not sign in`);
   }
 
+  const admin = createAdminClient();
+
+  if ((name && !plannerUser.name) || waOptIn) {
+    await admin
+      .from("planner_users")
+      .update({
+        ...(name && !plannerUser.name ? { name } : {}),
+        ...(waOptIn ? { whatsapp_opt_in: true } : {}),
+      })
+      .eq("id", plannerUser.id);
+  }
+
   if (token) {
-    const admin = createAdminClient();
     const { data: invite } = await admin
       .from("planner_invites")
       .select("id, trip_id")

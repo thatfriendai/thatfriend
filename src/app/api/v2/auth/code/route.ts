@@ -6,6 +6,8 @@ export async function POST(request: Request) {
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const phone = typeof body.phone === "string" ? body.phone.trim() : "";
   const token = typeof body.token === "string" ? body.token : "";
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const waOptIn = body.whatsapp_opt_in === true;
 
   if (phone && !email) {
     // Spec: "Phone sign-in can send codes over WhatsApp" — that's the
@@ -21,9 +23,12 @@ export async function POST(request: Request) {
   }
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const redirectTo = token
-    ? `${siteUrl}/api/v2/auth/callback?token=${encodeURIComponent(token)}`
-    : `${siteUrl}/api/v2/auth/callback`;
+  const params = new URLSearchParams();
+  if (token) params.set("token", token);
+  if (name) params.set("name", name);
+  if (waOptIn) params.set("wa", "1");
+  const query = params.toString();
+  const redirectTo = `${siteUrl}/api/v2/auth/callback${query ? `?${query}` : ""}`;
 
   const supabase = await createClient();
   const { error } = await supabase.auth.signInWithOtp({

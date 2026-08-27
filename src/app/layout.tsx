@@ -1,30 +1,36 @@
 import type { Metadata } from "next";
-import { Newsreader, Public_Sans } from "next/font/google";
+import { Instrument_Serif, DM_Sans, DM_Mono } from "next/font/google";
 import "./globals.css";
 
-const newsreader = Newsreader({
+const instrumentSerif = Instrument_Serif({
   variable: "--font-display",
   subsets: ["latin"],
   style: ["normal", "italic"],
-  weight: ["400", "500", "600"],
+  weight: ["400"],
 });
 
-const publicSans = Public_Sans({
+const dmSans = DM_Sans({
   variable: "--font-body",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
+  weight: ["300", "400", "500", "700"],
+});
+
+const dmMono = DM_Mono({
+  variable: "--font-mono",
+  subsets: ["latin"],
+  weight: ["400", "500"],
 });
 
 export const metadata: Metadata = {
   title: "That Friend",
-  description: "Group travel, decided.",
+  description: "The group trip that actually happens.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html
       lang="en"
-      className={`${newsreader.variable} ${publicSans.variable} h-full antialiased`}
+      className={`${instrumentSerif.variable} ${dmSans.variable} ${dmMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-cream text-ink">
         {children}

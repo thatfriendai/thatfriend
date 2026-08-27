@@ -1,6 +1,19 @@
+import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { CopyInviteLink } from "./CopyInviteLink";
+
+const AVATAR_COLORS = ["#C9A227", "#6E8C6A", "#8A5A7A", "#4A453E", "#3F6E7A", "#B4664A"];
+
+function initialsOf(name: string) {
+  return name
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+}
 
 export default async function PlannerTripPage({
   params,
@@ -42,51 +55,113 @@ export default async function PlannerTripPage({
     .maybeSingle();
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const roster = (members ?? []).map((m) => {
+    const person = m.planner_users as unknown as {
+      name: string | null;
+      email: string | null;
+      phone: string | null;
+    } | null;
+    const label = person?.name || person?.email?.split("@")[0] || person?.phone || "Someone";
+    return { label, role: m.role };
+  });
+
+  const dateRange =
+    trip.start_date && trip.end_date
+      ? `${new Date(trip.start_date).toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase()}–${new Date(trip.end_date).toLocaleDateString(undefined, { day: "numeric" }).toUpperCase()}`
+      : null;
 
   return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 bg-cream px-4 py-12">
-      <div className="rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted">
-        Placeholder page — this stands in for the &quot;Workspace&quot; screen (days,
-        itinerary, decisions, map) until later phases.
-      </div>
+    <div className="min-h-screen">
+      <header className="flex items-center justify-between border-b border-border bg-card px-7 py-3.5">
+        <div className="flex items-center gap-5">
+          <Link href="/planner/trips" className="text-xl font-display text-ink">
+            &ldquo;that friend&rdquo;
+          </Link>
+          <div className="h-5 w-px bg-border" />
+          <div>
+            <p className="text-[15px] font-medium text-ink">{trip.name}</p>
+            <p className="mt-0.5 font-mono text-[11px] text-muted">
+              {dateRange ?? "Dates not set"} &middot; {roster.length}{" "}
+              {roster.length === 1 ? "traveller" : "travellers"}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3.5">
+          <div className="flex">
+            {roster.slice(0, 5).map((m, i) => (
+              <div
+                key={i}
+                className="ml-[-5px] flex h-6.5 w-6.5 items-center justify-center rounded-full border-2 border-card text-[11px] text-cream"
+                style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}
+                title={m.label}
+              >
+                {initialsOf(m.label)}
+              </div>
+            ))}
+          </div>
+        </div>
+      </header>
 
-      <div>
-        <h1 className="font-display text-3xl text-ink">{trip.name}</h1>
-        {trip.destination && <p className="text-muted">{trip.destination}</p>}
-        <p className="text-xs text-muted">Privacy: {trip.privacy}</p>
-      </div>
-
-      {membership.role === "owner" && joinInvite && (
-        <div className="rounded-2xl border border-border bg-card p-4">
-          <p className="text-sm text-ink/80">Invite link</p>
-          <p className="mt-1 break-all font-mono text-xs text-accent">
-            {siteUrl}/planner/join/{joinInvite.token}
+      <div className="mx-auto max-w-[1080px] px-6 py-9.5 pb-28">
+        <div className="mb-10 flex items-end justify-between gap-6">
+          <div>
+            <h1 className="text-[38px] leading-[1.08] font-display tracking-tight text-ink">
+              {trip.name}
+            </h1>
+            {trip.destination && (
+              <p className="mt-1.5 text-sm text-muted">{trip.destination}</p>
+            )}
+          </div>
+          <p className="font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
+            {trip.privacy === "private" ? "Private trip" : "Open trip"}
           </p>
         </div>
-      )}
 
-      <div>
-        <h2 className="font-display text-xl text-ink">Members</h2>
-        <ul className="mt-2 flex flex-col gap-2">
-          {(members ?? []).map((m, i) => {
-            const person = m.planner_users as unknown as {
-              name: string | null;
-              email: string | null;
-              phone: string | null;
-            } | null;
-            return (
-              <li
+        {membership.role === "owner" && joinInvite && (
+          <div className="mb-12">
+            <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
+              <span className="font-mono text-[11px] text-[#C0B8A8]">01</span>
+              <span className="text-[25px] font-display text-ink">Invite the group</span>
+            </div>
+            <CopyInviteLink url={`${siteUrl}/planner/join/${joinInvite.token}`} />
+          </div>
+        )}
+
+        <div className="mb-12">
+          <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
+            <span className="font-mono text-[11px] text-[#C0B8A8]">02</span>
+            <span className="text-[25px] font-display text-ink">Who&rsquo;s in</span>
+          </div>
+          <div className="flex flex-col gap-2">
+            {roster.map((m, i) => (
+              <div
                 key={i}
-                className="rounded-xl border border-border bg-card px-4 py-2 text-sm"
+                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
               >
-                <span className="text-ink">
-                  {person?.name || person?.email || person?.phone || "Someone"}
-                </span>{" "}
-                <span className="text-muted">— {m.role}</span>
-              </li>
-            );
-          })}
-        </ul>
+                <div
+                  className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] text-cream"
+                  style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}
+                >
+                  {initialsOf(m.label)}
+                </div>
+                <span className="text-[15px] text-ink-soft">{m.label}</span>
+                <span className="ml-auto font-mono text-[11px] tracking-[0.08em] text-muted uppercase">
+                  {m.role}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-2xl border border-dashed border-input-border p-7 text-center">
+          <p className="mb-1.5 text-xl font-display text-ink">
+            The plan, decisions, and map land here next
+          </p>
+          <p className="text-[15px] text-body">
+            Preferences, the convergence view, itinerary, and decisions are
+            the next phases of the build.
+          </p>
+        </div>
       </div>
     </div>
   );

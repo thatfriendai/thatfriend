@@ -2,6 +2,16 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signOut } from "@/app/planner/actions";
+
+function formatDates(start: string | null, end: string | null) {
+  if (!start) return null;
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  const s = new Date(start).toLocaleDateString(undefined, opts).toUpperCase();
+  if (!end) return s;
+  const e = new Date(end).toLocaleDateString(undefined, opts).toUpperCase();
+  return `${s}–${e}`;
+}
 
 export default async function PlannerTripsPage() {
   const user = await getPlannerUser();
@@ -10,50 +20,108 @@ export default async function PlannerTripsPage() {
   const admin = createAdminClient();
   const { data: memberships } = await admin
     .from("planner_memberships")
-    .select("role, planner_trips(id, name, destination, start_date, end_date)")
+    .select(
+      "role, planner_trips(id, name, destination, start_date, end_date)"
+    )
     .eq("user_id", user.id);
 
-  return (
-    <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-6 bg-cream px-4 py-12">
-      <div className="rounded-2xl border border-dashed border-border p-3 text-center text-xs text-muted">
-        Placeholder page — not yet styled to the &quot;Trips&quot; screen design.
-      </div>
-      <h1 className="font-display text-3xl text-ink">Your trips</h1>
-      <Link
-        href="/planner/trips/new"
-        className="w-fit rounded-full bg-accent px-5 py-2.5 text-sm font-medium text-cream hover:bg-ink"
-      >
-        + Create a trip
-      </Link>
+  const trips = (memberships ?? [])
+    .map((m) => ({
+      role: m.role,
+      trip: m.planner_trips as unknown as {
+        id: string;
+        name: string;
+        destination: string | null;
+        start_date: string | null;
+        end_date: string | null;
+      } | null,
+    }))
+    .filter((x): x is { role: string; trip: NonNullable<typeof x.trip> } => Boolean(x.trip));
 
-      {!memberships || memberships.length === 0 ? (
-        <p className="text-sm text-muted">No trips yet.</p>
-      ) : (
-        <ul className="flex flex-col gap-3">
-          {memberships.map((m) => {
-            const trip = m.planner_trips as unknown as {
-              id: string;
-              name: string;
-              destination: string | null;
-            } | null;
-            if (!trip) return null;
-            return (
-              <li key={trip.id}>
-                <Link
-                  href={`/planner/trips/${trip.id}`}
-                  className="block rounded-2xl border border-border bg-card px-5 py-4 hover:border-accent"
-                >
-                  <p className="font-display text-lg text-ink">{trip.name}</p>
+  const firstName = (user.name || user.email || "there").split(/[\s@]/)[0];
+  const initial = (user.name || user.email || "?").trim()[0]?.toUpperCase() ?? "?";
+
+  return (
+    <div className="min-h-screen">
+      <header className="flex items-center justify-between border-b border-border bg-card px-10 py-5">
+        <span className="text-[23px] tracking-tight font-display text-ink">
+          &ldquo;that friend&rdquo;
+        </span>
+        <div className="flex items-center gap-5">
+          <Link
+            href="/planner/trips/new"
+            className="rounded-full bg-ink px-5 py-2.5 text-[14.5px] text-cream hover:bg-accent"
+          >
+            Start a trip
+          </Link>
+          <form action={signOut}>
+            <button
+              type="submit"
+              className="text-[14.5px] text-body hover:text-accent"
+            >
+              Sign out
+            </button>
+          </form>
+          <div className="flex h-7.5 w-7.5 items-center justify-center rounded-full bg-[#C9A227] text-xs text-ink">
+            {initial}
+          </div>
+        </div>
+      </header>
+
+      <div className="mx-auto max-w-[1000px] px-6 py-15 pb-28">
+        <h1 className="mb-2 text-[42px] leading-[1.06] font-display tracking-tight text-ink">
+          Morning, {firstName}.
+        </h1>
+        <p className="mb-13 text-base text-body">
+          {trips.length === 0
+            ? "No trips yet — start the one you keep talking about."
+            : `${trips.length} trip${trips.length === 1 ? "" : "s"} you're part of.`}
+        </p>
+
+        {trips.length > 0 && (
+          <div className="mb-11">
+            {trips.map(({ trip, role }) => (
+              <Link
+                key={trip.id}
+                href={`/planner/trips/${trip.id}`}
+                className="grid grid-cols-[1.5fr_0.9fr_1fr] items-center gap-6 border-b border-border-soft py-5.5 hover:bg-card"
+              >
+                <div>
+                  <p className="text-[25px] leading-tight font-display text-ink">
+                    {trip.name}
+                  </p>
                   {trip.destination && (
-                    <p className="text-sm text-muted">{trip.destination}</p>
+                    <p className="mt-1 text-sm text-muted">{trip.destination}</p>
                   )}
-                  <p className="text-xs text-muted">{m.role}</p>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                </div>
+                <p className="font-mono text-[12.5px] text-body">
+                  {formatDates(trip.start_date, trip.end_date) ?? "No dates yet"}
+                </p>
+                <p className="text-sm text-body">
+                  {role === "owner" ? "You're organizing" : "You're in"}
+                </p>
+              </Link>
+            ))}
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-6 rounded-2xl border border-dashed border-input-border p-7">
+          <div>
+            <p className="mb-1.5 text-2xl font-display text-ink">
+              The one you keep talking about
+            </p>
+            <p className="text-[15px] text-body">
+              Name it, add three friends, and let That Friend do the asking.
+            </p>
+          </div>
+          <Link
+            href="/planner/trips/new"
+            className="rounded-full border border-input-border bg-card px-6 py-3 text-[15px] whitespace-nowrap text-ink hover:border-ink"
+          >
+            Start a trip
+          </Link>
+        </div>
+      </div>
     </div>
   );
 }

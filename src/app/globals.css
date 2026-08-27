@@ -1,29 +1,48 @@
 @import "tailwindcss";
 
 :root {
-  --color-cream: oklch(0.965 0.012 75);
-  --color-card: oklch(0.995 0.004 75);
-  --color-ink: oklch(0.22 0.02 50);
-  --color-muted: oklch(0.52 0.02 60);
-  --color-border: oklch(0.88 0.015 70);
-  --color-accent: oklch(0.48 0.1 325);
-  --color-accent-light: oklch(0.62 0.11 325);
-  --color-dark: oklch(0.17 0.015 280);
-  --color-dark-muted: oklch(0.68 0.02 280);
+  --color-cream: #F7F4EE;
+  --color-card: #FFFDF9;
+  --color-ink: #1B1917;
+  --color-ink-soft: #2B2825;
+  --color-body: #4A453E;
+  --color-muted: #8C8478;
+  --color-faint: #A19A8E;
+  --color-border: #E4DED2;
+  --color-border-soft: #EDE8DD;
+  --color-input-border: #D9D2C4;
+  --color-accent: #8A5A7A;
+  --color-warm-bg: #FBF6EC;
+  --color-warm-border: #E8DFD0;
+  --color-dark: #1B1917;
+  --color-dark-panel: #232120;
+  --color-dark-border: #363231;
+  --color-dark-muted: #8C8478;
+  --color-dark-body: #C9C2B6;
 }
 
 @theme inline {
   --color-cream: var(--color-cream);
   --color-card: var(--color-card);
   --color-ink: var(--color-ink);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-body: var(--color-body);
   --color-muted: var(--color-muted);
+  --color-faint: var(--color-faint);
   --color-border: var(--color-border);
+  --color-border-soft: var(--color-border-soft);
+  --color-input-border: var(--color-input-border);
   --color-accent: var(--color-accent);
-  --color-accent-light: var(--color-accent-light);
+  --color-warm-bg: var(--color-warm-bg);
+  --color-warm-border: var(--color-warm-border);
   --color-dark: var(--color-dark);
+  --color-dark-panel: var(--color-dark-panel);
+  --color-dark-border: var(--color-dark-border);
   --color-dark-muted: var(--color-dark-muted);
+  --color-dark-body: var(--color-dark-body);
   --font-display: var(--font-display);
   --font-body: var(--font-body);
+  --font-mono: var(--font-mono);
 }
 
 body {
@@ -32,9 +51,12 @@ body {
 
 @layer base {
   a {
-    color: var(--color-accent);
+    color: var(--color-ink);
   }
   a:hover {
-    color: var(--color-accent-light);
+    color: var(--color-accent);
+  }
+  ::placeholder {
+    color: var(--color-faint);
   }
 }
