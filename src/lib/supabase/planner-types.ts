@@ -3,6 +3,7 @@ export type MembershipRole = "owner" | "member";
 export type InviteChannel = "email" | "sms" | "link";
 export type Pace = "Slow" | "Balanced" | "Packed";
 export type PlaceKind = "Restaurants" | "Bars" | "Museums" | "Activities" | "Other";
+export type ResourceType = "link" | "text" | "screenshot";
 
 export interface PlannerUser {
   id: string;
@@ -83,6 +84,17 @@ export interface PlannerPlace {
   note: string | null;
   map_x: number;
   map_y: number;
+  added_by: string | null;
+  resource_id: string | null;
+  created_at: string;
+}
+
+export interface PlannerResource {
+  id: string;
+  trip_id: string;
+  type: ResourceType;
+  label: string;
+  source_url: string | null;
   added_by: string | null;
   created_at: string;
 }

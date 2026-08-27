@@ -156,6 +156,30 @@ create table if not exists planner_places (
 create index if not exists planner_places_trip_idx on planner_places (trip_id);
 
 -- ---------------------------------------------------------------------------
+-- planner_resources — Phase 4. Where a batch of places came from: a pasted
+-- link, pasted text (e.g. a forwarded WhatsApp message), or an uploaded
+-- screenshot. Created up front when extraction runs, independent of how
+-- many (if any) of the candidates the user actually keeps — the resource
+-- itself is the record of "this was submitted."
+-- ---------------------------------------------------------------------------
+create table if not exists planner_resources (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  type text not null check (type in ('link', 'text', 'screenshot')),
+  label text not null,
+  source_url text,
+  added_by uuid references planner_users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists planner_resources_trip_idx on planner_resources (trip_id);
+
+-- planner_places.resource_id — added after planner_resources so a place
+-- extracted from a link/text/screenshot can point back to its source. Null
+-- for places entered by hand.
+alter table planner_places add column if not exists resource_id uuid references planner_resources (id) on delete set null;
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to
@@ -169,8 +193,9 @@ alter table planner_preferences enable row level security;
 alter table planner_days enable row level security;
 alter table planner_itinerary_items enable row level security;
 alter table planner_places enable row level security;
+alter table planner_resources enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant all on planner_users, planner_trips, planner_memberships, planner_invites, planner_preferences,
-  planner_days, planner_itinerary_items, planner_places
+  planner_days, planner_itinerary_items, planner_places, planner_resources
   to anon, authenticated, service_role;

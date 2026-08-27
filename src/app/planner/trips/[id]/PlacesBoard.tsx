@@ -5,7 +5,7 @@ import { KIND_OPTIONS } from "@/lib/planner/itinerary";
 import { AddPlaceModal } from "./AddPlaceModal";
 import type { PlannerDay, PlannerPlace } from "@/lib/supabase/planner-types";
 
-type PlaceWithWho = PlannerPlace & { who: string };
+type PlaceWithWho = PlannerPlace & { who: string; sourceLabel: string | null };
 
 export function PlacesBoard({
   tripId,
@@ -96,8 +96,17 @@ export function PlacesBoard({
                               {p.note}
                             </div>
                           )}
-                          <div className="mt-1.5 font-mono text-[10.5px] text-muted">
-                            added by {p.who}
+                          <div className="mt-1.5 flex items-baseline gap-2 font-mono text-[10.5px] text-muted">
+                            {p.sourceLabel && (
+                              <a
+                                href="#resources"
+                                onClick={(e) => e.stopPropagation()}
+                                className="text-faint hover:text-accent"
+                              >
+                                {p.sourceLabel}
+                              </a>
+                            )}
+                            <span>added by {p.who}</span>
                           </div>
                         </div>
                       </div>

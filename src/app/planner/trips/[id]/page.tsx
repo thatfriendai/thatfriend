@@ -81,6 +81,16 @@ export default async function PlannerTripPage({
     items: (items ?? []).filter((i) => i.day_id === d.id),
   }));
 
+  const { data: resourceRows } = await admin
+    .from("planner_resources")
+    .select("*, planner_users(name, email)")
+    .eq("trip_id", id)
+    .order("created_at", { ascending: true });
+
+  const resourceLabelById = new Map(
+    (resourceRows ?? []).map((r) => [r.id as string, r.label as string])
+  );
+
   const { data: placeRows } = await admin
     .from("planner_places")
     .select("*, planner_users(name, email)")
@@ -93,7 +103,18 @@ export default async function PlannerTripPage({
       email: string | null;
     } | null;
     const who = person?.name || person?.email?.split("@")[0] || "Someone";
-    return { ...p, who };
+    const sourceLabel = p.resource_id ? (resourceLabelById.get(p.resource_id) ?? null) : null;
+    return { ...p, who, sourceLabel };
+  });
+
+  const resources = (resourceRows ?? []).map((r) => {
+    const person = r.planner_users as unknown as {
+      name: string | null;
+      email: string | null;
+    } | null;
+    const who = person?.name || person?.email?.split("@")[0] || "Someone";
+    const placeNames = places.filter((p) => p.resource_id === r.id).map((p) => p.name);
+    return { ...r, who, placeNames };
   });
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
@@ -251,14 +272,51 @@ export default async function PlannerTripPage({
 
         <PlacesBoard tripId={id} days={days} places={places} />
 
+        {resources.length > 0 && (
+          <div id="resources" className="mb-14 max-w-[760px]">
+            <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
+              <span className="font-mono text-[11px] text-[#C0B8A8]">05</span>
+              <span className="text-[25px] font-display text-ink">Where these came from</span>
+              <span className="ml-auto text-[13.5px] text-muted">
+                Links, text, and screenshots
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {resources.map((r) => (
+                <div
+                  key={r.id}
+                  className="flex items-center gap-3.5 rounded-xl border border-border bg-card px-3.5 py-3"
+                >
+                  <div
+                    className="h-10.5 w-10.5 flex-none rounded-lg border border-[#EDE8DD]"
+                    style={{
+                      backgroundImage:
+                        "repeating-linear-gradient(135deg, #F2EEE5 0 6px, #FFFDF9 6px 12px)",
+                    }}
+                  />
+                  <div className="min-w-0">
+                    <div className="text-[14.5px] text-[#2B2825]">{r.label}</div>
+                    <div className="mt-0.5 text-[12.5px] text-muted">
+                      {r.placeNames.length > 0 ? r.placeNames.join(", ") : "Nothing kept"} &middot;
+                      {" "}added by {r.who}
+                    </div>
+                  </div>
+                  <div className="ml-auto rounded-full border border-border font-mono text-[10px] tracking-[0.08em] text-muted uppercase whitespace-nowrap px-2.5 py-1">
+                    {r.type}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         <div className="rounded-2xl border border-dashed border-input-border p-7 text-center">
           <p className="mb-1.5 text-xl font-display text-ink">
             Decisions land here next
           </p>
           <p className="text-[15px] text-body">
-            Open votes, threaded notes, and pulling places in from a
-            pasted link or a forwarded screenshot are the next phases of
-            the build.
+            Open votes and threaded notes are the last phase of the build
+            before WhatsApp.
           </p>
         </div>
       </div>
