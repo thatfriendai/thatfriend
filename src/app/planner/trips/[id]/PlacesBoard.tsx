@@ -51,11 +51,8 @@ export function PlacesBoard({
           </p>
         </div>
       ) : (
-        <div
-          className="mb-10 grid overflow-hidden rounded-2xl border border-border"
-          style={{ gridTemplateColumns: "minmax(340px, 1fr) minmax(300px, 0.95fr)", height: 460 }}
-        >
-          <div className="overflow-y-auto bg-[#FBF9F3] px-2.5 py-4 pb-6">
+        <div className="mb-10 grid grid-cols-1 overflow-hidden rounded-2xl border border-border lg:h-[460px] lg:[grid-template-columns:minmax(340px,1fr)_minmax(300px,0.95fr)]">
+          <div className="order-2 max-h-[420px] overflow-y-auto bg-[#FBF9F3] px-2.5 py-4 pb-6 lg:order-1 lg:max-h-none">
             <div className="flex flex-col gap-5.5">
               {groups.map((g) => (
                 <div key={g.kind}>
@@ -118,7 +115,7 @@ export function PlacesBoard({
           </div>
 
           <div
-            className="relative border-l border-border"
+            className="relative order-1 h-[220px] border-b border-border lg:order-2 lg:h-auto lg:border-b-0 lg:border-l"
             style={{
               background: "#EFEDE4",
               backgroundImage:

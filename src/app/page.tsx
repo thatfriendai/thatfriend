@@ -97,13 +97,13 @@ export default async function Home() {
 
           <form
             action="/planner/trips/new"
-            className="mb-5 flex max-w-md items-center gap-3"
+            className="mb-5 flex max-w-md flex-col items-stretch gap-3 sm:flex-row sm:items-center"
           >
             <input
               type="text"
               name="name"
               placeholder="Name your trip: &ldquo;Lisbon&rdquo;"
-              className="max-w-[340px] flex-1 rounded-full border border-input-border bg-card px-5 py-3.5 text-[15px] text-ink outline-none focus:border-ink"
+              className="min-w-0 flex-1 rounded-full border border-input-border bg-card px-5 py-3.5 text-[15px] text-ink outline-none focus:border-ink sm:max-w-[340px]"
             />
             <button
               type="submit"

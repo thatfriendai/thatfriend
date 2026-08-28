@@ -156,12 +156,12 @@ export default async function PlannerTripPage({
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b border-border bg-card px-7 py-3.5">
+      <header className="flex flex-wrap items-center justify-between gap-y-3 border-b border-border bg-card px-5 py-3.5 sm:px-7">
         <div className="flex items-center gap-5">
           <Link href="/planner/trips" className="text-xl font-display text-ink">
             &ldquo;that friend&rdquo;
           </Link>
-          <div className="h-5 w-px bg-border" />
+          <div className="hidden h-5 w-px bg-border sm:block" />
           <div>
             <p className="text-[15px] font-medium text-ink">{trip.name}</p>
             <p className="mt-0.5 font-mono text-[11px] text-muted">
@@ -170,7 +170,7 @@ export default async function PlannerTripPage({
             </p>
           </div>
         </div>
-        <div className="flex items-center gap-3.5">
+        <div className="flex flex-wrap items-center gap-3.5">
           <div className="flex">
             {roster.slice(0, 5).map((m, i) => (
               <div

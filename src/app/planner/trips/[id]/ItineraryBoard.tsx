@@ -54,11 +54,10 @@ export function ItineraryBoard({
 
   return (
     <div
-      className="mb-14 grid overflow-hidden rounded-2xl border border-border"
-      style={{ gridTemplateColumns: "1.4fr minmax(270px, 0.85fr)", height: 460 }}
+      className="mb-14 grid grid-cols-1 overflow-hidden rounded-2xl border border-border lg:h-[460px] lg:[grid-template-columns:1.4fr_minmax(270px,0.85fr)]"
     >
       <div
-        className="relative"
+        className="relative h-[220px] lg:h-auto"
         style={{
           background: "#EFEDE4",
           backgroundImage:
@@ -102,7 +101,7 @@ export function ItineraryBoard({
         )}
       </div>
 
-      <div className="overflow-y-auto border-l border-border bg-[#FBF9F3] px-4 py-4.5 pb-7.5">
+      <div className="max-h-[420px] overflow-y-auto border-t border-border bg-[#FBF9F3] px-4 py-4.5 pb-7.5 lg:max-h-none lg:border-t-0 lg:border-l">
         <div className="mb-3.5 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
           Itinerary
         </div>

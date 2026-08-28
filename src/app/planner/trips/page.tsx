@@ -43,11 +43,11 @@ export default async function PlannerTripsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b border-border bg-card px-10 py-5">
+      <header className="flex flex-wrap items-center justify-between gap-y-3 border-b border-border bg-card px-5 py-5 sm:px-10">
         <span className="text-[23px] tracking-tight font-display text-ink">
           &ldquo;that friend&rdquo;
         </span>
-        <div className="flex items-center gap-5">
+        <div className="flex items-center gap-3.5 sm:gap-5">
           <Link
             href="/planner/trips/new"
             className="rounded-full bg-ink px-5 py-2.5 text-[14.5px] text-cream hover:bg-accent"
@@ -84,7 +84,7 @@ export default async function PlannerTripsPage() {
               <Link
                 key={trip.id}
                 href={`/planner/trips/${trip.id}`}
-                className="grid grid-cols-[1.5fr_0.9fr_1fr] items-center gap-6 border-b border-border-soft py-5.5 hover:bg-card"
+                className="grid grid-cols-1 gap-1.5 border-b border-border-soft py-5.5 hover:bg-card sm:grid-cols-[1.5fr_0.9fr_1fr] sm:items-center sm:gap-6"
               >
                 <div>
                   <p className="text-[25px] leading-tight font-display text-ink">
@@ -105,7 +105,7 @@ export default async function PlannerTripsPage() {
           </div>
         )}
 
-        <div className="flex items-center justify-between gap-6 rounded-2xl border border-dashed border-input-border p-7">
+        <div className="flex flex-col items-start gap-4 rounded-2xl border border-dashed border-input-border p-7 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
           <div>
             <p className="mb-1.5 text-2xl font-display text-ink">
               The one you keep talking about

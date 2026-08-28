@@ -39,7 +39,7 @@ function chipClass(on: boolean) {
 }
 
 function cardClass(on: boolean) {
-  return `flex-1 rounded-xl border px-4 py-3.5 text-left transition-colors ${
+  return `min-w-[130px] flex-1 rounded-xl border px-4 py-3.5 text-left transition-colors ${
     on ? "border-ink bg-card shadow-[0_1px_0_#1B1917]" : "border-input-border bg-transparent"
   }`;
 }
@@ -176,13 +176,13 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
               type="date"
               value={startDate}
               onChange={(e) => setStartDate(e.target.value)}
-              className="flex-1 rounded-xl border border-input-border bg-card px-4.5 py-3.5 text-base text-ink outline-none focus:border-ink"
+              className="min-w-0 flex-1 rounded-xl border border-input-border bg-card px-4.5 py-3.5 text-base text-ink outline-none focus:border-ink"
             />
             <input
               type="date"
               value={endDate}
               onChange={(e) => setEndDate(e.target.value)}
-              className="flex-1 rounded-xl border border-input-border bg-card px-4.5 py-3.5 text-base text-ink outline-none focus:border-ink"
+              className="min-w-0 flex-1 rounded-xl border border-input-border bg-card px-4.5 py-3.5 text-base text-ink outline-none focus:border-ink"
             />
           </div>
         )}
@@ -215,7 +215,7 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
           A starting point. Everyone sets their own numbers on the next
           screen.
         </p>
-        <div className="flex gap-2.5">
+        <div className="flex flex-wrap gap-2.5">
           {BANDS.map((b) => (
             <button
               key={b.key}
@@ -237,7 +237,7 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
         <p className="mb-3 text-sm text-muted">
           Your call, and it holds for everyone on this trip.
         </p>
-        <div className="flex gap-2.5">
+        <div className="flex flex-wrap gap-2.5">
           {PRIVACY_OPTIONS.map((o) => (
             <button
               key={o.key}
