@@ -6,6 +6,7 @@ import { CopyInviteLink } from "./CopyInviteLink";
 import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
 import { DecisionsSection } from "./decisions/DecisionsSection";
+import { NudgeButton } from "./NudgeButton";
 import { ensureDays } from "@/lib/planner/days";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
@@ -246,6 +247,9 @@ export default async function PlannerTripPage({
               </div>
             ))}
           </div>
+          <div className="mt-4">
+            <NudgeButton tripId={id} />
+          </div>
         </div>
 
         {!myPref && (
@@ -331,16 +335,6 @@ export default async function PlannerTripPage({
         )}
 
         <DecisionsSection tripId={id} decisions={decisions} totalMembers={roster.length} />
-
-        <div className="rounded-2xl border border-dashed border-input-border p-7 text-center">
-          <p className="mb-1.5 text-xl font-display text-ink">
-            WhatsApp lands here next
-          </p>
-          <p className="text-[15px] text-body">
-            Forwarding, nudges, and logging notes from the group thread are
-            the last phase of the build.
-          </p>
-        </div>
       </div>
     </div>
   );

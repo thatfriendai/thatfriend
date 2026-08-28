@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 type Mode = "email" | "phone";
@@ -14,6 +15,7 @@ function tabClass(on: boolean) {
 }
 
 export function AuthPanel({ token }: { token?: string }) {
+  const router = useRouter();
   const [mode, setMode] = useState<Mode>("email");
   const [cred, setCred] = useState("");
   const [step, setStep] = useState<Step | null>(null);
@@ -22,6 +24,8 @@ export function AuthPanel({ token }: { token?: string }) {
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [codeInput, setCodeInput] = useState("");
+  const [verifying, setVerifying] = useState(false);
 
   async function handleLookup(e: React.FormEvent) {
     e.preventDefault();
@@ -76,11 +80,56 @@ export function AuthPanel({ token }: { token?: string }) {
     }
   }
 
+  async function verifyCode(e: React.FormEvent) {
+    e.preventDefault();
+    const code = codeInput.trim();
+    if (!code) return;
+    setVerifying(true);
+    setError(null);
+    const res = await fetch("/api/v2/auth/verify-phone", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ phone: cred.trim(), code }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setVerifying(false);
+    if (!res.ok) {
+      setError(data.error ?? "Could not verify that code.");
+      return;
+    }
+    router.push(data.redirect ?? "/planner/trips");
+  }
+
+  if (sent && mode === "phone") {
+    return (
+      <form onSubmit={verifyCode}>
+        <p className="mb-3.5 text-[15px] text-ink-soft">
+          Texted a 6-digit code to {cred} on WhatsApp — enter it below.
+        </p>
+        <input
+          value={codeInput}
+          onChange={(e) => setCodeInput(e.target.value)}
+          placeholder="123456"
+          inputMode="numeric"
+          autoFocus
+          className="mb-3 w-full rounded-full border border-input-border bg-card px-5 py-3.5 text-center text-[17px] tracking-[0.3em] text-ink outline-none focus:border-ink"
+        />
+        {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
+        <button
+          type="submit"
+          disabled={verifying || !codeInput.trim()}
+          className="w-full rounded-full bg-ink py-3.5 text-[15.5px] text-cream hover:bg-accent disabled:opacity-50"
+        >
+          {verifying ? "Checking…" : "Verify and sign in"}
+        </button>
+      </form>
+    );
+  }
+
   if (sent) {
     return (
       <p className="text-[15px] text-ink-soft">
-        Check {mode === "email" ? "your email" : "WhatsApp"} for a link to
-        finish signing in.
+        Check your email for a link to finish signing in.
       </p>
     );
   }

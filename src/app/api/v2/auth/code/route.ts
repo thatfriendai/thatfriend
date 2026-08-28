@@ -1,5 +1,11 @@
+import { randomInt } from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { sendWhatsAppText } from "@/lib/meta/client";
+import { normalizePhoneDigits } from "@/lib/planner/phone";
+
+const CODE_TTL_MS = 10 * 60 * 1000;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -10,12 +16,35 @@ export async function POST(request: Request) {
   const waOptIn = body.whatsapp_opt_in === true;
 
   if (phone && !email) {
-    // Spec: "Phone sign-in can send codes over WhatsApp" — that's the
-    // Phase 6 WhatsApp integration. Nothing to send yet.
-    return NextResponse.json(
-      { error: "Phone sign-in isn't available yet — use email for now." },
-      { status: 501 }
-    );
+    const admin = createAdminClient();
+    const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+    const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
+
+    await admin.from("planner_whatsapp_codes").delete().eq("phone", phone);
+    const { error: insertError } = await admin.from("planner_whatsapp_codes").insert({
+      phone,
+      code,
+      name: name || null,
+      invite_token: token || null,
+      expires_at: expiresAt,
+    });
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    try {
+      await sendWhatsAppText(
+        normalizePhoneDigits(phone),
+        `Your That Friend sign-in code is ${code}. It expires in 10 minutes.`
+      );
+    } catch (e) {
+      return NextResponse.json(
+        { error: e instanceof Error ? e.message : "Could not send the WhatsApp code." },
+        { status: 502 }
+      );
+    }
+
+    return NextResponse.json({ sent: true });
   }
 
   if (!email) {

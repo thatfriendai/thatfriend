@@ -247,6 +247,24 @@ create table if not exists planner_decision_notes (
 create index if not exists planner_decision_notes_decision_idx on planner_decision_notes (decision_id);
 
 -- ---------------------------------------------------------------------------
+-- planner_whatsapp_codes — Phase 6. A short-lived sign-in code texted to a
+-- phone over WhatsApp; the user types it back into the web form. Verifying
+-- deletes the row (single use). Sending a new code for the same phone
+-- replaces any unused one rather than accumulating rows.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_whatsapp_codes (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null,
+  code text not null,
+  name text,
+  invite_token text,
+  expires_at timestamptz not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists planner_whatsapp_codes_phone_idx on planner_whatsapp_codes (phone);
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to
@@ -265,9 +283,11 @@ alter table planner_decisions enable row level security;
 alter table planner_decision_options enable row level security;
 alter table planner_decision_votes enable row level security;
 alter table planner_decision_notes enable row level security;
+alter table planner_whatsapp_codes enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant all on planner_users, planner_trips, planner_memberships, planner_invites, planner_preferences,
   planner_days, planner_itinerary_items, planner_places, planner_resources,
-  planner_decisions, planner_decision_options, planner_decision_votes, planner_decision_notes
+  planner_decisions, planner_decision_options, planner_decision_votes, planner_decision_notes,
+  planner_whatsapp_codes
   to anon, authenticated, service_role;
