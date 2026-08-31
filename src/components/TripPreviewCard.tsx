@@ -41,7 +41,7 @@ export function TripPreviewCard({ dark = false }: { dark?: boolean }) {
           thatfriend.co/lisbon-sept
         </span>
       </div>
-      <div className="grid h-[240px] grid-cols-[1.1fr_1fr]">
+      <div className="grid h-[290px] grid-cols-[1.1fr_1fr]">
         <div className="flex flex-col gap-2.5 overflow-hidden p-4">
           <p className="text-[15px] leading-tight font-display" style={{ color: textInk }}>
             Lisbon &amp; the Algarve
@@ -54,13 +54,40 @@ export function TripPreviewCard({ dark = false }: { dark?: boolean }) {
               THAT FRIEND
             </p>
             <p className="text-[10px] leading-snug" style={{ color: textInk }}>
-              Day 3 has three dinners and no lunch. Want me to move one?
+              Day 3 has three dinners and no lunch. Want me to move one to
+              Thursday?
             </p>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <div className="h-[5px] w-[90%] rounded" style={{ background: barBg }} />
-            <div className="h-[5px] w-[76%] rounded" style={{ background: barBg }} />
-            <div className="h-[5px] w-[84%] rounded" style={{ background: barBg }} />
+          <div
+            className="flex items-center gap-2 rounded-lg border px-2.5 py-2"
+            style={{ borderColor: dayBorder, background: dark ? "#232120" : "var(--color-card)" }}
+          >
+            <div
+              className="h-6.5 w-6.5 flex-none rounded"
+              style={{
+                backgroundImage: `repeating-linear-gradient(135deg, ${mapBg} 0 3px, ${dark ? "#2B2928" : "#FFFDF9"} 3px 6px)`,
+              }}
+            />
+            <div className="min-w-0">
+              <p className="text-[9.5px] leading-tight font-medium" style={{ color: textInk }}>
+                Time Out Market &middot; Cais do Sodr&eacute;
+              </p>
+              <p className="mt-0.5 font-mono text-[7.5px]" style={{ color: textMuted }}>
+                timeout.com &middot; saved by Maya
+              </p>
+            </div>
+          </div>
+          <div className="flex items-start gap-2">
+            <span
+              className="mt-0.5 flex h-4 w-4 flex-none items-center justify-center rounded-full text-[6.5px] text-cream"
+              style={{ background: dark ? "#4A453E" : "#1B1917" }}
+            >
+              TN
+            </span>
+            <p className="text-[9.5px] leading-snug italic" style={{ color: textMuted }}>
+              &ldquo;My friend Ana runs a place in Alfama, worth one
+              night.&rdquo;
+            </p>
           </div>
         </div>
         <div
