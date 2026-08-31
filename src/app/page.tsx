@@ -300,6 +300,9 @@ export default async function Home() {
             <Link href="#for" className="hover:text-accent">
               About
             </Link>
+            <Link href="/privacy" className="hover:text-accent">
+              Privacy
+            </Link>
           </div>
         </div>
       </footer>
