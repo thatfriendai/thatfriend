@@ -5,12 +5,15 @@ import { sendWhatsAppText } from "@/lib/meta/client";
 import { normalizePhoneDigits } from "@/lib/planner/phone";
 
 export async function POST(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id: tripId } = await params;
   const user = await getPlannerUser();
   if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  const body = await request.json().catch(() => ({}));
+  const stage = body.stage === "availability" ? "availability" : "preferences";
 
   const admin = createAdminClient();
 
@@ -53,7 +56,7 @@ export async function POST(
   }
 
   const { data: answered } = await admin
-    .from("planner_preferences")
+    .from(stage === "availability" ? "planner_availability_marks" : "planner_preferences")
     .select("user_id")
     .eq("trip_id", tripId);
   const answeredIds = new Set((answered ?? []).map((p) => p.user_id));
@@ -63,12 +66,20 @@ export async function POST(
     return NextResponse.json({ error: "Everyone with WhatsApp connected has already answered." });
   }
 
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const message =
+    stage === "availability"
+      ? (name: string) =>
+          `Hey${name}! "${trip.name}" needs your dates — mark every day that could work: ${siteUrl}/planner/trips/${tripId}/dates`
+      : (name: string) =>
+          `Hey${name}! Still need your preferences for "${trip.name}" — budget, pace, and the one thing you wouldn't compromise on. Answer here: ${siteUrl}/planner/trips/${tripId}/preferences`;
+
   let sentCount = 0;
   for (const member of toNudge) {
     try {
       await sendWhatsAppText(
         normalizePhoneDigits(member.phone as string),
-        `Hey${member.name ? ` ${member.name.split(" ")[0]}` : ""}! Still need your preferences for "${trip.name}" — budget, pace, and the one thing you wouldn't compromise on. Answer here: ${process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"}/planner/trips/${tripId}/preferences`
+        message(member.name ? ` ${member.name.split(" ")[0]}` : "")
       );
       sentCount++;
     } catch {

@@ -44,6 +44,12 @@ export default async function PreferencesPage({
     .eq("user_id", user.id)
     .maybeSingle();
 
+  const { data: myAvailability } = await admin
+    .from("planner_availability_marks")
+    .select("date")
+    .eq("trip_id", tripId)
+    .eq("user_id", user.id);
+
   const { data: memberRows } = await admin
     .from("planner_memberships")
     .select("planner_users(id, name, email)")
@@ -85,7 +91,7 @@ export default async function PreferencesPage({
 
   const dateRange =
     trip.start_date && trip.end_date
-      ? `${new Date(trip.start_date).toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${new Date(trip.end_date).toLocaleDateString(undefined, { day: "numeric" })}`
+      ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" })}`
       : null;
 
   return (
@@ -103,7 +109,13 @@ export default async function PreferencesPage({
             : "Everyone can see answers as they come in on this trip."}
         </p>
 
-        <PreferencesForm tripId={tripId} initial={myPref} isPrivate={trip.privacy === "private"} />
+        <PreferencesForm
+          tripId={tripId}
+          initial={myPref}
+          isPrivate={trip.privacy === "private"}
+          datesLocked={Boolean(trip.dates_locked_at)}
+          initialAvailableDates={(myAvailability ?? []).map((d) => d.date)}
+        />
       </div>
 
       <aside className="flex flex-col gap-6.5 border-l border-border bg-card px-7.5 py-8.5 lg:sticky lg:top-0 lg:h-screen lg:overflow-y-auto">

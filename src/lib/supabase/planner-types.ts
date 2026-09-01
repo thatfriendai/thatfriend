@@ -5,6 +5,7 @@ export type Pace = "Slow" | "Balanced" | "Packed";
 export type PlaceKind = "Restaurants" | "Bars" | "Museums" | "Activities" | "Other";
 export type ResourceType = "link" | "text" | "screenshot";
 export type DecisionStatus = "open" | "closed";
+export type PaceFeedback = "saw_everything" | "about_right" | "not_enough_time" | "too_packed";
 
 export interface PlannerUser {
   id: string;
@@ -27,6 +28,11 @@ export interface PlannerTrip {
   privacy: TripPrivacy;
   created_by: string;
   created_at: string;
+  dates_locked_at: string | null;
+  dates_flagged_by: string | null;
+  dates_flagged_at: string | null;
+  dates_flag_note: string | null;
+  share_token: string | null;
 }
 
 export interface PlannerMembership {
@@ -138,5 +144,30 @@ export interface PlannerDecisionNote {
   trip_id: string;
   text: string;
   created_by: string | null;
+  created_at: string;
+}
+
+export interface PlannerAvailabilityMark {
+  trip_id: string;
+  user_id: string;
+  date: string;
+  created_at: string;
+}
+
+export interface PlannerItemRating {
+  id: string;
+  trip_id: string;
+  item_id: string;
+  user_id: string;
+  stars: number;
+  note: string | null;
+  created_at: string;
+}
+
+export interface PlannerTripReview {
+  trip_id: string;
+  user_id: string;
+  stay_rating: number | null;
+  pace_feedback: PaceFeedback | null;
   created_at: string;
 }

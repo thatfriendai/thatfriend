@@ -151,7 +151,7 @@ export default async function PlannerTripPage({
 
   const dateRange =
     trip.start_date && trip.end_date
-      ? `${new Date(trip.start_date).toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase()}–${new Date(trip.end_date).toLocaleDateString(undefined, { day: "numeric" }).toUpperCase()}`
+      ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase()}–${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" }).toUpperCase()}`
       : null;
 
   return (
@@ -184,6 +184,12 @@ export default async function PlannerTripPage({
             ))}
           </div>
           <Link
+            href={`/planner/trips/${id}/dates`}
+            className="px-1 text-[13.5px] text-body hover:text-accent"
+          >
+            {trip.dates_locked_at ? "Dates" : "Pick dates"}
+          </Link>
+          <Link
             href={`/planner/trips/${id}/preferences`}
             className="px-1 text-[13.5px] text-body hover:text-accent"
           >
@@ -194,6 +200,12 @@ export default async function PlannerTripPage({
             className="rounded-full border border-input-border bg-card px-4 py-2 text-[13.5px] text-ink hover:border-ink"
           >
             Where we landed
+          </Link>
+          <Link
+            href={`/planner/trips/${id}/reviews`}
+            className="rounded-full border border-input-border bg-card px-4 py-2 text-[13.5px] text-ink hover:border-ink"
+          >
+            Reviews
           </Link>
         </div>
       </header>

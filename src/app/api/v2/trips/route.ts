@@ -39,6 +39,15 @@ export async function POST(request: Request) {
     .from("planner_memberships")
     .insert({ trip_id: trip.id, user_id: user.id, role: "owner" });
 
+  const availableDates = Array.isArray(body.available_dates)
+    ? [...new Set(body.available_dates.filter((d: unknown) => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d)))]
+    : [];
+  if (availableDates.length > 0) {
+    await admin.from("planner_availability_marks").insert(
+      availableDates.map((date) => ({ trip_id: trip.id, user_id: user.id, date }))
+    );
+  }
+
   const joinToken = generateToken();
   await admin
     .from("planner_invites")

@@ -3,16 +3,21 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { BUDGET_FIELDS, PACE_OPTIONS, INTERESTS } from "@/lib/planner/preferences";
+import { AvailabilityCalendar } from "@/components/planner/AvailabilityCalendar";
 import type { Pace, PlannerPreference } from "@/lib/supabase/planner-types";
 
 export function PreferencesForm({
   tripId,
   initial,
   isPrivate,
+  datesLocked,
+  initialAvailableDates,
 }: {
   tripId: string;
   initial: PlannerPreference | null;
   isPrivate: boolean;
+  datesLocked: boolean;
+  initialAvailableDates: string[];
 }) {
   const router = useRouter();
   const [values, setValues] = useState<Record<string, number>>({
@@ -23,6 +28,7 @@ export function PreferencesForm({
   const [pace, setPace] = useState<Pace>(initial?.pace ?? "Balanced");
   const [interests, setInterests] = useState<string[]>(initial?.interests ?? []);
   const [nonNegotiable, setNonNegotiable] = useState(initial?.non_negotiable ?? "");
+  const [availableDates, setAvailableDates] = useState<string[]>(initialAvailableDates);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,11 +65,32 @@ export function PreferencesForm({
       return;
     }
 
+    if (!datesLocked) {
+      await fetch(`/api/v2/trips/${tripId}/availability`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dates: availableDates }),
+      });
+    }
+
     router.push(`/planner/trips/${tripId}/convergence`);
   }
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-10">
+      {!datesLocked && (
+        <div>
+          <label className="mb-1 block text-base font-medium text-ink">
+            When you can go
+          </label>
+          <p className="mb-3.5 text-sm text-muted">
+            Every day that could work, not just your ideal week. The group
+            sees the overlap, not your calendar.
+          </p>
+          <AvailabilityCalendar value={availableDates} onChange={setAvailableDates} />
+        </div>
+      )}
+
       <div>
         <label className="mb-1.5 block text-base font-medium text-ink">
           What you can spend

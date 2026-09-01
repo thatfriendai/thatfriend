@@ -48,9 +48,9 @@ export default async function JoinPage({
 
   const dateRange =
     trip.start_date && trip.end_date
-      ? `${new Date(trip.start_date).toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${new Date(trip.end_date).toLocaleDateString(undefined, { day: "numeric" })}`
+      ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" })}`
       : trip.start_date
-        ? new Date(trip.start_date).toLocaleDateString(undefined, { month: "long", day: "numeric" })
+        ? new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric" })
         : null;
 
   return (

@@ -2,33 +2,35 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { AvailabilityCalendar } from "@/components/planner/AvailabilityCalendar";
+import { CopyInviteLink } from "@/app/planner/trips/[id]/CopyInviteLink";
 
 const OCCASIONS = [
   "Bachelorette",
   "Reunion",
   "Birthday",
-  "Family trip",
   "Remote work week",
-  "Just because",
+  "Family",
+  "Just a trip",
 ];
 
 const BANDS = [
-  { key: "Budget", hint: "Hostels, street food" },
-  { key: "Middle", hint: "3-star, real dinners" },
-  { key: "Comfortable", hint: "4-star, some splurges" },
-  { key: "Splurge", hint: "Whatever it takes" },
+  { key: "Tight", hint: "Hostels, buses" },
+  { key: "Middle", hint: "Airbnb, some dinners" },
+  { key: "Comfortable", hint: "Hotels, no counting" },
+  { key: "Mixed", hint: "People differ a lot" },
 ];
 
 const PRIVACY_OPTIONS = [
   {
     key: "private" as const,
     label: "Private",
-    hint: "Nobody sees anyone else's answers, including yours, until everyone's in.",
+    hint: "Answers stay sealed. Everyone sees the overlap, nobody sees who said what.",
   },
   {
     key: "open" as const,
     label: "Open",
-    hint: "Everyone's answers are visible as they come in.",
+    hint: "Everyone sees each other's numbers and notes as they come in.",
   },
 ];
 
@@ -49,16 +51,15 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
   const [name, setName] = useState(defaultName ?? "");
   const [destination, setDestination] = useState("");
   const [undecidedDestination, setUndecidedDestination] = useState(false);
-  const [dateMode, setDateMode] = useState<"exact" | "unsure">("exact");
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [availableDates, setAvailableDates] = useState<string[]>([]);
   const [occasion, setOccasion] = useState<string | null>(null);
   const [band, setBand] = useState<string | null>(null);
   const [privacy, setPrivacy] = useState<"private" | "open">("private");
   const [invitees, setInvitees] = useState<string[]>([]);
   const [newInvitee, setNewInvitee] = useState("");
-  const [pending, setPending] = useState(false);
+  const [pending, setPending] = useState<"invite" | "later" | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [created, setCreated] = useState<{ id: string; joinToken: string; finishLater: boolean } | null>(null);
 
   function addInvitee() {
     const v = newInvitee.trim();
@@ -67,10 +68,10 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
     setNewInvitee("");
   }
 
-  async function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.SyntheticEvent, finishLater = false) {
     e.preventDefault();
     if (!name.trim()) return;
-    setPending(true);
+    setPending(finishLater ? "later" : "invite");
     setError(null);
 
     const res = await fetch("/api/v2/trips", {
@@ -79,8 +80,7 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
       body: JSON.stringify({
         name,
         destination: undecidedDestination ? "" : destination,
-        start_date: dateMode === "exact" ? startDate || undefined : undefined,
-        end_date: dateMode === "exact" ? endDate || undefined : undefined,
+        available_dates: availableDates,
         occasion,
         budget_band: band,
         privacy,
@@ -90,11 +90,11 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
 
     if (!res.ok) {
       setError(data.error ?? "Could not create trip.");
-      setPending(false);
+      setPending(null);
       return;
     }
 
-    if (invitees.length > 0) {
+    if (!finishLater && invitees.length > 0) {
       await fetch(`/api/v2/trips/${data.trip.id}/invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -104,7 +104,37 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
       });
     }
 
-    router.push(`/planner/trips/${data.trip.id}/preferences`);
+    setPending(null);
+    setCreated({ id: data.trip.id, joinToken: data.joinToken, finishLater });
+  }
+
+  if (created) {
+    return (
+      <div className="flex flex-col gap-7">
+        <div>
+          <p className="mb-1.5 text-2xl font-display text-ink">Trip created.</p>
+          <p className="text-[15px] text-body">
+            Send this to the group, or skip straight in.
+          </p>
+        </div>
+        <CopyInviteLink
+          url={`${typeof window !== "undefined" ? window.location.origin : ""}/planner/join/${created.joinToken}`}
+        />
+        <button
+          type="button"
+          onClick={() =>
+            router.push(
+              created.finishLater
+                ? `/planner/trips/${created.id}`
+                : `/planner/trips/${created.id}/preferences`
+            )
+          }
+          className="self-start rounded-full bg-ink px-7.5 py-3.5 text-[15.5px] text-cream hover:bg-accent"
+        >
+          {created.finishLater ? "Go to the trip" : "Continue to your preferences"}
+        </button>
+      </div>
+    );
   }
 
   return (
@@ -153,38 +183,17 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
       </div>
 
       <div>
-        <label className="mb-2.5 block text-base font-medium text-ink">When</label>
-        <div className="mb-2.5 flex gap-2.5">
-          <button
-            type="button"
-            onClick={() => setDateMode("exact")}
-            className={chipClass(dateMode === "exact")}
-          >
-            Exact dates
-          </button>
-          <button
-            type="button"
-            onClick={() => setDateMode("unsure")}
-            className={chipClass(dateMode === "unsure")}
-          >
-            Not sure yet
-          </button>
-        </div>
-        {dateMode === "exact" && (
-          <div className="flex gap-2.5">
-            <input
-              type="date"
-              value={startDate}
-              onChange={(e) => setStartDate(e.target.value)}
-              className="min-w-0 flex-1 rounded-xl border border-input-border bg-card px-4.5 py-3.5 text-base text-ink outline-none focus:border-ink"
-            />
-            <input
-              type="date"
-              value={endDate}
-              onChange={(e) => setEndDate(e.target.value)}
-              className="min-w-0 flex-1 rounded-xl border border-input-border bg-card px-4.5 py-3.5 text-base text-ink outline-none focus:border-ink"
-            />
-          </div>
+        <label className="mb-1 block text-base font-medium text-ink">When</label>
+        <p className="mb-3 text-sm text-muted">
+          Mark every day that could work. Everyone you invite marks theirs
+          on top of yours, and the dates lock themselves once a stretch
+          works for all of you.
+        </p>
+        <AvailabilityCalendar value={availableDates} onChange={setAvailableDates} />
+        {availableDates.length > 0 && (
+          <p className="mt-2.5 text-[13px] text-muted">
+            {availableDates.length} day{availableDates.length === 1 ? "" : "s"} marked
+          </p>
         )}
       </div>
 
@@ -310,16 +319,26 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
 
       {error && <p className="text-sm text-red-700">{error}</p>}
 
-      <div className="flex items-center gap-4.5 border-t border-border pt-7">
+      <div className="flex flex-wrap items-center gap-4.5 border-t border-border pt-7">
         <button
           type="submit"
-          disabled={pending}
+          disabled={pending !== null}
           className="rounded-full bg-ink px-7.5 py-3.5 text-[15.5px] text-cream hover:bg-accent disabled:opacity-50"
         >
-          {pending ? "Creating…" : "Create trip and invite"}
+          {pending === "invite" ? "Creating…" : "Create trip and invite"}
+        </button>
+        <button
+          type="button"
+          onClick={(e) => handleSubmit(e, true)}
+          disabled={pending !== null}
+          className="rounded-full border border-input-border bg-card px-6 py-3.5 text-[15px] text-ink hover:border-ink disabled:opacity-50"
+        >
+          {pending === "later" ? "Saving…" : "Save and finish later"}
         </button>
         <span className="text-sm text-muted">
-          You can add or remove people anytime.
+          {invitees.length > 0
+            ? `${invitees.length} invite${invitees.length === 1 ? "" : "s"} go out now, and everyone gets asked for their budget.`
+            : "You can add or remove people anytime."}
         </span>
       </div>
     </form>

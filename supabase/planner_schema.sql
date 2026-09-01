@@ -265,6 +265,61 @@ create table if not exists planner_whatsapp_codes (
 create index if not exists planner_whatsapp_codes_phone_idx on planner_whatsapp_codes (phone);
 
 -- ---------------------------------------------------------------------------
+-- planner_availability_marks — Phase 7. One row per day a member marked as
+-- workable for a trip. No exact-dates picker anymore: everyone marks every
+-- day that could work, and the group's overlap gets proposed automatically
+-- (see src/lib/planner/dates.ts). Locking a proposal writes it straight into
+-- planner_trips.start_date/end_date rather than duplicating those columns.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_availability_marks (
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  date date not null,
+  created_at timestamptz not null default now(),
+  primary key (trip_id, user_id, date)
+);
+
+create index if not exists planner_availability_marks_trip_idx on planner_availability_marks (trip_id);
+
+-- planner_trips — date-lock and public-share additions for Phase 7.
+alter table planner_trips add column if not exists dates_locked_at timestamptz;
+alter table planner_trips add column if not exists dates_flagged_by uuid references planner_users (id) on delete set null;
+alter table planner_trips add column if not exists dates_flagged_at timestamptz;
+alter table planner_trips add column if not exists dates_flag_note text;
+alter table planner_trips add column if not exists share_token text unique;
+
+-- ---------------------------------------------------------------------------
+-- planner_item_ratings — Phase 7. Star rating + short note a member leaves
+-- on an itinerary line item after the trip. Multiple people can rate the
+-- same item; each person rates it at most once (re-rating overwrites).
+-- ---------------------------------------------------------------------------
+create table if not exists planner_item_ratings (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  item_id uuid not null references planner_itinerary_items (id) on delete cascade,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  stars smallint not null check (stars between 1 and 5),
+  note text,
+  created_at timestamptz not null default now(),
+  unique (item_id, user_id)
+);
+
+create index if not exists planner_item_ratings_trip_idx on planner_item_ratings (trip_id);
+
+-- ---------------------------------------------------------------------------
+-- planner_trip_reviews — Phase 7. The two trip-level questions on the
+-- Reviews screen: would you stay there again, and how did the pace run.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_trip_reviews (
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  stay_rating smallint check (stay_rating between 1 and 5),
+  pace_feedback text check (pace_feedback in ('saw_everything', 'about_right', 'not_enough_time', 'too_packed')),
+  created_at timestamptz not null default now(),
+  primary key (trip_id, user_id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to
@@ -284,10 +339,13 @@ alter table planner_decision_options enable row level security;
 alter table planner_decision_votes enable row level security;
 alter table planner_decision_notes enable row level security;
 alter table planner_whatsapp_codes enable row level security;
+alter table planner_availability_marks enable row level security;
+alter table planner_item_ratings enable row level security;
+alter table planner_trip_reviews enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant all on planner_users, planner_trips, planner_memberships, planner_invites, planner_preferences,
   planner_days, planner_itinerary_items, planner_places, planner_resources,
   planner_decisions, planner_decision_options, planner_decision_votes, planner_decision_notes,
-  planner_whatsapp_codes
+  planner_whatsapp_codes, planner_availability_marks, planner_item_ratings, planner_trip_reviews
   to anon, authenticated, service_role;

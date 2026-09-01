@@ -19,7 +19,6 @@ export function TripPreviewCard({ dark = false }: { dark?: boolean }) {
   const textMuted = dark ? "#7E766C" : "var(--color-muted)";
   const aiBoxBg = dark ? "#2B2430" : "var(--color-warm-bg)";
   const aiBoxBorder = dark ? "#4A3F48" : "var(--color-warm-border)";
-  const barBg = dark ? "#302D2C" : "var(--color-border-soft)";
   const mapBg = dark ? "#262423" : "#EFEDE4";
   const mapGrid = dark ? "#2C2A29" : "#E6E3D7";
   const dayBorder = dark ? "#2F2C2B" : "var(--color-border)";
