@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { KIND_OPTIONS, formatDayLabel } from "@/lib/planner/itinerary";
+import { KIND_OPTIONS, formatDayLabel, kindFromGoogleTypes } from "@/lib/planner/itinerary";
 import { PlaceSearch, type SelectedPlace } from "@/components/PlaceSearch";
 import type { PlaceKind, PlannerDay, PlannerPlace } from "@/lib/supabase/planner-types";
 
@@ -13,6 +13,9 @@ interface Candidate {
   note: string;
   include: boolean;
   day_id: string;
+  lat?: number;
+  lng?: number;
+  address?: string;
 }
 
 const SOURCES: { key: Step; label: string; hint: string }[] = [
@@ -22,10 +25,35 @@ const SOURCES: { key: Step; label: string; hint: string }[] = [
   { key: "manual", label: "Type it in", hint: "Quick manual entry, no extraction" },
 ];
 
+const DUPLICATE_DISTANCE_DEG = 0.0003; // ~30m — tight enough to avoid flagging different, nearby businesses
+
+function normalizeName(name: string) {
+  return name.trim().toLowerCase();
+}
+
+function findDuplicate(
+  existing: PlannerPlace[],
+  name: string,
+  lat?: number | null,
+  lng?: number | null
+): PlannerPlace | undefined {
+  const normalized = normalizeName(name);
+  if (!normalized) return undefined;
+  return existing.find((p) => {
+    if (lat != null && lng != null && p.lat != null && p.lng != null) {
+      if (Math.abs(p.lat - lat) < DUPLICATE_DISTANCE_DEG && Math.abs(p.lng - lng) < DUPLICATE_DISTANCE_DEG) {
+        return true;
+      }
+    }
+    return normalizeName(p.name) === normalized;
+  });
+}
+
 export function AddPlaceModal({
   tripId,
   days,
   googleMapsApiKey,
+  existingPlaces,
   open,
   onClose,
   onCreated,
@@ -33,6 +61,7 @@ export function AddPlaceModal({
   tripId: string;
   days: PlannerDay[];
   googleMapsApiKey: string;
+  existingPlaces: PlannerPlace[];
   open: boolean;
   onClose: () => void;
   onCreated: (place: PlannerPlace & { sourceLabel: string | null }) => void;
@@ -49,6 +78,7 @@ export function AddPlaceModal({
   const [error, setError] = useState<string | null>(null);
   const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
   const [manualFallback, setManualFallback] = useState(false);
+  const [forceDuplicate, setForceDuplicate] = useState(false);
 
   // extraction
   const [linkUrl, setLinkUrl] = useState("");
@@ -79,6 +109,7 @@ export function AddPlaceModal({
     setCandidates([]);
     setSelectedPlace(null);
     setManualFallback(false);
+    setForceDuplicate(false);
   }
 
   function handleClose() {
@@ -90,6 +121,8 @@ export function AddPlaceModal({
     e.preventDefault();
     const placeName = selectedPlace?.name ?? name;
     if (!placeName.trim()) return;
+    const duplicate = findDuplicate(existingPlaces, placeName, selectedPlace?.lat, selectedPlace?.lng);
+    if (duplicate && !forceDuplicate) return;
     setPending(true);
     setError(null);
 
@@ -147,7 +180,7 @@ export function AddPlaceModal({
     setCandidates(
       (data.candidates ?? []).map((c: { name: string; kind: PlaceKind; note: string }) => ({
         ...c,
-        include: true,
+        include: !findDuplicate(existingPlaces, c.name),
         day_id: "",
       }))
     );
@@ -176,7 +209,15 @@ export function AddPlaceModal({
   async function confirmCandidates() {
     const chosen = candidates
       .filter((c) => c.include)
-      .map((c) => ({ name: c.name, kind: c.kind, note: c.note, day_id: c.day_id || undefined }));
+      .map((c) => ({
+        name: c.name,
+        kind: c.kind,
+        note: c.note,
+        day_id: c.day_id || undefined,
+        lat: c.lat,
+        lng: c.lng,
+        address: c.address,
+      }));
     if (chosen.length === 0 || !resourceId) return;
 
     setConfirming(true);
@@ -197,6 +238,25 @@ export function AddPlaceModal({
     (data.places ?? []).forEach((p: PlannerPlace) => onCreated({ ...p, sourceLabel: resourceLabel }));
     handleClose();
   }
+
+  function updateName(v: string) {
+    setName(v);
+    setForceDuplicate(false);
+  }
+
+  function updateSelectedPlace(p: SelectedPlace | null) {
+    setSelectedPlace(p);
+    setForceDuplicate(false);
+    const mapped = p?.category ? kindFromGoogleTypes([p.category]) : null;
+    if (mapped) setKind(mapped);
+  }
+
+  const manualDuplicate = findDuplicate(
+    existingPlaces,
+    selectedPlace?.name ?? name,
+    selectedPlace?.lat,
+    selectedPlace?.lng
+  );
 
   const daySelect = (value: string, onChange: (v: string) => void, className?: string) => (
     <select
@@ -381,7 +441,14 @@ export function AddPlaceModal({
                     {c.include ? "✓" : ""}
                   </button>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[15px] font-medium text-[#2B2825]">{c.name}</div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-[15px] font-medium text-[#2B2825]">{c.name}</div>
+                      {findDuplicate(existingPlaces, c.name) && (
+                        <span className="rounded-full border border-warm-border bg-warm-bg px-2 py-0.5 text-[10.5px] text-muted">
+                          Already saved
+                        </span>
+                      )}
+                    </div>
                     {c.note && (
                       <div className="mt-0.5 text-[13px] leading-[1.45] text-muted">{c.note}</div>
                     )}
@@ -452,20 +519,20 @@ export function AddPlaceModal({
                       </div>
                       <button
                         type="button"
-                        onClick={() => setSelectedPlace(null)}
+                        onClick={() => updateSelectedPlace(null)}
                         className="flex-none text-[13px] text-muted hover:text-ink"
                       >
                         Change
                       </button>
                     </div>
                   ) : (
-                    <PlaceSearch apiKey={googleMapsApiKey} onSelect={setSelectedPlace} />
+                    <PlaceSearch apiKey={googleMapsApiKey} onSelect={updateSelectedPlace} />
                   )}
                   <button
                     type="button"
                     onClick={() => {
                       setManualFallback(true);
-                      setSelectedPlace(null);
+                      updateSelectedPlace(null);
                     }}
                     className="mt-2 text-[12.5px] text-muted underline hover:text-ink"
                   >
@@ -475,12 +542,26 @@ export function AddPlaceModal({
               ) : (
                 <input
                   value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  onChange={(e) => updateName(e.target.value)}
                   required
                   autoFocus
                   placeholder="Ramiro"
                   className="w-full rounded-xl border border-input-border bg-card px-4 py-3 text-[15px] text-ink outline-none focus:border-ink"
                 />
+              )}
+              {manualDuplicate && !forceDuplicate && (
+                <div className="mt-2.5 flex items-center justify-between gap-3 rounded-xl border border-warm-border bg-warm-bg px-3.5 py-2.5">
+                  <p className="text-[12.5px] text-body">
+                    {manualDuplicate.name} has already been added to this trip.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => setForceDuplicate(true)}
+                    className="flex-none text-[12px] text-muted underline hover:text-ink"
+                  >
+                    Add anyway
+                  </button>
+                </div>
               )}
             </div>
 
@@ -530,7 +611,12 @@ export function AddPlaceModal({
             <div className="mt-1 flex items-center gap-4">
               <button
                 type="submit"
-                disabled={pending || (!manualFallback && !selectedPlace) || (manualFallback && !name.trim())}
+                disabled={
+                  pending ||
+                  (!manualFallback && !selectedPlace) ||
+                  (manualFallback && !name.trim()) ||
+                  Boolean(manualDuplicate && !forceDuplicate)
+                }
                 className="rounded-full bg-ink px-6.5 py-3 text-[15px] text-cream hover:bg-accent disabled:opacity-50"
               >
                 {pending ? "Saving…" : "Add to the workspace"}

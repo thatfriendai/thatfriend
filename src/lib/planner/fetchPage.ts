@@ -16,7 +16,7 @@ const MAPS_PLACE_RE = /\/maps\/place\/([^/@]+)/;
  */
 export async function fetchPageText(
   url: string
-): Promise<{ text: string; label: string } | null> {
+): Promise<{ text: string; label: string; mapsPlaceName?: string } | null> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -38,7 +38,7 @@ export async function fetchPageText(
     const mapsMatch = (res.url || parsed.toString()).match(MAPS_PLACE_RE);
     if (mapsMatch) {
       const name = decodeURIComponent(mapsMatch[1].replace(/\+/g, " ")).trim();
-      if (name) return { text: `Place: ${name}`, label: name.slice(0, 80) };
+      if (name) return { text: `Place: ${name}`, label: name.slice(0, 80), mapsPlaceName: name };
     }
 
     const html = await res.text();
