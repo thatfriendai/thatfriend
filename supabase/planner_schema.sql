@@ -155,6 +155,13 @@ create table if not exists planner_places (
 
 create index if not exists planner_places_trip_idx on planner_places (trip_id);
 
+-- Real coordinates, added once map_x/map_y (a stable pseudo-random position,
+-- never real geography) got swapped for an actual map. Nullable: existing
+-- rows predate this and only get lat/lng if re-added or backfilled.
+alter table planner_places add column if not exists lat double precision;
+alter table planner_places add column if not exists lng double precision;
+alter table planner_places add column if not exists address text;
+
 -- ---------------------------------------------------------------------------
 -- planner_resources — Phase 4. Where a batch of places came from: a pasted
 -- link, pasted text (e.g. a forwarded WhatsApp message), or an uploaded

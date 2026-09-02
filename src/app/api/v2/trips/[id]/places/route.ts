@@ -29,6 +29,9 @@ export async function POST(
   const kind = KIND_OPTIONS.some((k) => k.kind === body.kind) ? body.kind : null;
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : null;
   const dayId = typeof body.day_id === "string" && body.day_id ? body.day_id : null;
+  const lat = typeof body.lat === "number" && Number.isFinite(body.lat) ? body.lat : null;
+  const lng = typeof body.lng === "number" && Number.isFinite(body.lng) ? body.lng : null;
+  const address = typeof body.address === "string" ? body.address.trim().slice(0, 300) || null : null;
 
   if (!name || !kind) {
     return NextResponse.json({ error: "name and kind are required." }, { status: 400 });
@@ -58,6 +61,9 @@ export async function POST(
       note: note || null,
       map_x: x,
       map_y: y,
+      lat,
+      lng,
+      address,
       added_by: user.id,
     })
     .select("*")

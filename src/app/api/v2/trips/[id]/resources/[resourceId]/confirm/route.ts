@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { KIND_OPTIONS, hashPercent } from "@/lib/planner/itinerary";
+import { geocodePlace } from "@/lib/planner/geocode";
 
 export async function POST(
   request: Request,
@@ -45,6 +46,12 @@ export async function POST(
     return NextResponse.json({ error: "Nothing to add." }, { status: 400 });
   }
 
+  const { data: trip } = await admin
+    .from("planner_trips")
+    .select("destination")
+    .eq("id", tripId)
+    .maybeSingle();
+
   const dayIds = [
     ...new Set(
       places
@@ -62,26 +69,36 @@ export async function POST(
     (days ?? []).forEach((d) => validDayIds.add(d.id));
   }
 
-  const rows = places
-    .filter((p): p is IncomingPlace & { name: string } => typeof p.name === "string" && p.name.trim().length > 0)
-    .map((p) => {
+  const kept = places.filter(
+    (p): p is IncomingPlace & { name: string } => typeof p.name === "string" && p.name.trim().length > 0
+  );
+
+  const rows = await Promise.all(
+    kept.map(async (p) => {
       const id = randomUUID();
       const { x, y } = hashPercent(id);
       const kind = KIND_OPTIONS.some((k) => k.kind === p.kind) ? (p.kind as string) : "Other";
       const dayId = typeof p.day_id === "string" && validDayIds.has(p.day_id) ? p.day_id : null;
+      const name = String(p.name).trim().slice(0, 120);
+      const query = trip?.destination ? `${name}, ${trip.destination}` : name;
+      const geo = await geocodePlace(query);
       return {
         id,
         trip_id: tripId,
         day_id: dayId,
-        name: String(p.name).trim().slice(0, 120),
+        name,
         kind,
         note: typeof p.note === "string" ? p.note.trim().slice(0, 500) || null : null,
         map_x: x,
         map_y: y,
+        lat: geo?.lat ?? null,
+        lng: geo?.lng ?? null,
+        address: geo?.address ?? null,
         added_by: user.id,
         resource_id: resourceId,
       };
-    });
+    })
+  );
 
   if (rows.length === 0) {
     return NextResponse.json({ error: "Nothing to add." }, { status: 400 });

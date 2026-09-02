@@ -91,6 +91,9 @@ export interface PlannerPlace {
   note: string | null;
   map_x: number;
   map_y: number;
+  lat: number | null;
+  lng: number | null;
+  address: string | null;
   added_by: string | null;
   resource_id: string | null;
   created_at: string;

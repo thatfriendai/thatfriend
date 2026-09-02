@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { KIND_OPTIONS } from "@/lib/planner/itinerary";
 import { AddPlaceModal } from "./AddPlaceModal";
+import { PlaceMapView } from "@/components/planner/PlaceMapView";
 import type { PlannerDay, PlannerPlace } from "@/lib/supabase/planner-types";
 
 type PlaceWithWho = PlannerPlace & { who: string; sourceLabel: string | null };
@@ -11,10 +12,12 @@ export function PlacesBoard({
   tripId,
   days,
   places: initialPlaces,
+  googleMapsApiKey,
 }: {
   tripId: string;
   days: PlannerDay[];
   places: PlaceWithWho[];
+  googleMapsApiKey: string;
 }) {
   const [places, setPlaces] = useState(initialPlaces);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -114,43 +117,13 @@ export function PlacesBoard({
             </div>
           </div>
 
-          <div
-            className="relative order-1 h-[220px] border-b border-border lg:order-2 lg:h-auto lg:border-b-0 lg:border-l"
-            style={{
-              background: "#EFEDE4",
-              backgroundImage:
-                "linear-gradient(#E6E3D7 1px, transparent 1px), linear-gradient(90deg, #E6E3D7 1px, transparent 1px)",
-              backgroundSize: "44px 44px",
-            }}
-          >
-            <div
-              className="absolute inset-0"
-              style={{ background: "linear-gradient(118deg, transparent 46%, #DCE6E3 46%)" }}
+          <div className="relative order-1 h-[220px] border-b border-border lg:order-2 lg:h-auto lg:border-b-0 lg:border-l">
+            <PlaceMapView
+              apiKey={googleMapsApiKey}
+              places={places}
+              selectedId={selectedId}
+              onSelect={setSelectedId}
             />
-            {places.map((p) => {
-              const on = p.id === selectedId;
-              const size = on ? 26 : 13;
-              const color = KIND_OPTIONS.find((k) => k.kind === p.kind)?.color ?? "#6B655C";
-              return (
-                <div
-                  key={p.id}
-                  onClick={() => setSelectedId(p.id)}
-                  className="absolute cursor-pointer rounded-full border-2 transition-all"
-                  style={{
-                    left: `${p.map_x}%`,
-                    top: `${p.map_y}%`,
-                    width: size,
-                    height: size,
-                    margin: `${-size / 2}px 0 0 ${-size / 2}px`,
-                    background: color,
-                    borderColor: "#FFFDF9",
-                    opacity: on ? 1 : 0.62,
-                    zIndex: on ? 2 : 1,
-                    boxShadow: `0 1px 5px rgba(27,25,23,${on ? 0.2 : 0.1})`,
-                  }}
-                />
-              );
-            })}
             {selected && (
               <div className="absolute top-3 right-3 left-3 rounded-[10px] border border-border bg-card px-3.5 py-2.5">
                 <div className="text-[13.5px] text-[#2B2825]">{selected.name}</div>
@@ -177,6 +150,7 @@ export function PlacesBoard({
       <AddPlaceModal
         tripId={tripId}
         days={days}
+        googleMapsApiKey={googleMapsApiKey}
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onCreated={(place) =>

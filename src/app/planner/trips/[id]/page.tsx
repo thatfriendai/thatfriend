@@ -306,7 +306,12 @@ export default async function PlannerTripPage({
           )}
         </div>
 
-        <PlacesBoard tripId={id} days={days} places={places} />
+        <PlacesBoard
+          tripId={id}
+          days={days}
+          places={places}
+          googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}
+        />
 
         {resources.length > 0 && (
           <div id="resources" className="mb-14 max-w-[760px]">

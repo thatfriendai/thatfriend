@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { KIND_OPTIONS, formatDayLabel } from "@/lib/planner/itinerary";
+import { PlaceSearch, type SelectedPlace } from "@/components/PlaceSearch";
 import type { PlaceKind, PlannerDay, PlannerPlace } from "@/lib/supabase/planner-types";
 
 type Step = "source" | "manual" | "link" | "text" | "screenshot" | "review";
@@ -24,12 +25,14 @@ const SOURCES: { key: Step; label: string; hint: string }[] = [
 export function AddPlaceModal({
   tripId,
   days,
+  googleMapsApiKey,
   open,
   onClose,
   onCreated,
 }: {
   tripId: string;
   days: PlannerDay[];
+  googleMapsApiKey: string;
   open: boolean;
   onClose: () => void;
   onCreated: (place: PlannerPlace & { sourceLabel: string | null }) => void;
@@ -44,6 +47,8 @@ export function AddPlaceModal({
   const [dayId, setDayId] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [selectedPlace, setSelectedPlace] = useState<SelectedPlace | null>(null);
+  const [manualFallback, setManualFallback] = useState(false);
 
   // extraction
   const [linkUrl, setLinkUrl] = useState("");
@@ -72,6 +77,8 @@ export function AddPlaceModal({
     setResourceId(null);
     setResourceLabel(null);
     setCandidates([]);
+    setSelectedPlace(null);
+    setManualFallback(false);
   }
 
   function handleClose() {
@@ -81,14 +88,23 @@ export function AddPlaceModal({
 
   async function handleManualSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!name.trim()) return;
+    const placeName = selectedPlace?.name ?? name;
+    if (!placeName.trim()) return;
     setPending(true);
     setError(null);
 
     const res = await fetch(`/api/v2/trips/${tripId}/places`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name, kind, note, day_id: dayId || undefined }),
+      body: JSON.stringify({
+        name: placeName,
+        kind,
+        note,
+        day_id: dayId || undefined,
+        lat: selectedPlace?.lat,
+        lng: selectedPlace?.lng,
+        address: selectedPlace?.address,
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setPending(false);
@@ -424,14 +440,48 @@ export function AddPlaceModal({
           <form onSubmit={handleManualSubmit} className="flex flex-col gap-4.5 px-6.5 py-6">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Name</label>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                autoFocus
-                placeholder="Ramiro"
-                className="w-full rounded-xl border border-input-border bg-card px-4 py-3 text-[15px] text-ink outline-none focus:border-ink"
-              />
+              {!manualFallback ? (
+                <>
+                  {selectedPlace ? (
+                    <div className="flex items-start justify-between gap-3 rounded-xl border border-input-border bg-card px-4 py-3">
+                      <div className="min-w-0">
+                        <div className="text-[15px] text-ink">{selectedPlace.name}</div>
+                        {selectedPlace.address && (
+                          <div className="mt-0.5 text-[12.5px] text-muted">{selectedPlace.address}</div>
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPlace(null)}
+                        className="flex-none text-[13px] text-muted hover:text-ink"
+                      >
+                        Change
+                      </button>
+                    </div>
+                  ) : (
+                    <PlaceSearch apiKey={googleMapsApiKey} onSelect={setSelectedPlace} />
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setManualFallback(true);
+                      setSelectedPlace(null);
+                    }}
+                    className="mt-2 text-[12.5px] text-muted underline hover:text-ink"
+                  >
+                    Can&rsquo;t find it? Type it in instead
+                  </button>
+                </>
+              ) : (
+                <input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  required
+                  autoFocus
+                  placeholder="Ramiro"
+                  className="w-full rounded-xl border border-input-border bg-card px-4 py-3 text-[15px] text-ink outline-none focus:border-ink"
+                />
+              )}
             </div>
 
             <div>
@@ -480,7 +530,7 @@ export function AddPlaceModal({
             <div className="mt-1 flex items-center gap-4">
               <button
                 type="submit"
-                disabled={pending}
+                disabled={pending || (!manualFallback && !selectedPlace) || (manualFallback && !name.trim())}
                 className="rounded-full bg-ink px-6.5 py-3 text-[15px] text-cream hover:bg-accent disabled:opacity-50"
               >
                 {pending ? "Saving…" : "Add to the workspace"}
