@@ -46,9 +46,16 @@ export async function getPlannerUser(): Promise<PlannerUser | null> {
     return linked ?? byEmail;
   }
 
+  const oauthName =
+    typeof authUser.user_metadata?.full_name === "string"
+      ? authUser.user_metadata.full_name
+      : typeof authUser.user_metadata?.name === "string"
+        ? authUser.user_metadata.name
+        : null;
+
   const { data: created, error } = await admin
     .from("planner_users")
-    .insert({ email: authUser.email, auth_user_id: authUser.id })
+    .insert({ email: authUser.email, auth_user_id: authUser.id, name: oauthName })
     .select("*")
     .single<PlannerUser>();
 
