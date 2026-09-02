@@ -2,7 +2,11 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { fetchPageText } from "@/lib/planner/fetchPage";
-import { extractPlacesFromText, extractPlacesFromImage } from "@/lib/planner/extract";
+import { extractPlacesFromText, extractPlacesFromImage, type ExtractedPlace } from "@/lib/planner/extract";
+import { geocodePlace } from "@/lib/planner/geocode";
+import { kindFromGoogleTypes } from "@/lib/planner/itinerary";
+
+type EnrichedPlace = ExtractedPlace & { lat?: number; lng?: number; address?: string };
 
 const IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"] as const;
 
@@ -31,7 +35,7 @@ export async function POST(
 
   let label: string;
   let sourceUrl: string | null = null;
-  let candidates;
+  let candidates: EnrichedPlace[];
 
   if (type === "link") {
     const url = typeof body.url === "string" ? body.url.trim() : "";
@@ -46,6 +50,26 @@ export async function POST(
     sourceUrl = url;
     label = page.label;
     candidates = await extractPlacesFromText(page.text);
+
+    // A Google Maps link names one real, already-identified place — pull
+    // its real category and coordinates now rather than letting the LLM
+    // guess the kind from almost no text, and reuse them at confirm time
+    // instead of geocoding the same place twice.
+    if (page.mapsPlaceName) {
+      const { data: trip } = await admin.from("planner_trips").select("destination").eq("id", tripId).maybeSingle();
+      const query = trip?.destination ? `${page.mapsPlaceName}, ${trip.destination}` : page.mapsPlaceName;
+      const geo = await geocodePlace(query);
+      if (geo) {
+        const kind = kindFromGoogleTypes(geo.types);
+        candidates = candidates.map((c) => ({
+          ...c,
+          ...(kind ? { kind } : {}),
+          lat: geo.lat,
+          lng: geo.lng,
+          address: geo.address,
+        }));
+      }
+    }
   } else if (type === "text") {
     const text = typeof body.text === "string" ? body.text.trim() : "";
     if (!text) return NextResponse.json({ error: "Paste some text first." }, { status: 400 });

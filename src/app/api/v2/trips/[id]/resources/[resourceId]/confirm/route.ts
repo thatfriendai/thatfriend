@@ -38,6 +38,9 @@ export async function POST(
     kind?: unknown;
     note?: unknown;
     day_id?: unknown;
+    lat?: unknown;
+    lng?: unknown;
+    address?: unknown;
   }
 
   const body = await request.json().catch(() => ({}));
@@ -80,8 +83,23 @@ export async function POST(
       const kind = KIND_OPTIONS.some((k) => k.kind === p.kind) ? (p.kind as string) : "Other";
       const dayId = typeof p.day_id === "string" && validDayIds.has(p.day_id) ? p.day_id : null;
       const name = String(p.name).trim().slice(0, 120);
-      const query = trip?.destination ? `${name}, ${trip.destination}` : name;
-      const geo = await geocodePlace(query);
+
+      const providedLat = typeof p.lat === "number" && Number.isFinite(p.lat) ? p.lat : null;
+      const providedLng = typeof p.lng === "number" && Number.isFinite(p.lng) ? p.lng : null;
+      let lat = providedLat;
+      let lng = providedLng;
+      let address = typeof p.address === "string" ? p.address : null;
+
+      // Already geocoded at extract time (a Google Maps link) — reuse it
+      // rather than looking the same place up twice.
+      if (lat == null || lng == null) {
+        const query = trip?.destination ? `${name}, ${trip.destination}` : name;
+        const geo = await geocodePlace(query);
+        lat = geo?.lat ?? null;
+        lng = geo?.lng ?? null;
+        address = geo?.address ?? address;
+      }
+
       return {
         id,
         trip_id: tripId,
@@ -91,9 +109,9 @@ export async function POST(
         note: typeof p.note === "string" ? p.note.trim().slice(0, 500) || null : null,
         map_x: x,
         map_y: y,
-        lat: geo?.lat ?? null,
-        lng: geo?.lng ?? null,
-        address: geo?.address ?? null,
+        lat,
+        lng,
+        address,
         added_by: user.id,
         resource_id: resourceId,
       };

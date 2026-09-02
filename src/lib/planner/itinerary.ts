@@ -22,6 +22,46 @@ export function kindColor(kind: string): string {
   return KIND_OPTIONS.find((k) => k.kind === kind)?.color ?? "#6B655C";
 }
 
+// Google Places "type" strings we actually see, mapped to our own kind
+// taxonomy — first match wins, since a place can carry several types
+// ordered roughly by relevance.
+const GOOGLE_TYPE_TO_KIND: Record<string, PlaceKind> = {
+  restaurant: "Restaurants",
+  meal_takeaway: "Restaurants",
+  meal_delivery: "Restaurants",
+  food: "Restaurants",
+  cafe: "Coffee shops",
+  coffee_shop: "Coffee shops",
+  bakery: "Coffee shops",
+  bar: "Bars",
+  night_club: "Bars",
+  pub: "Bars",
+  wine_bar: "Bars",
+  museum: "Museums",
+  art_gallery: "Museums",
+  tourist_attraction: "Activities",
+  park: "Activities",
+  amusement_park: "Activities",
+  zoo: "Activities",
+  aquarium: "Activities",
+  hiking_area: "Activities",
+  beach: "Activities",
+  stadium: "Activities",
+  movie_theater: "Activities",
+  spa: "Activities",
+  shopping_mall: "Activities",
+};
+
+/** Best-guess kind from Google's place types, or null if nothing maps. */
+export function kindFromGoogleTypes(types: string[] | undefined | null): PlaceKind | null {
+  if (!types) return null;
+  for (const t of types) {
+    const mapped = GOOGLE_TYPE_TO_KIND[t];
+    if (mapped) return mapped;
+  }
+  return null;
+}
+
 /**
  * Deterministic pseudo-random position for a map pin, kept away from the
  * very edge (8–92%) so pins never clip the frame. There's no real geocoding

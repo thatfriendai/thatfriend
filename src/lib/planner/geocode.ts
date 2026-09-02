@@ -4,6 +4,7 @@ export interface GeocodeResult {
   lat: number;
   lng: number;
   address: string;
+  types: string[];
 }
 
 /**
@@ -23,7 +24,7 @@ export async function geocodePlace(query: string): Promise<GeocodeResult | null>
       headers: {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": apiKey,
-        "X-Goog-FieldMask": "places.location,places.formattedAddress",
+        "X-Goog-FieldMask": "places.location,places.formattedAddress,places.types",
       },
       body: JSON.stringify({ textQuery: query, pageSize: 1 }),
     });
@@ -37,6 +38,7 @@ export async function geocodePlace(query: string): Promise<GeocodeResult | null>
       lat: place.location.latitude,
       lng: place.location.longitude,
       address: place.formattedAddress ?? "",
+      types: Array.isArray(place.types) ? place.types : [],
     };
   } catch {
     return null;

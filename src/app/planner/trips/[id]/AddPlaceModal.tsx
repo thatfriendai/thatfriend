@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { KIND_OPTIONS, formatDayLabel } from "@/lib/planner/itinerary";
+import { KIND_OPTIONS, formatDayLabel, kindFromGoogleTypes } from "@/lib/planner/itinerary";
 import { PlaceSearch, type SelectedPlace } from "@/components/PlaceSearch";
 import type { PlaceKind, PlannerDay, PlannerPlace } from "@/lib/supabase/planner-types";
 
@@ -13,6 +13,9 @@ interface Candidate {
   note: string;
   include: boolean;
   day_id: string;
+  lat?: number;
+  lng?: number;
+  address?: string;
 }
 
 const SOURCES: { key: Step; label: string; hint: string }[] = [
@@ -206,7 +209,15 @@ export function AddPlaceModal({
   async function confirmCandidates() {
     const chosen = candidates
       .filter((c) => c.include)
-      .map((c) => ({ name: c.name, kind: c.kind, note: c.note, day_id: c.day_id || undefined }));
+      .map((c) => ({
+        name: c.name,
+        kind: c.kind,
+        note: c.note,
+        day_id: c.day_id || undefined,
+        lat: c.lat,
+        lng: c.lng,
+        address: c.address,
+      }));
     if (chosen.length === 0 || !resourceId) return;
 
     setConfirming(true);
@@ -236,6 +247,8 @@ export function AddPlaceModal({
   function updateSelectedPlace(p: SelectedPlace | null) {
     setSelectedPlace(p);
     setForceDuplicate(false);
+    const mapped = p?.category ? kindFromGoogleTypes([p.category]) : null;
+    if (mapped) setKind(mapped);
   }
 
   const manualDuplicate = findDuplicate(
