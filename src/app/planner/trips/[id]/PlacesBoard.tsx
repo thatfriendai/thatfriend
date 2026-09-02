@@ -146,6 +146,7 @@ export function PlacesBoard({
         tripId={tripId}
         days={days}
         googleMapsApiKey={googleMapsApiKey}
+        existingPlaces={places}
         open={addOpen}
         onClose={() => setAddOpen(false)}
         onCreated={(place) =>
