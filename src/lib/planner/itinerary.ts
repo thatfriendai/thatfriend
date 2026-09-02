@@ -11,6 +11,7 @@ export const DAY_COLORS = [
 
 export const KIND_OPTIONS: { kind: PlaceKind; color: string }[] = [
   { kind: "Restaurants", color: "#B4664A" },
+  { kind: "Coffee shops", color: "#6F4E37" },
   { kind: "Bars", color: "#8A5A7A" },
   { kind: "Museums", color: "#3F6E7A" },
   { kind: "Activities", color: "#C9A227" },

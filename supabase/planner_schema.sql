@@ -145,7 +145,7 @@ create table if not exists planner_places (
   trip_id uuid not null references planner_trips (id) on delete cascade,
   day_id uuid references planner_days (id) on delete set null,
   name text not null,
-  kind text not null check (kind in ('Restaurants', 'Bars', 'Museums', 'Activities', 'Other')),
+  kind text not null check (kind in ('Restaurants', 'Coffee shops', 'Bars', 'Museums', 'Activities', 'Other')),
   note text,
   map_x numeric not null,
   map_y numeric not null,
@@ -161,6 +161,13 @@ create index if not exists planner_places_trip_idx on planner_places (trip_id);
 alter table planner_places add column if not exists lat double precision;
 alter table planner_places add column if not exists lng double precision;
 alter table planner_places add column if not exists address text;
+
+-- Widens the kind check for tables created before "Coffee shops" existed —
+-- drop-then-recreate is the only way to alter a check constraint's allowed
+-- values, safe to re-run since it doesn't touch any data.
+alter table planner_places drop constraint if exists planner_places_kind_check;
+alter table planner_places add constraint planner_places_kind_check
+  check (kind in ('Restaurants', 'Coffee shops', 'Bars', 'Museums', 'Activities', 'Other'));
 
 -- ---------------------------------------------------------------------------
 -- planner_resources — Phase 4. Where a batch of places came from: a pasted

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { KIND_OPTIONS } from "@/lib/planner/itinerary";
 import { AddPlaceModal } from "./AddPlaceModal";
 import { PlaceMapView } from "@/components/planner/PlaceMapView";
+import { PlaceKindTile } from "@/components/planner/PlaceKindIcon";
 import type { PlannerDay, PlannerPlace } from "@/lib/supabase/planner-types";
 
 type PlaceWithWho = PlannerPlace & { who: string; sourceLabel: string | null };
@@ -82,13 +83,7 @@ export function PlacesBoard({
                           boxShadow: on ? "0 1px 3px rgba(27,25,23,0.06)" : "none",
                         }}
                       >
-                        <div
-                          className="h-13.5 w-13.5 flex-none rounded-lg border border-[#EDE8DD]"
-                          style={{
-                            backgroundImage:
-                              "repeating-linear-gradient(135deg, #F2EEE5 0 7px, #FFFDF9 7px 14px)",
-                          }}
-                        />
+                        <PlaceKindTile kind={p.kind} size={54} />
                         <div className="min-w-0">
                           <div className="text-[15px] font-medium text-[#2B2825]">{p.name}</div>
                           {p.note && (

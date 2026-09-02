@@ -1,9 +1,18 @@
 import "server-only";
 
+// Google Maps place pages are 100% client-JS-rendered — fetching one
+// returns an "enable JavaScript" shell with no place info anywhere, not
+// even in meta tags. But the place name is right there in the URL path
+// (`/maps/place/Time+Out+Market+Lisboa/@lat,lng,zoom`), and short links
+// (maps.app.goo.gl/...) redirect to that same pattern, which `fetch`
+// follows by default — so pull the name from the resolved URL instead of
+// trying to scrape the page.
+const MAPS_PLACE_RE = /\/maps\/place\/([^/@]+)/;
+
 /**
  * Best-effort "read this link" for place extraction — no headless browser,
- * so JS-rendered pages will come back thin. Good enough for blog posts,
- * articles, and most Google Maps share pages, which is the common case.
+ * so JS-rendered pages will come back thin. Good enough for blog posts and
+ * articles; Google Maps links are handled separately via the URL itself.
  */
 export async function fetchPageText(
   url: string
@@ -25,6 +34,12 @@ export async function fetchPageText(
       },
     });
     if (!res.ok) return null;
+
+    const mapsMatch = (res.url || parsed.toString()).match(MAPS_PLACE_RE);
+    if (mapsMatch) {
+      const name = decodeURIComponent(mapsMatch[1].replace(/\+/g, " ")).trim();
+      if (name) return { text: `Place: ${name}`, label: name.slice(0, 80) };
+    }
 
     const html = await res.text();
     const text = html
