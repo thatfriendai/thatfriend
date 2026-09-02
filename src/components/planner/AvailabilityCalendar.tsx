@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 const WEEKDAYS = ["M", "T", "W", "T", "F", "S", "S"];
 
@@ -37,10 +37,54 @@ export function AvailabilityCalendar({
   const today = new Date();
   const [anchor, setAnchor] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const marked = useMemo(() => new Set(value), [value]);
+  // Mutated synchronously for the life of one drag gesture, independent of
+  // React's render/batching timing — reading `value` (a prop) mid-drag would
+  // race rapid-fire mouseenter events against React's async state updates
+  // and silently drop cells when several land in the same batch.
+  const dragSetRef = useRef<Set<string> | null>(null);
+  const dragModeRef = useRef<"add" | "remove" | null>(null);
 
-  function toggle(iso: string) {
-    if (marked.has(iso)) onChange(value.filter((d) => d !== iso));
-    else onChange([...value, iso]);
+  useEffect(() => {
+    function endDrag() {
+      dragModeRef.current = null;
+      dragSetRef.current = null;
+    }
+    window.addEventListener("mouseup", endDrag);
+    window.addEventListener("touchend", endDrag);
+    return () => {
+      window.removeEventListener("mouseup", endDrag);
+      window.removeEventListener("touchend", endDrag);
+    };
+  }, []);
+
+  function applyDrag(iso: string) {
+    const mode = dragModeRef.current;
+    const set = dragSetRef.current;
+    if (!mode || !set) return;
+    const has = set.has(iso);
+    if (mode === "add" && !has) {
+      set.add(iso);
+      onChange(Array.from(set));
+    }
+    if (mode === "remove" && has) {
+      set.delete(iso);
+      onChange(Array.from(set));
+    }
+  }
+
+  function startDrag(iso: string) {
+    const set = new Set(value);
+    dragModeRef.current = set.has(iso) ? "remove" : "add";
+    dragSetRef.current = set;
+    applyDrag(iso);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    if (!dragModeRef.current) return;
+    const touch = e.touches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const iso = el?.getAttribute("data-iso");
+    if (iso) applyDrag(iso);
   }
 
   function shift(delta: number) {
@@ -95,8 +139,18 @@ export function AvailabilityCalendar({
                   <button
                     key={i}
                     type="button"
-                    onClick={() => toggle(iso)}
-                    className={`mx-auto flex h-7 w-7 items-center justify-center rounded-md text-[12.5px] transition-colors ${
+                    data-iso={iso}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      startDrag(iso);
+                    }}
+                    onMouseEnter={() => applyDrag(iso)}
+                    onTouchStart={(e) => {
+                      e.preventDefault();
+                      startDrag(iso);
+                    }}
+                    onTouchMove={handleTouchMove}
+                    className={`mx-auto flex h-7 w-7 touch-none items-center justify-center rounded-md text-[12.5px] transition-colors select-none ${
                       on
                         ? "bg-accent text-cream"
                         : "text-ink-soft hover:bg-border-soft"
