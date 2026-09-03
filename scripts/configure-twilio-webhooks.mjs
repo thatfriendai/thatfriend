@@ -57,7 +57,7 @@ async function main() {
     throw new Error("No Conversations Service found on this account.");
   }
   const service = services[0];
-  await client.conversations.v1.services(service.sid).configuration.webhooks.update({
+  await client.conversations.v1.services(service.sid).configuration.webhooks().update({
     postWebhookUrl: `${baseUrl}/api/v2/twilio/conversation`,
     method: "POST",
     filters: ["onMessageAdded"],
