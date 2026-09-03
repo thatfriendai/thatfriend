@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSessionForPhone } from "@/lib/planner/phoneSession";
+import { addParticipantToConversation } from "@/lib/twilio/conversations";
+import { toE164 } from "@/lib/planner/phone";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -73,6 +75,19 @@ export async function POST(request: Request) {
           { onConflict: "trip_id,user_id", ignoreDuplicates: true }
         );
       await admin.from("planner_invites").update({ accepted_by: plannerUserId }).eq("id", invite.id);
+
+      const { data: invitedTrip } = await admin
+        .from("planner_trips")
+        .select("twilio_conversation_sid")
+        .eq("id", invite.trip_id)
+        .maybeSingle();
+      if (invitedTrip?.twilio_conversation_sid) {
+        await addParticipantToConversation(invitedTrip.twilio_conversation_sid, toE164(phone)).catch(
+          () => {
+            // Best-effort — they can still be synced into the group thread later.
+          }
+        );
+      }
 
       return NextResponse.json({ redirect: `/planner/trips/${invite.trip_id}/preferences` });
     }

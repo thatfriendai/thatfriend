@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendWhatsAppText, downloadWhatsAppMedia } from "@/lib/meta/client";
 import { normalizePhoneDigits } from "@/lib/planner/phone";
+import { findPlannerUserByPhone } from "@/lib/planner/plannerUser";
 import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib/planner/whatsappResource";
 
 /** Meta's webhook subscription handshake — echoes hub.challenge back once the verify token matches. */
@@ -38,15 +39,6 @@ function extractMessages(payload: unknown): IncomingMessage[] {
     }
   }
   return messages;
-}
-
-async function findPlannerUserByPhone(admin: ReturnType<typeof createAdminClient>, fromDigits: string) {
-  const { data: candidates } = await admin
-    .from("planner_users")
-    .select("id, phone")
-    .not("phone", "is", null);
-
-  return (candidates ?? []).find((c) => normalizePhoneDigits(c.phone as string) === fromDigits) ?? null;
 }
 
 async function replyTo(to: string, body: string) {

@@ -2,8 +2,8 @@ import { randomInt } from "crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { sendWhatsAppText } from "@/lib/meta/client";
-import { normalizePhoneDigits } from "@/lib/planner/phone";
+import { sendSmsText } from "@/lib/twilio/send";
+import { toE164 } from "@/lib/planner/phone";
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 
@@ -33,13 +33,13 @@ export async function POST(request: Request) {
     }
 
     try {
-      await sendWhatsAppText(
-        normalizePhoneDigits(phone),
+      await sendSmsText(
+        toE164(phone),
         `Your That Friend sign-in code is ${code}. It expires in 10 minutes.`
       );
     } catch (e) {
       return NextResponse.json(
-        { error: e instanceof Error ? e.message : "Could not send the WhatsApp code." },
+        { error: e instanceof Error ? e.message : "Could not send the sign-in code." },
         { status: 502 }
       );
     }

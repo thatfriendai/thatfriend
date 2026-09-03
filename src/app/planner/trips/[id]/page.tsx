@@ -7,6 +7,7 @@ import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
 import { DecisionsSection } from "./decisions/DecisionsSection";
 import { NudgeButton } from "./NudgeButton";
+import { StartGroupText } from "./StartGroupText";
 import { ensureDays } from "@/lib/planner/days";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
@@ -259,7 +260,8 @@ export default async function PlannerTripPage({
               </div>
             ))}
           </div>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-col gap-3">
+            <StartGroupText tripId={id} started={Boolean(trip.twilio_conversation_sid)} />
             <NudgeButton tripId={id} />
           </div>
         </div>

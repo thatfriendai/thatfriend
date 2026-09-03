@@ -33,6 +33,7 @@ export interface PlannerTrip {
   dates_flagged_at: string | null;
   dates_flag_note: string | null;
   share_token: string | null;
+  twilio_conversation_sid: string | null;
 }
 
 export interface PlannerMembership {

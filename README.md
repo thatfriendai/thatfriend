@@ -80,6 +80,39 @@ The webhook verifies every incoming request's Twilio signature against
 what's configured in Twilio (e.g. behind a different tunnel or proxy),
 requests get rejected as invalid rather than silently processed.
 
+### 4b. Twilio SMS/MMS (v2 planner) — optional
+
+The newer `/planner` app (`supabase/planner_schema.sql`) uses a real SMS/MMS
+number instead of WhatsApp: text/forward a link, note, or photo and it gets
+added to your trip's map; That Friend can also join a group text and post
+nudges into it. This needs a number you actually own — **not** the WhatsApp
+sandbox number from section 4, which can't send or receive plain SMS at all.
+
+1. In the Twilio console, buy a phone number with **SMS** and **MMS**
+   capability (Phone Numbers → Buy a number).
+2. Create a **Messaging Service** (Messaging → Services) and add that number
+   to it. Copy the service's SID (`MGxxxxxxxx…`).
+3. Set the number's **inbound webhook** ("A message comes in", under the
+   number's Messaging Configuration) to `https://<your-domain>/api/v2/twilio`,
+   method **POST**. Same `ngrok`-for-localhost caveat as section 4.
+4. In **Conversations → Services**, use the default service (or create one),
+   then under its **Webhooks** settings set the **Post-Event URL** for the
+   `onMessageAdded` event to `https://<your-domain>/api/v2/twilio/conversation`.
+5. Put the number (E.164, e.g. `+14155551234`) and the Messaging Service SID
+   in `.env.local` as `TWILIO_SMS_NUMBER` / `TWILIO_MESSAGING_SERVICE_SID` —
+   reuses the same `TWILIO_ACCOUNT_SID`/`TWILIO_AUTH_TOKEN` from section 4.
+6. Run the new column from `supabase/planner_schema.sql`
+   (`planner_trips.twilio_conversation_sid`) in the Supabase SQL Editor if
+   you already ran that file before this change.
+
+**Before relying on this at any real volume**, register an A2P 10DLC brand
+and campaign for the number (Messaging → Regulatory Compliance) — US
+carriers throttle or filter unregistered application traffic from local
+numbers. Low-volume testing between a handful of known numbers typically
+still goes through unregistered, but don't ship on that assumption. Brand
+registration needs a real business EIN/mobile contact — a wrong contact
+number is a common rejection reason.
+
 ### 5. Environment variables
 
 Copy the example file and fill in the values from the steps above:
@@ -97,8 +130,10 @@ cp .env.local.example .env.local
 | `ANTHROPIC_API_KEY` | Preference extraction |
 | `NEXT_PUBLIC_SITE_URL` | Builds the Google OAuth redirect URL |
 | `TWILIO_ACCOUNT_SID` / `TWILIO_AUTH_TOKEN` | Sending nudges + verifying inbound webhook signatures |
-| `TWILIO_WHATSAPP_NUMBER` | The `whatsapp:+1...` sender Twilio gave you |
-| `NEXT_PUBLIC_WHATSAPP_DISPLAY_NUMBER` | Human-readable form shown in the UI |
+| `TWILIO_WHATSAPP_NUMBER` | v1: the `whatsapp:+1...` sender Twilio gave you |
+| `NEXT_PUBLIC_WHATSAPP_DISPLAY_NUMBER` | v1: human-readable form shown in the UI |
+| `TWILIO_SMS_NUMBER` | v2 planner: real SMS/MMS number, E.164 (`+1...`) |
+| `TWILIO_MESSAGING_SERVICE_SID` | v2 planner: Messaging Service that number belongs to |
 
 `.env.local` is gitignored — it never gets committed.
 

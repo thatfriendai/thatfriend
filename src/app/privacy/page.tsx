@@ -12,7 +12,8 @@ const sections = [
   { id: "pp-08", title: "Minors and family/friend accounts" },
   { id: "pp-09", title: "International use" },
   { id: "pp-10", title: "Changes to this policy" },
-  { id: "pp-11", title: "Contact us" },
+  { id: "pp-11", title: "Text messaging (SMS)" },
+  { id: "pp-12", title: "Contact us" },
 ];
 
 function Section({
@@ -324,9 +325,29 @@ export default function PrivacyPage() {
           </p>
         </Section>
 
-        <div id="pp-11" className="scroll-mt-24 pt-10">
+        <Section n="11" id="pp-11" title="Text messaging (SMS)">
+          <p>
+            If you provide a mobile phone number, we use it to send you text
+            messages related to the app: a one-time code to sign in, a
+            confirmation when a link, note, or photo you forward gets added
+            to your trip, and reminders about a trip you're part of.
+          </p>
+          <p>
+            <strong className="text-ink">We do not share or sell your
+            mobile phone number</strong> to third parties for their own
+            marketing or promotional purposes.
+          </p>
+          <p>
+            Message frequency varies with how active your trips are, and
+            is typically a handful of messages per trip. Message and data
+            rates may apply. Reply STOP at any time to stop receiving texts,
+            or HELP for help.
+          </p>
+        </Section>
+
+        <div id="pp-12" className="scroll-mt-24 pt-10">
           <div className="mb-5 flex items-baseline gap-3.5">
-            <span className="font-mono text-[11px] text-accent">11</span>
+            <span className="font-mono text-[11px] text-accent">12</span>
             <h2 className="text-3xl font-display tracking-tight text-ink">
               Contact us
             </h2>

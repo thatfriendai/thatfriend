@@ -302,6 +302,12 @@ alter table planner_trips add column if not exists dates_flagged_at timestamptz;
 alter table planner_trips add column if not exists dates_flag_note text;
 alter table planner_trips add column if not exists share_token text unique;
 
+-- planner_trips.twilio_conversation_sid — the trip's group SMS/MMS thread
+-- (Twilio Conversations). Null until someone starts it; Twilio is the
+-- source of truth for who's actually in the group, this just remembers
+-- which Conversation belongs to which trip.
+alter table planner_trips add column if not exists twilio_conversation_sid text unique;
+
 -- ---------------------------------------------------------------------------
 -- planner_item_ratings — Phase 7. Star rating + short note a member leaves
 -- on an itinerary line item after the trip. Multiple people can rate the

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
+import { addParticipantToConversation } from "@/lib/twilio/conversations";
+import { toE164 } from "@/lib/planner/phone";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -55,6 +57,22 @@ export async function GET(request: Request) {
         .from("planner_invites")
         .update({ accepted_by: plannerUser.id })
         .eq("id", invite.id);
+
+      if (plannerUser.phone) {
+        const { data: invitedTrip } = await admin
+          .from("planner_trips")
+          .select("twilio_conversation_sid")
+          .eq("id", invite.trip_id)
+          .maybeSingle();
+        if (invitedTrip?.twilio_conversation_sid) {
+          await addParticipantToConversation(
+            invitedTrip.twilio_conversation_sid,
+            toE164(plannerUser.phone)
+          ).catch(() => {
+            // Best-effort — they can still be synced into the group thread later.
+          });
+        }
+      }
 
       return NextResponse.redirect(`${origin}/planner/trips/${invite.trip_id}/preferences`);
     }
