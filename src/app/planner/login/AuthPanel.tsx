@@ -144,7 +144,7 @@ export function AuthPanel({ token }: { token?: string }) {
     return (
       <form onSubmit={verifyCode}>
         <p className="mb-3.5 text-[15px] text-ink-soft">
-          Texted a 6-digit code to {cred} on WhatsApp — enter it below.
+          Texted a 6-digit code to {cred} — enter it below.
         </p>
         <input
           value={codeInput}

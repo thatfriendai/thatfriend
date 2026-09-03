@@ -3,6 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createSessionForPhone } from "@/lib/planner/phoneSession";
 import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { toE164 } from "@/lib/planner/phone";
+import { getPlannerUser } from "@/lib/planner/session";
+import { mergePlannerUsers } from "@/lib/planner/plannerUser";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -27,6 +29,29 @@ export async function POST(request: Request) {
   }
 
   await admin.from("planner_whatsapp_codes").delete().eq("id", codeRow.id);
+
+  // Already signed in (e.g. linking a phone from the profile page) —
+  // attach this phone to the current account instead of creating a
+  // second, disconnected one and swapping out the active session.
+  const currentUser = await getPlannerUser();
+  if (currentUser) {
+    const { data: staleAccount } = await admin
+      .from("planner_users")
+      .select("id, auth_user_id")
+      .eq("phone", phone)
+      .maybeSingle();
+
+    if (staleAccount && staleAccount.id !== currentUser.id) {
+      await mergePlannerUsers(admin, staleAccount.id, currentUser.id, staleAccount.auth_user_id);
+    }
+
+    await admin
+      .from("planner_users")
+      .update({ phone, whatsapp_opt_in: true })
+      .eq("id", currentUser.id);
+
+    return NextResponse.json({ ok: true });
+  }
 
   const { data: existing } = await admin
     .from("planner_users")
