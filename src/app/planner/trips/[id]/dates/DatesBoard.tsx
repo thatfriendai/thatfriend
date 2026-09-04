@@ -97,6 +97,9 @@ export function DatesBoard({
   const [flagDraft, setFlagDraft] = useState("");
   const [flagging, setFlagging] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showManual, setShowManual] = useState(false);
+  const [manualStart, setManualStart] = useState("");
+  const [manualEnd, setManualEnd] = useState("");
 
   const months = useMemo(() => buildHeatmapMonths(coverage), [coverage]);
   const answeredCount = answered.filter((a) => a.answeredAt).length;
@@ -126,6 +129,23 @@ export function DatesBoard({
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ start_date: proposal.start_date, end_date: proposal.end_date }),
+    });
+    setLocking(false);
+    if (!res.ok) {
+      setError("Could not lock these dates.");
+      return;
+    }
+    router.refresh();
+  }
+
+  async function lockManual() {
+    if (!manualStart || !manualEnd) return;
+    setLocking(true);
+    setError(null);
+    const res = await fetch(`/api/v2/trips/${tripId}/dates/lock`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ start_date: manualStart, end_date: manualEnd }),
     });
     setLocking(false);
     if (!res.ok) {
@@ -202,6 +222,58 @@ export function DatesBoard({
             people have answered, the best stretch proposes itself.
           </p>
         </>
+      )}
+
+      {!datesLockedAt && isOwner && (
+        <div className="mb-10">
+          {!showManual ? (
+            <button
+              type="button"
+              onClick={() => setShowManual(true)}
+              className="text-[13.5px] text-muted underline hover:text-accent"
+            >
+              Already confirmed your dates elsewhere? Skip collecting availability
+            </button>
+          ) : (
+            <div className="rounded-2xl border border-border bg-card p-6.5">
+              <p className="mb-3.5 text-[15px] text-body">
+                Enter the dates you&rsquo;ve already settled on — no need to
+                wait for everyone to mark their availability.
+              </p>
+              <div className="flex flex-wrap items-center gap-3">
+                <input
+                  type="date"
+                  value={manualStart}
+                  onChange={(e) => setManualStart(e.target.value)}
+                  className="rounded-full border border-input-border bg-cream px-4 py-2 text-[14.5px] text-ink outline-none focus:border-ink"
+                />
+                <span className="text-muted">to</span>
+                <input
+                  type="date"
+                  value={manualEnd}
+                  onChange={(e) => setManualEnd(e.target.value)}
+                  min={manualStart || undefined}
+                  className="rounded-full border border-input-border bg-cream px-4 py-2 text-[14.5px] text-ink outline-none focus:border-ink"
+                />
+                <button
+                  type="button"
+                  onClick={lockManual}
+                  disabled={locking || !manualStart || !manualEnd}
+                  className="rounded-full bg-ink px-5.5 py-2.5 text-[14.5px] text-cream hover:bg-accent disabled:opacity-50"
+                >
+                  {locking ? "Locking…" : "Lock these dates"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowManual(false)}
+                  className="text-[13.5px] text-muted hover:text-ink"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
       )}
 
       {!datesLockedAt && proposal && (
