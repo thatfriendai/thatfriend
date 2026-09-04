@@ -306,6 +306,14 @@ export default async function Home() {
             <Link href="/terms" className="hover:text-accent">
               Terms
             </Link>
+            <a
+              href="https://substack.com/@thatfriendapp"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-accent"
+            >
+              Substack
+            </a>
           </div>
         </div>
       </footer>
