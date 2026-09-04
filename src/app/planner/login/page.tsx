@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { AuthPanel } from "./AuthPanel";
 import { TripPreviewCard } from "@/components/TripPreviewCard";
 
@@ -25,6 +26,21 @@ export default async function PlannerLoginPage({
           <AuthPanel token={token} />
           <p className="mt-6 text-[13px] text-faint">
             Invited by a friend? Use the same email they sent the link to.
+          </p>
+          <p className="mt-4 text-[12.5px] leading-relaxed text-faint">
+            By entering your phone number, you agree to receive automated
+            text messages from That Friend — sign-in codes, confirmations
+            when something you forward gets added to a trip, and trip
+            reminders. Message frequency varies. Message and data rates may
+            apply. Reply STOP to opt out, HELP for help. See our{" "}
+            <Link href="/privacy" className="underline hover:text-accent">
+              Privacy Policy
+            </Link>{" "}
+            and{" "}
+            <Link href="/terms" className="underline hover:text-accent">
+              Terms &amp; Conditions
+            </Link>
+            .
           </p>
         </div>
       </div>

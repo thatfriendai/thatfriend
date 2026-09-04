@@ -330,7 +330,7 @@ export default function PrivacyPage() {
             If you provide a mobile phone number, we use it to send you text
             messages related to the app: a one-time code to sign in, a
             confirmation when a link, note, or photo you forward gets added
-            to your trip, and reminders about a trip you're part of.
+            to your trip, and reminders about a trip you&rsquo;re part of.
           </p>
           <p>
             <strong className="text-ink">We do not share or sell your
@@ -377,6 +377,9 @@ export default function PrivacyPage() {
             </Link>
             <Link href="/privacy" className="hover:text-accent">
               Privacy
+            </Link>
+            <Link href="/terms" className="hover:text-accent">
+              Terms
             </Link>
           </div>
         </div>
