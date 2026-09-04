@@ -303,7 +303,11 @@ export default async function PlannerTripPage({
             )}
           </div>
           {daysWithItems.length > 0 ? (
-            <ItineraryBoard tripId={id} days={daysWithItems} />
+            <ItineraryBoard
+              tripId={id}
+              days={daysWithItems}
+              hasUnscheduledPlaces={places.some((p) => !p.day_id)}
+            />
           ) : (
             <div className="mb-14 rounded-2xl border border-dashed border-input-border p-7 text-center">
               <p className="mb-1.5 font-display text-xl text-ink">No dates yet</p>
