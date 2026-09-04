@@ -8,6 +8,7 @@ import { PlacesBoard } from "./PlacesBoard";
 import { DecisionsSection } from "./decisions/DecisionsSection";
 import { NudgeButton } from "./NudgeButton";
 import { StartGroupText } from "./StartGroupText";
+import { PreferencesSkipControl } from "./PreferencesSkipControl";
 import { ensureDays } from "@/lib/planner/days";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
@@ -266,7 +267,11 @@ export default async function PlannerTripPage({
           </div>
         </div>
 
-        {!myPref && (
+        {trip.preferences_skipped_at && membership.role === "owner" && (
+          <PreferencesSkipControl tripId={id} skipped />
+        )}
+
+        {!myPref && !trip.preferences_skipped_at && (
           <div className="mb-8 flex items-center justify-between gap-6 rounded-2xl border border-warm-border bg-warm-bg p-6.5">
             <div>
               <p className="mb-1.5 text-xl font-display text-ink">
@@ -276,6 +281,7 @@ export default async function PlannerTripPage({
                 Four quick questions — budget, pace, and the one thing you
                 wouldn&rsquo;t compromise on.
               </p>
+              {membership.role === "owner" && <PreferencesSkipControl tripId={id} skipped={false} />}
             </div>
             <Link
               href={`/planner/trips/${id}/preferences`}

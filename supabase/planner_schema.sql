@@ -308,6 +308,14 @@ alter table planner_trips add column if not exists share_token text unique;
 -- which Conversation belongs to which trip.
 alter table planner_trips add column if not exists twilio_conversation_sid text unique;
 
+-- planner_trips.preferences_skipped_at/_by — lets the owner bypass
+-- collecting everyone's preferences when the group has already decided
+-- the essentials (an Airbnb, a location) outside the app. Owner-only,
+-- reversible (undoing just clears both columns) — same shape as the
+-- dates_flagged_by/_at pair above.
+alter table planner_trips add column if not exists preferences_skipped_at timestamptz;
+alter table planner_trips add column if not exists preferences_skipped_by uuid references planner_users (id) on delete set null;
+
 -- ---------------------------------------------------------------------------
 -- planner_item_ratings — Phase 7. Star rating + short note a member leaves
 -- on an itinerary line item after the trip. Multiple people can rate the

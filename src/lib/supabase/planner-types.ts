@@ -34,6 +34,8 @@ export interface PlannerTrip {
   dates_flag_note: string | null;
   share_token: string | null;
   twilio_conversation_sid: string | null;
+  preferences_skipped_at: string | null;
+  preferences_skipped_by: string | null;
 }
 
 export interface PlannerMembership {
