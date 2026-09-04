@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { LodgingMatrix } from "./LodgingMatrix";
 import type {
   PlannerDecision,
   PlannerDecisionNote,
@@ -36,7 +37,7 @@ export function DecisionDetail({
   tripId,
   decisionId,
   initialDecision,
-  options,
+  options: initialOptions,
   myVoteOptionId,
   myLabel,
   totalMembers,
@@ -54,9 +55,10 @@ export function DecisionDetail({
   notes: NoteWithWho[];
 }) {
   const [decision, setDecision] = useState(initialDecision);
+  const [options, setOptions] = useState(initialOptions);
   const [myVote, setMyVote] = useState(myVoteOptionId);
   const [optionVotes, setOptionVotes] = useState(
-    Object.fromEntries(options.map((o) => [o.id, o.voters]))
+    Object.fromEntries(initialOptions.map((o) => [o.id, o.voters]))
   );
   const [waitingOn, setWaitingOn] = useState(initialWaitingOn);
   const [voting, setVoting] = useState(false);
@@ -97,6 +99,11 @@ export function DecisionDetail({
       });
       if (!previous) setWaitingOn((list) => [...list, myLabel]);
     }
+  }
+
+  function addOption(option: PlannerDecisionOption) {
+    setOptions((list) => [...list, { ...option, voters: [] }]);
+    setOptionVotes((v) => ({ ...v, [option.id]: [] }));
   }
 
   async function closeDecision() {
@@ -147,6 +154,21 @@ export function DecisionDetail({
         <p className="mb-9 max-w-[36em] text-[16.5px] leading-relaxed text-body">{decision.why}</p>
       )}
 
+      {decision.kind === "lodging" ? (
+        <LodgingMatrix
+          tripId={tripId}
+          decisionId={decisionId}
+          options={options}
+          optionVotes={optionVotes}
+          myVote={myVote}
+          isOpen={isOpen}
+          decidedOptionId={decision.decided_option_id}
+          totalMembers={totalMembers}
+          voting={voting}
+          onVote={castVote}
+          onOptionAdded={addOption}
+        />
+      ) : (
       <div className="mb-8.5 flex flex-wrap gap-4">
         {options.map((o) => {
           const voters = optionVotes[o.id] ?? [];
@@ -229,6 +251,7 @@ export function DecisionDetail({
           );
         })}
       </div>
+      )}
 
       <div className="grid grid-cols-1 items-start gap-10 lg:grid-cols-[minmax(300px,1.5fr)_minmax(220px,0.85fr)]">
         <div>

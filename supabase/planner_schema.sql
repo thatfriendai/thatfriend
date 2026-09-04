@@ -348,6 +348,51 @@ create table if not exists planner_trip_reviews (
 );
 
 -- ---------------------------------------------------------------------------
+-- Phase 8 — public profiles & friends (the "trip shelf"). A follow is
+-- one-directional so "friends" (mutual follows) can be computed without a
+-- separate concept; auto-friending on trip join just inserts both
+-- directions at once. username is nullable — auto-slugged on first
+-- profile visit, not required to sign up.
+-- ---------------------------------------------------------------------------
+alter table planner_users add column if not exists username text unique;
+alter table planner_users add column if not exists tagline text;
+alter table planner_trips add column if not exists is_public boolean not null default false;
+
+create table if not exists planner_follows (
+  follower_id uuid not null references planner_users (id) on delete cascade,
+  followee_id uuid not null references planner_users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (follower_id, followee_id),
+  check (follower_id <> followee_id)
+);
+
+create index if not exists planner_follows_followee_idx on planner_follows (followee_id);
+
+-- ---------------------------------------------------------------------------
+-- Phase 8 — lodging comparison matrix. Extends planner_decisions/_options
+-- rather than a new table: a lodging decision is still a Decision, just
+-- one with `kind = 'lodging'` and its options carrying structured fields
+-- alongside (not instead of) the existing free-text sub/cost/fors/against.
+-- amenities is [{label, available}] — flexible per listing type, rendered
+-- as matrix rows in the order given.
+-- ---------------------------------------------------------------------------
+alter table planner_decisions add column if not exists kind text not null default 'general'
+  check (kind in ('general', 'lodging'));
+
+alter table planner_decision_options add column if not exists option_type text;
+alter table planner_decision_options add column if not exists price_per_person_night numeric;
+alter table planner_decision_options add column if not exists total_price numeric;
+alter table planner_decision_options add column if not exists bedrooms integer;
+alter table planner_decision_options add column if not exists bathrooms integer;
+alter table planner_decision_options add column if not exists sharing_note text;
+alter table planner_decision_options add column if not exists amenities jsonb not null default '[]';
+alter table planner_decision_options add column if not exists neighborhood text;
+alter table planner_decision_options add column if not exists location_note text;
+alter table planner_decision_options add column if not exists lat double precision;
+alter table planner_decision_options add column if not exists lng double precision;
+alter table planner_decision_options add column if not exists source_url text;
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to
@@ -370,10 +415,12 @@ alter table planner_whatsapp_codes enable row level security;
 alter table planner_availability_marks enable row level security;
 alter table planner_item_ratings enable row level security;
 alter table planner_trip_reviews enable row level security;
+alter table planner_follows enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant all on planner_users, planner_trips, planner_memberships, planner_invites, planner_preferences,
   planner_days, planner_itinerary_items, planner_places, planner_resources,
   planner_decisions, planner_decision_options, planner_decision_votes, planner_decision_notes,
-  planner_whatsapp_codes, planner_availability_marks, planner_item_ratings, planner_trip_reviews
+  planner_whatsapp_codes, planner_availability_marks, planner_item_ratings, planner_trip_reviews,
+  planner_follows
   to anon, authenticated, service_role;

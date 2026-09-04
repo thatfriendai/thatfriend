@@ -25,6 +25,7 @@ export function NewDecisionModal({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const [kind, setKind] = useState<"general" | "lodging">("general");
   const [title, setTitle] = useState("");
   const [why, setWhy] = useState("");
   const [options, setOptions] = useState<OptionDraft[]>([blankOption(), blankOption()]);
@@ -34,6 +35,7 @@ export function NewDecisionModal({
   if (!open) return null;
 
   function reset() {
+    setKind("general");
     setTitle("");
     setWhy("");
     setOptions([blankOption(), blankOption()]);
@@ -60,7 +62,7 @@ export function NewDecisionModal({
         fors: o.fors || undefined,
         against: o.against || undefined,
       }));
-    if (!title.trim() || cleanOptions.length < 2) {
+    if (!title.trim() || (kind === "general" && cleanOptions.length < 2)) {
       setError("A title and at least two options are required.");
       return;
     }
@@ -70,7 +72,12 @@ export function NewDecisionModal({
     const res = await fetch(`/api/v2/trips/${tripId}/decisions`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title, why, options: cleanOptions }),
+      body: JSON.stringify({
+        title,
+        why,
+        kind,
+        options: kind === "lodging" ? [] : cleanOptions,
+      }),
     });
     const data = await res.json().catch(() => ({}));
     setPending(false);
@@ -125,6 +132,41 @@ export function NewDecisionModal({
             />
           </div>
 
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink">Type</label>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setKind("general")}
+                className={`flex-1 rounded-full border py-2.5 text-center text-sm transition-colors ${
+                  kind === "general"
+                    ? "border-ink bg-[#F0EBE1] text-ink-soft"
+                    : "border-border bg-card text-muted hover:border-ink"
+                }`}
+              >
+                General decision
+              </button>
+              <button
+                type="button"
+                onClick={() => setKind("lodging")}
+                className={`flex-1 rounded-full border py-2.5 text-center text-sm transition-colors ${
+                  kind === "lodging"
+                    ? "border-ink bg-[#F0EBE1] text-ink-soft"
+                    : "border-border bg-card text-muted hover:border-ink"
+                }`}
+              >
+                Where to stay
+              </button>
+            </div>
+            {kind === "lodging" && (
+              <p className="mt-2 text-[13px] leading-relaxed text-muted">
+                A side-by-side comparison table — paste listing links in
+                once this is created and they get compared automatically.
+              </p>
+            )}
+          </div>
+
+          {kind === "general" && (
           <div className="flex flex-col gap-4">
             {options.map((o, i) => (
               <div key={i} className="rounded-xl border border-input-border bg-card p-4">
@@ -190,6 +232,7 @@ export function NewDecisionModal({
               </button>
             )}
           </div>
+          )}
 
           {error && <p className="text-sm text-red-700">{error}</p>}
 
@@ -199,7 +242,7 @@ export function NewDecisionModal({
               disabled={pending}
               className="rounded-full bg-ink px-6.5 py-3 text-[15px] text-cream hover:bg-accent disabled:opacity-50"
             >
-              {pending ? "Starting…" : "Start the vote"}
+              {pending ? "Starting…" : kind === "lodging" ? "Create comparison" : "Start the vote"}
             </button>
           </div>
         </form>

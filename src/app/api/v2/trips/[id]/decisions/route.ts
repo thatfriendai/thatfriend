@@ -43,6 +43,7 @@ export async function POST(
   const body = await request.json().catch(() => ({}));
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 200) : "";
   const why = typeof body.why === "string" ? body.why.trim().slice(0, 1000) : null;
+  const kind = body.kind === "lodging" ? "lodging" : "general";
   const rawOptions: IncomingOption[] = Array.isArray(body.options) ? body.options : [];
   const options = rawOptions
     .filter((o): o is IncomingOption & { label: string } => typeof o.label === "string" && o.label.trim().length > 0)
@@ -55,7 +56,9 @@ export async function POST(
       against: toLines(o.against),
     }));
 
-  if (!title || options.length < 2) {
+  // Lodging decisions start empty — options get pasted in one at a time
+  // afterward, rather than all up front like a general decision.
+  if (!title || (kind === "general" && options.length < 2)) {
     return NextResponse.json(
       { error: "A title and at least two options are required." },
       { status: 400 }
@@ -64,11 +67,15 @@ export async function POST(
 
   const { data: decision, error: decisionError } = await admin
     .from("planner_decisions")
-    .insert({ trip_id: tripId, title, why, created_by: user.id })
+    .insert({ trip_id: tripId, title, why, created_by: user.id, kind })
     .select("*")
     .single();
 
   if (decisionError) return NextResponse.json({ error: decisionError.message }, { status: 500 });
+
+  if (options.length === 0) {
+    return NextResponse.json({ decision, options: [] });
+  }
 
   const { data: createdOptions, error: optionsError } = await admin
     .from("planner_decision_options")

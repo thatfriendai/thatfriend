@@ -6,6 +6,7 @@ export type PlaceKind = "Restaurants" | "Coffee shops" | "Bars" | "Museums" | "A
 export type ResourceType = "link" | "text" | "screenshot";
 export type DecisionStatus = "open" | "closed";
 export type PaceFeedback = "saw_everything" | "about_right" | "not_enough_time" | "too_packed";
+export type DecisionKind = "general" | "lodging";
 
 export interface PlannerUser {
   id: string;
@@ -15,6 +16,19 @@ export interface PlannerUser {
   whatsapp_opt_in: boolean;
   auth_user_id: string | null;
   created_at: string;
+  username: string | null;
+  tagline: string | null;
+}
+
+export interface PlannerFollow {
+  follower_id: string;
+  followee_id: string;
+  created_at: string;
+}
+
+export interface AmenityEntry {
+  label: string;
+  available: boolean;
 }
 
 export interface PlannerTrip {
@@ -36,6 +50,7 @@ export interface PlannerTrip {
   twilio_conversation_sid: string | null;
   preferences_skipped_at: string | null;
   preferences_skipped_by: string | null;
+  is_public: boolean;
 }
 
 export interface PlannerMembership {
@@ -122,6 +137,7 @@ export interface PlannerDecision {
   created_by: string | null;
   created_at: string;
   closed_at: string | null;
+  kind: DecisionKind;
 }
 
 export interface PlannerDecisionOption {
@@ -135,6 +151,18 @@ export interface PlannerDecisionOption {
   against: string[];
   position: number;
   created_at: string;
+  option_type: string | null;
+  price_per_person_night: number | null;
+  total_price: number | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  sharing_note: string | null;
+  amenities: AmenityEntry[];
+  neighborhood: string | null;
+  location_note: string | null;
+  lat: number | null;
+  lng: number | null;
+  source_url: string | null;
 }
 
 export interface PlannerDecisionVote {
