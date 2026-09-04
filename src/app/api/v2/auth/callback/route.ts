@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { toE164 } from "@/lib/planner/phone";
+import { autoFriendTripMembers } from "@/lib/planner/follows";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -57,6 +58,7 @@ export async function GET(request: Request) {
         .from("planner_invites")
         .update({ accepted_by: plannerUser.id })
         .eq("id", invite.id);
+      await autoFriendTripMembers(admin, invite.trip_id, plannerUser.id);
 
       if (plannerUser.phone) {
         const { data: invitedTrip } = await admin

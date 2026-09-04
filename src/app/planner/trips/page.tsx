@@ -153,6 +153,12 @@ export default async function PlannerTripsPage() {
         </span>
         <div className="flex items-center gap-3.5 sm:gap-5">
           <Link
+            href="/planner/friends"
+            className="text-[14.5px] text-body hover:text-accent"
+          >
+            Friends
+          </Link>
+          <Link
             href="/planner/trips/new"
             className="rounded-full bg-ink px-5 py-2.5 text-[14.5px] text-cream hover:bg-accent"
           >

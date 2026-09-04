@@ -5,6 +5,7 @@ import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { toE164 } from "@/lib/planner/phone";
 import { getPlannerUser } from "@/lib/planner/session";
 import { mergePlannerUsers } from "@/lib/planner/plannerUser";
+import { autoFriendTripMembers } from "@/lib/planner/follows";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -100,6 +101,7 @@ export async function POST(request: Request) {
           { onConflict: "trip_id,user_id", ignoreDuplicates: true }
         );
       await admin.from("planner_invites").update({ accepted_by: plannerUserId }).eq("id", invite.id);
+      await autoFriendTripMembers(admin, invite.trip_id, plannerUserId);
 
       const { data: invitedTrip } = await admin
         .from("planner_trips")
