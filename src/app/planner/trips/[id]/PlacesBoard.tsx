@@ -83,7 +83,18 @@ export function PlacesBoard({
                           boxShadow: on ? "0 1px 3px rgba(27,25,23,0.06)" : "none",
                         }}
                       >
-                        <PlaceKindTile kind={p.kind} size={54} />
+                        {p.photo_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={p.photo_url}
+                            alt=""
+                            width={54}
+                            height={54}
+                            className="h-[54px] w-[54px] flex-none rounded-lg border border-border-soft object-cover"
+                          />
+                        ) : (
+                          <PlaceKindTile kind={p.kind} size={54} />
+                        )}
                         <div className="min-w-0">
                           <div className="text-[15px] font-medium text-[#2B2825]">{p.name}</div>
                           {p.note && (

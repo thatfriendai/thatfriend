@@ -9,6 +9,8 @@ export interface SelectedPlace {
   lat: number;
   lng: number;
   category: string;
+  googlePlaceId?: string;
+  photoUrl?: string;
 }
 
 export function PlaceSearch({
@@ -40,7 +42,7 @@ export function PlaceSearch({
           };
           const place = placePrediction.toPlace();
           await place.fetchFields({
-            fields: ["displayName", "formattedAddress", "location", "types"],
+            fields: ["displayName", "formattedAddress", "location", "types", "id", "photos"],
           });
           if (!place.location) return;
 
@@ -50,6 +52,8 @@ export function PlaceSearch({
             lat: place.location.lat(),
             lng: place.location.lng(),
             category: place.types?.[0] ?? "",
+            googlePlaceId: place.id ?? undefined,
+            photoUrl: place.photos?.[0]?.getURI({ maxWidth: 480 }) ?? undefined,
           });
         });
       })

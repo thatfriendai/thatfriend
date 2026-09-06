@@ -392,6 +392,13 @@ alter table planner_decision_options add column if not exists lat double precisi
 alter table planner_decision_options add column if not exists lng double precision;
 alter table planner_decision_options add column if not exists source_url text;
 
+-- planner_places real photos — from Google Places (fetched once, client-side,
+-- when a place is added via the search box; cached as a URL rather than
+-- re-fetched on every render). Null for places that came from LLM
+-- extraction (forwarded link/text/screenshot) rather than a Places search.
+alter table planner_places add column if not exists google_place_id text;
+alter table planner_places add column if not exists photo_url text;
+
 -- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny

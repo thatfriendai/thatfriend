@@ -115,6 +115,8 @@ export interface PlannerPlace {
   added_by: string | null;
   resource_id: string | null;
   created_at: string;
+  google_place_id: string | null;
+  photo_url: string | null;
 }
 
 export interface PlannerResource {

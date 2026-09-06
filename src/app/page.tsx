@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { SiteNav } from "@/components/SiteNav";
 import { TripPreviewCard } from "@/components/TripPreviewCard";
+import { WorkspacePreviewCard } from "@/components/WorkspacePreviewCard";
 
 const steps = [
   {
@@ -178,11 +179,7 @@ export default async function Home() {
               </div>
             </div>
           </div>
-          <div className="flex h-[400px] items-center justify-center rounded-2xl border border-dark-border bg-[repeating-linear-gradient(135deg,#222020_0_9px,#1B1917_9px_18px)]">
-            <p className="rounded-md border border-dark-border px-3.5 py-2 font-mono text-[11.5px] tracking-wide text-muted">
-              screenshot &middot; itinerary rail + map
-            </p>
-          </div>
+          <WorkspacePreviewCard />
         </div>
       </section>
 

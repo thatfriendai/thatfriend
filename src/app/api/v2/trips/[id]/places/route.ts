@@ -32,6 +32,8 @@ export async function POST(
   const lat = typeof body.lat === "number" && Number.isFinite(body.lat) ? body.lat : null;
   const lng = typeof body.lng === "number" && Number.isFinite(body.lng) ? body.lng : null;
   const address = typeof body.address === "string" ? body.address.trim().slice(0, 300) || null : null;
+  const googlePlaceId = typeof body.google_place_id === "string" ? body.google_place_id : null;
+  const photoUrl = typeof body.photo_url === "string" ? body.photo_url : null;
 
   if (!name || !kind) {
     return NextResponse.json({ error: "name and kind are required." }, { status: 400 });
@@ -65,6 +67,8 @@ export async function POST(
       lng,
       address,
       added_by: user.id,
+      google_place_id: googlePlaceId,
+      photo_url: photoUrl,
     })
     .select("*")
     .single();
