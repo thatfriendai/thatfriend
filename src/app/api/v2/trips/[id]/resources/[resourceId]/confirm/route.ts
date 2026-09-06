@@ -90,15 +90,16 @@ export async function POST(
       let lng = providedLng;
       let address = typeof p.address === "string" ? p.address : null;
 
-      // Already geocoded at extract time (a Google Maps link) — reuse it
-      // rather than looking the same place up twice.
+      // Always looked up, even when a Maps link already gave us lat/lng —
+      // this is also where the real photo and Google place id come from.
+      const geo = await geocodePlace(trip?.destination ? `${name}, ${trip.destination}` : name);
       if (lat == null || lng == null) {
-        const query = trip?.destination ? `${name}, ${trip.destination}` : name;
-        const geo = await geocodePlace(query);
         lat = geo?.lat ?? null;
         lng = geo?.lng ?? null;
         address = geo?.address ?? address;
       }
+      const googlePlaceId = geo?.googlePlaceId ?? null;
+      const photoUrl = geo?.photoUrl ?? null;
 
       return {
         id,
@@ -114,6 +115,8 @@ export async function POST(
         address,
         added_by: user.id,
         resource_id: resourceId,
+        google_place_id: googlePlaceId,
+        photo_url: photoUrl,
       };
     })
   );

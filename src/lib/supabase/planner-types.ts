@@ -165,6 +165,7 @@ export interface PlannerDecisionOption {
   lat: number | null;
   lng: number | null;
   source_url: string | null;
+  photo_url: string | null;
 }
 
 export interface PlannerDecisionVote {

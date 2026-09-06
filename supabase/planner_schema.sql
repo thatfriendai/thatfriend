@@ -391,6 +391,7 @@ alter table planner_decision_options add column if not exists location_note text
 alter table planner_decision_options add column if not exists lat double precision;
 alter table planner_decision_options add column if not exists lng double precision;
 alter table planner_decision_options add column if not exists source_url text;
+alter table planner_decision_options add column if not exists photo_url text;
 
 -- planner_places real photos — from Google Places (fetched once, client-side,
 -- when a place is added via the search box; cached as a URL rather than

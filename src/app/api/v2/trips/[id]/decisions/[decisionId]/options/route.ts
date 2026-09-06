@@ -52,7 +52,9 @@ export async function POST(
     if (!candidate) {
       return NextResponse.json({ error: "Couldn't find listing details on that page." }, { status: 400 });
     }
-    return NextResponse.json({ candidate: { ...candidate, source_url: body.url.trim() } });
+    return NextResponse.json({
+      candidate: { ...candidate, source_url: body.url.trim(), photo_url: page.imageUrl ?? null },
+    });
   }
 
   const label = typeof body.label === "string" ? body.label.trim().slice(0, 120) : "";
@@ -99,6 +101,7 @@ export async function POST(
       lat: num(body.lat),
       lng: num(body.lng),
       source_url: str(body.source_url),
+      photo_url: str(body.photo_url),
     })
     .select("*")
     .single();

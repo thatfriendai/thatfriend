@@ -148,6 +148,14 @@ export function LodgingMatrix({
               <p className="mb-3 text-[13px] text-muted">
                 Pulled from the link — check it over, then add it.
               </p>
+              {candidate.photo_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={candidate.photo_url}
+                  alt=""
+                  className="mb-3 h-[110px] w-full rounded-lg border border-input-border object-cover"
+                />
+              )}
               <div className="mb-3 flex flex-wrap gap-2.5">
                 <input
                   value={candidate.label}
@@ -237,6 +245,14 @@ export function LodgingMatrix({
                   className="border-b border-l border-border p-4"
                   style={{ background: isDecided ? "#F2F7F0" : "#FBF6EC" }}
                 >
+                  {o.photo_url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={o.photo_url}
+                      alt=""
+                      className="mb-2.5 h-[90px] w-full rounded-lg border border-warm-border object-cover"
+                    />
+                  )}
                   <div className="mb-1 text-[14.5px] font-medium leading-tight text-ink">{o.label}</div>
                   {o.option_type && (
                     <div className="font-mono text-[9.5px] tracking-[0.08em] text-faint uppercase">
