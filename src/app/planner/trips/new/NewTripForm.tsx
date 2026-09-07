@@ -36,7 +36,7 @@ const PRIVACY_OPTIONS = [
 
 function chipClass(on: boolean) {
   return on
-    ? "rounded-full border border-ink bg-[#F0EBE1] px-4 py-2.5 text-sm text-ink-body"
+    ? "rounded-full border border-ink bg-ink px-4 py-2.5 text-sm text-cream"
     : "rounded-full border border-input-border bg-card px-4 py-2.5 text-sm text-body hover:border-ink";
 }
 

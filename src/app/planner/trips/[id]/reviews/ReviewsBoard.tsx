@@ -165,7 +165,7 @@ export function ReviewsBoard({
 
       <div className="mb-12">
         <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-          <span className="font-mono text-[11px] text-[#C0B8A8]">01</span>
+          <span className="font-mono text-[11px] text-faint">01</span>
           <span className="text-[25px] font-display text-ink">The itinerary</span>
           <span className="ml-auto text-[13.5px] text-muted">What people see when you share it</span>
         </div>
@@ -222,7 +222,7 @@ export function ReviewsBoard({
       {unrated.length > 0 && (
         <div className="mb-12">
           <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-            <span className="font-mono text-[11px] text-[#C0B8A8]">02</span>
+            <span className="font-mono text-[11px] text-faint">02</span>
             <span className="text-[25px] font-display text-ink">
               {unrated.length} place{unrated.length === 1 ? "" : "s"} want{unrated.length === 1 ? "s" : ""} a rating
             </span>
@@ -238,7 +238,7 @@ export function ReviewsBoard({
 
       <div>
         <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-          <span className="font-mono text-[11px] text-[#C0B8A8]">{unrated.length > 0 ? "03" : "02"}</span>
+          <span className="font-mono text-[11px] text-faint">{unrated.length > 0 ? "03" : "02"}</span>
           <span className="text-[25px] font-display text-ink">The trip itself</span>
           <span className="ml-auto text-[13.5px] text-muted">Two questions, both optional</span>
         </div>

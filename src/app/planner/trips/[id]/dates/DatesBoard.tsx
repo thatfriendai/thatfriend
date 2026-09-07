@@ -359,7 +359,7 @@ export function DatesBoard({
 
       <div className="mb-12">
         <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-          <span className="font-mono text-[11px] text-[#C0B8A8]">01</span>
+          <span className="font-mono text-[11px] text-faint">01</span>
           <span className="text-[25px] font-display text-ink">Who&rsquo;s free when</span>
           <div className="ml-auto flex items-center gap-3 font-mono text-[10px] tracking-[0.06em] text-muted uppercase">
             <span className="flex items-center gap-1">
@@ -424,7 +424,7 @@ export function DatesBoard({
 
       <div className="mb-12">
         <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-          <span className="font-mono text-[11px] text-[#C0B8A8]">02</span>
+          <span className="font-mono text-[11px] text-faint">02</span>
           <span className="text-[25px] font-display text-ink">Everyone answered</span>
           <span className="ml-auto text-[13.5px] text-muted">
             {answeredCount} of {totalMembers} answered

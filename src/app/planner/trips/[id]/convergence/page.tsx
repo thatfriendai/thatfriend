@@ -5,8 +5,9 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { BUDGET_FIELDS } from "@/lib/planner/preferences";
 import { computeOverlap, computeClusters, type ConvergenceOverlap } from "@/lib/planner/convergence";
 import { generateConvergenceReads } from "@/lib/planner/narrative";
+import { DAY_COLORS } from "@/lib/planner/itinerary";
 
-const DOT_COLORS = ["#3F6E7A", "#6E8C6A", "#8A5A7A", "#C9A227", "#4A453E", "#B4664A"];
+const DOT_COLORS = DAY_COLORS;
 
 function OverlapBar({ overlap }: { overlap: ConvergenceOverlap }) {
   const pct = (v: number) => Math.min(98, (v / overlap.max) * 100);
@@ -28,11 +29,11 @@ function OverlapBar({ overlap }: { overlap: ConvergenceOverlap }) {
       <div className="relative">
         <div className="relative h-8.5 overflow-hidden rounded-lg border border-border-soft bg-card">
           <div
-            className="absolute top-0 bottom-0 left-0 border-r-2 border-[#6E8C6A] bg-[#E4EDE7]"
+            className="absolute top-0 bottom-0 left-0 border-r-2 border-positive bg-positive/15"
             style={{ width: `${floorPct}%` }}
           />
           <div
-            className="absolute top-0 bottom-0 bg-[#F4E7CC]"
+            className="absolute top-0 bottom-0 bg-accent/20"
             style={{ left: `${floorPct}%`, width: `${Math.max(0, comfyPct - floorPct)}%` }}
           />
         </div>
@@ -52,11 +53,11 @@ function OverlapBar({ overlap }: { overlap: ConvergenceOverlap }) {
       </div>
       <div className="mt-5 flex gap-5 text-[13.5px]">
         <div className="flex items-center gap-1.5 text-body">
-          <span className="h-2.5 w-2.5 rounded-[2px] bg-[#6E8C6A]" />${overlap.floor} works for all{" "}
+          <span className="h-2.5 w-2.5 rounded-[2px] bg-positive" />${overlap.floor} works for all{" "}
           {overlap.dots.length}
         </div>
         <div className="flex items-center gap-1.5 text-muted">
-          <span className="h-2.5 w-2.5 rounded-[2px] bg-[#F4E7CC]" />${overlap.comfy} works for most
+          <span className="h-2.5 w-2.5 rounded-[2px] bg-accent/40" />${overlap.comfy} works for most
         </div>
       </div>
     </div>
@@ -198,12 +199,17 @@ export default async function ConvergencePage({
                       {c.count} of {c.total}
                     </span>
                   </div>
-                  <div className="h-2 rounded-full bg-[#F0EBE1]">
+                  <div className="h-2 rounded-full bg-border-soft">
                     <div
                       className="h-2 rounded-full"
                       style={{
                         width: `${(c.count / Math.max(1, c.total)) * 100}%`,
-                        background: c.count / c.total >= 0.66 ? "#6E8C6A" : c.count / c.total >= 0.5 ? "#C9A227" : "#DDD6C8",
+                        background:
+                          c.count / c.total >= 0.66
+                            ? "var(--color-positive)"
+                            : c.count / c.total >= 0.5
+                              ? "var(--color-caution)"
+                              : "var(--color-ink-ghost)",
                       }}
                     />
                   </div>
