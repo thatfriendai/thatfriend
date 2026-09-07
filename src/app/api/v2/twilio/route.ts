@@ -113,7 +113,14 @@ export async function POST(request: Request) {
     result.duplicates.length > 0
       ? ` (already had ${result.duplicates.join(", ")}.)`
       : "";
+  const farNote =
+    result.farAway.length > 0
+      ? " " +
+        result.farAway
+          .map((f) => `Heads up — ${f.name}${f.address ? ` (${f.address})` : ""} doesn't look like it's near "${tripName}". Double check that's the right one.`)
+          .join(" ")
+      : "";
   return reply(
-    `Added to "${tripName}": ${names}. ${result.places.length === 1 ? "It's" : "They're"} on the map now.${dupNote}`
+    `Added to "${tripName}": ${names}. ${result.places.length === 1 ? "It's" : "They're"} on the map now.${dupNote}${farNote}`
   );
 }

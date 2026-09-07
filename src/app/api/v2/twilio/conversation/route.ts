@@ -106,9 +106,16 @@ export async function POST(request: Request) {
 
   if (result.places.length > 0) {
     const names = result.places.map((p) => p.name).join(", ");
+    const farNote =
+      result.farAway.length > 0
+        ? " " +
+          result.farAway
+            .map((f) => `Heads up — ${f.name}${f.address ? ` (${f.address})` : ""} doesn't look like it's near "${trip.name}". Double check that's the right one.`)
+            .join(" ")
+        : "";
     await sendConversationMessage(
       conversationSid,
-      `Added to the map: ${names}. ${result.places.length === 1 ? "It's" : "They're"} in "${trip.name}" now.`
+      `Added to the map: ${names}. ${result.places.length === 1 ? "It's" : "They're"} in "${trip.name}" now.${farNote}`
     );
   }
 
