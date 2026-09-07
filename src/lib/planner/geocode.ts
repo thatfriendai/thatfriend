@@ -40,12 +40,19 @@ async function fetchPlacePhotoUrl(photoName: string, apiKey: string): Promise<st
  * the Text Search — pass `wantPhoto: false` for places where a photo is a
  * nice-to-have, not the point (e.g. one pulled from pasted text rather than
  * a real Maps link), to keep Places API costs down.
+ *
+ * `bias` nudges results toward a location without restricting to it — a
+ * plain "Versailles Restaurant" is ambiguous enough that an unbiased search
+ * can return a same-named business in a different city entirely, but a
+ * genuinely unique name with no local match still resolves to its one real
+ * (possibly far away) location. Pass the trip destination's own geocoded
+ * point here when checking whether a place is actually near it.
  */
 export async function geocodePlace(
   query: string,
-  options: { wantPhoto?: boolean } = {}
+  options: { wantPhoto?: boolean; bias?: { lat: number; lng: number } } = {}
 ): Promise<GeocodeResult | null> {
-  const { wantPhoto = true } = options;
+  const { wantPhoto = true, bias } = options;
   const apiKey = getServerGoogleMapsKey();
   if (!apiKey || !query.trim()) return null;
 
@@ -57,7 +64,17 @@ export async function geocodePlace(
         "X-Goog-Api-Key": apiKey,
         "X-Goog-FieldMask": "places.id,places.location,places.formattedAddress,places.types,places.photos",
       },
-      body: JSON.stringify({ textQuery: query, pageSize: 1 }),
+      body: JSON.stringify({
+        textQuery: query,
+        pageSize: 1,
+        ...(bias
+          ? {
+              locationBias: {
+                circle: { center: { latitude: bias.lat, longitude: bias.lng }, radius: 50000 },
+              },
+            }
+          : {}),
+      }),
     });
     if (!res.ok) return null;
 
