@@ -9,6 +9,7 @@ import { DecisionsSection } from "./decisions/DecisionsSection";
 import { NudgeButton } from "./NudgeButton";
 import { StartGroupText } from "./StartGroupText";
 import { PreferencesSkipControl } from "./PreferencesSkipControl";
+import { ResourceTile } from "@/components/planner/ResourceIcon";
 import { ensureDays } from "@/lib/planner/days";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
@@ -340,13 +341,7 @@ export default async function PlannerTripPage({
                   key={r.id}
                   className="flex items-center gap-3.5 rounded-xl border border-border bg-card px-3.5 py-3"
                 >
-                  <div
-                    className="h-10.5 w-10.5 flex-none rounded-lg border border-[#EDE8DD]"
-                    style={{
-                      backgroundImage:
-                        "repeating-linear-gradient(135deg, #F2EEE5 0 6px, #FFFDF9 6px 12px)",
-                    }}
-                  />
+                  <ResourceTile type={r.type} sourceUrl={r.source_url} />
                   <div className="min-w-0">
                     <div className="text-[14.5px] text-[#2B2825]">{r.label}</div>
                     <div className="mt-0.5 text-[12.5px] text-muted">

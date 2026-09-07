@@ -35,8 +35,17 @@ async function fetchPlacePhotoUrl(photoName: string, apiKey: string): Promise<st
  * null on any failure — geocoding a saved place is a nice-to-have, not
  * something that should block saving it, same as this codebase's other
  * best-effort external calls.
+ *
+ * The Place Photo media fetch is a second, separate billed call on top of
+ * the Text Search — pass `wantPhoto: false` for places where a photo is a
+ * nice-to-have, not the point (e.g. one pulled from pasted text rather than
+ * a real Maps link), to keep Places API costs down.
  */
-export async function geocodePlace(query: string): Promise<GeocodeResult | null> {
+export async function geocodePlace(
+  query: string,
+  options: { wantPhoto?: boolean } = {}
+): Promise<GeocodeResult | null> {
+  const { wantPhoto = true } = options;
   const apiKey = getServerGoogleMapsKey();
   if (!apiKey || !query.trim()) return null;
 
@@ -57,7 +66,7 @@ export async function geocodePlace(query: string): Promise<GeocodeResult | null>
     if (!place?.location) return null;
 
     const photoName = place.photos?.[0]?.name as string | undefined;
-    const photoUrl = photoName ? await fetchPlacePhotoUrl(photoName, apiKey) : null;
+    const photoUrl = wantPhoto && photoName ? await fetchPlacePhotoUrl(photoName, apiKey) : null;
 
     return {
       lat: place.location.latitude,

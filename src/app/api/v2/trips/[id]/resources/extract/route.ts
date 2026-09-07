@@ -58,7 +58,9 @@ export async function POST(
     if (page.mapsPlaceName) {
       const { data: trip } = await admin.from("planner_trips").select("destination").eq("id", tripId).maybeSingle();
       const query = trip?.destination ? `${page.mapsPlaceName}, ${trip.destination}` : page.mapsPlaceName;
-      const geo = await geocodePlace(query);
+      // Only kind/lat/lng/address are used here — the confirm step re-geocodes
+      // for the real photo, so skip the extra Photo billing on this call.
+      const geo = await geocodePlace(query, { wantPhoto: false });
       if (geo) {
         const kind = kindFromGoogleTypes(geo.types);
         candidates = candidates.map((c) => ({
