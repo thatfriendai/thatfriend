@@ -5,6 +5,7 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { KIND_OPTIONS, hashPercent } from "@/lib/planner/itinerary";
 import { geocodePlace } from "@/lib/planner/geocode";
 import { isGoogleMapsUrl } from "@/lib/planner/mapsLink";
+import { loadExistingPlaces, findDuplicatePlace } from "@/lib/planner/placeDedupe";
 
 export async function POST(
   request: Request,
@@ -78,11 +79,24 @@ export async function POST(
     (days ?? []).forEach((d) => validDayIds.add(d.id));
   }
 
-  const kept = places.filter(
+  const named = places.filter(
     (p): p is IncomingPlace & { name: string } => typeof p.name === "string" && p.name.trim().length > 0
   );
 
-  const rows = await Promise.all(
+  // Check by name before geocoding — no point spending a Places API call
+  // resolving a place we're about to discard as an existing duplicate.
+  const existingPlaces = await loadExistingPlaces(admin, tripId);
+  const duplicates: string[] = [];
+  const kept = named.filter((p) => {
+    const dup = findDuplicatePlace(existingPlaces, p.name.trim());
+    if (dup) {
+      duplicates.push(p.name.trim());
+      return false;
+    }
+    return true;
+  });
+
+  const geocoded = await Promise.all(
     kept.map(async (p) => {
       const id = randomUUID();
       const { x, y } = hashPercent(id);
@@ -130,12 +144,27 @@ export async function POST(
     })
   );
 
+  // Geocoding can turn up a Google place id that matches an existing place
+  // saved under a different name (e.g. "Uchi" vs. "Uchi Miami") — catch
+  // that case too, now that we actually have an id to compare.
+  const rows = geocoded.filter((r) => {
+    const dup = findDuplicatePlace(existingPlaces, r.name, r.google_place_id);
+    if (dup) {
+      duplicates.push(r.name);
+      return false;
+    }
+    return true;
+  });
+
   if (rows.length === 0) {
+    if (duplicates.length > 0) {
+      return NextResponse.json({ places: [], duplicates });
+    }
     return NextResponse.json({ error: "Nothing to add." }, { status: 400 });
   }
 
   const { data: created, error } = await admin.from("planner_places").insert(rows).select("*");
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  return NextResponse.json({ places: created });
+  return NextResponse.json({ places: created, duplicates });
 }
