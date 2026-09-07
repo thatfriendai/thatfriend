@@ -139,6 +139,7 @@ export function AddPlaceModal({
         address: selectedPlace?.address,
         google_place_id: selectedPlace?.googlePlaceId,
         photo_url: selectedPlace?.photoUrl,
+        force: forceDuplicate,
       }),
     });
     const data = await res.json().catch(() => ({}));

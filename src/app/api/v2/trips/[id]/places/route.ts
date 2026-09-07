@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { KIND_OPTIONS, hashPercent } from "@/lib/planner/itinerary";
+import { loadExistingPlaces, findDuplicatePlace } from "@/lib/planner/placeDedupe";
 
 export async function POST(
   request: Request,
@@ -34,9 +35,21 @@ export async function POST(
   const address = typeof body.address === "string" ? body.address.trim().slice(0, 300) || null : null;
   const googlePlaceId = typeof body.google_place_id === "string" ? body.google_place_id : null;
   const photoUrl = typeof body.photo_url === "string" ? body.photo_url : null;
+  const force = body.force === true;
 
   if (!name || !kind) {
     return NextResponse.json({ error: "name and kind are required." }, { status: 400 });
+  }
+
+  if (!force) {
+    const existing = await loadExistingPlaces(admin, tripId);
+    const duplicate = findDuplicatePlace(existing, name, googlePlaceId);
+    if (duplicate) {
+      return NextResponse.json(
+        { error: `${duplicate.name} has already been added to this trip.`, duplicate: true },
+        { status: 409 }
+      );
+    }
   }
 
   if (dayId) {

@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { KIND_OPTIONS, hashPercent } from "./itinerary";
 import { extractPlacesFromText, extractPlacesFromImage, type ExtractedPlace } from "./extract";
 import { fetchPageText } from "./fetchPage";
+import { loadExistingPlaces, findDuplicatePlace } from "./placeDedupe";
 
 function isLikelyUrl(s: string): boolean {
   try {
@@ -90,12 +91,10 @@ async function persistCandidates(
   // Forwarded texts get no review step, so the same link or caption
   // texted twice (easy to do by accident) would otherwise create a
   // second copy of the same place every time.
-  const { data: existing } = await admin.from("planner_places").select("name").eq("trip_id", tripId);
-  const existingNames = new Set((existing ?? []).map((p) => p.name.trim().toLowerCase()));
-
-  const newCandidates = candidates.filter((c) => !existingNames.has(c.name.trim().toLowerCase()));
+  const existingPlaces = await loadExistingPlaces(admin, tripId);
+  const newCandidates = candidates.filter((c) => !findDuplicatePlace(existingPlaces, c.name));
   const duplicates = candidates
-    .filter((c) => existingNames.has(c.name.trim().toLowerCase()))
+    .filter((c) => findDuplicatePlace(existingPlaces, c.name))
     .map((c) => c.name);
 
   if (newCandidates.length === 0) {
