@@ -27,14 +27,25 @@ export async function POST(request: Request) {
     return new NextResponse("Invalid signature", { status: 403 });
   }
 
-  const twiml = new twilio.twiml.MessagingResponse();
   const reply = (body: string) => {
+    const twiml = new twilio.twiml.MessagingResponse();
     twiml.message(body);
     return new NextResponse(twiml.toString(), {
       status: 200,
       headers: { "Content-Type": "text/xml" },
     });
   };
+  // No TwiML <Message> at all — Twilio sends nothing back. Used for the
+  // "found nothing" case: a share-sheet forward often arrives as two
+  // separate texts (the link, then a caption typed alongside it), and
+  // replying to *each one* meant a real success was always followed by a
+  // confusing "didn't find any places" for the caption half. Genuine
+  // failures (a bad link, an extraction error) still reply — this only
+  // covers a clean, error-free "there was nothing here to find."
+  const silent = () => new NextResponse(new twilio.twiml.MessagingResponse().toString(), {
+    status: 200,
+    headers: { "Content-Type": "text/xml" },
+  });
 
   const fromDigits = normalizePhoneDigits(params.From ?? "");
   const body = (params.Body ?? "").trim();
@@ -94,7 +105,7 @@ export async function POST(request: Request) {
         `Already on the map for "${tripName}": ${result.duplicates.join(", ")}.`
       );
     }
-    return reply(`Didn't find any named places in that for "${tripName}".`);
+    return silent();
   }
 
   const names = result.places.map((p) => p.name).join(", ");
