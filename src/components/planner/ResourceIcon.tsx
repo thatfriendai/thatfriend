@@ -11,7 +11,7 @@ function resourceKind(type: ResourceType, sourceUrl: string | null): ResourceKin
 
 const KIND_STYLE: Record<ResourceKind, { color: string; icon: React.ReactNode }> = {
   maps: {
-    color: "#3F6E7A",
+    color: "#5E5A6E",
     icon: (
       <>
         <path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z" />
@@ -30,11 +30,11 @@ const KIND_STYLE: Record<ResourceKind, { color: string; icon: React.ReactNode }>
     ),
   },
   text: {
-    color: "#6B655C",
+    color: "#8C8478",
     icon: <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2Z" />,
   },
   screenshot: {
-    color: "#C9A227",
+    color: "#A9709A",
     icon: (
       <>
         <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2Z" />

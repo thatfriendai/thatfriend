@@ -116,7 +116,7 @@ export function LodgingMatrix({
             type="button"
             onClick={() => setDiffsOnly((v) => !v)}
             className={`rounded-full border px-4 py-2 text-[13px] ${
-              diffsOnly ? "border-ink bg-[#F0EBE1] text-ink-body" : "border-input-border bg-card text-body"
+              diffsOnly ? "border-ink bg-ink text-cream" : "border-input-border bg-card text-body"
             }`}
           >
             Differences only

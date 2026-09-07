@@ -44,7 +44,7 @@ export function PlacesBoard({
   return (
     <div>
       <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-        <div className="font-mono text-[11px] text-[#C0B8A8]">04</div>
+        <div className="font-mono text-[11px] text-faint">04</div>
         <div className="font-display text-[25px] text-ink">Places to save</div>
         <div className="ml-auto flex items-center gap-3.5">
           <div className="text-[13.5px] text-muted">Click a place to find it on the map</div>

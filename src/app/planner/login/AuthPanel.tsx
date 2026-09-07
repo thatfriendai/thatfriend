@@ -33,7 +33,7 @@ type Step = "lookup" | "known" | "new";
 function tabClass(on: boolean) {
   return `flex-1 rounded-full border py-2.5 text-center text-sm transition-colors ${
     on
-      ? "border-ink bg-[#F0EBE1] text-ink-body"
+      ? "border-ink bg-ink text-cream"
       : "border-border bg-card text-muted hover:border-ink"
   }`;
 }
@@ -288,7 +288,7 @@ export function AuthPanel({ token }: { token?: string }) {
           >
             <span
               className={`mt-0.5 h-[19px] w-[19px] flex-none rounded-[5px] border ${
-                waOptIn ? "border-[#4F7A6B] bg-[#4F7A6B]" : "border-[#C6D5D0] bg-card"
+                waOptIn ? "border-positive bg-positive" : "border-border bg-card"
               }`}
             />
             <div>

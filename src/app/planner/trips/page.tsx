@@ -174,7 +174,7 @@ export default async function PlannerTripsPage() {
           </form>
           <Link
             href="/planner/profile"
-            className="flex h-7.5 w-7.5 items-center justify-center rounded-full bg-[#C9A227] text-xs text-ink hover:opacity-80"
+            className="flex h-7.5 w-7.5 items-center justify-center rounded-full bg-accent text-xs text-on-accent hover:opacity-80"
             title="Profile"
           >
             {initial}

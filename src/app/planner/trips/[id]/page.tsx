@@ -232,7 +232,7 @@ export default async function PlannerTripPage({
         {membership.role === "owner" && joinInvite && (
           <div className="mb-12">
             <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-              <span className="font-mono text-[11px] text-[#C0B8A8]">01</span>
+              <span className="font-mono text-[11px] text-faint">01</span>
               <span className="text-[25px] font-display text-ink">Invite the group</span>
             </div>
             <CopyInviteLink url={`${siteUrl}/planner/join/${joinInvite.token}`} />
@@ -241,7 +241,7 @@ export default async function PlannerTripPage({
 
         <div className="mb-12">
           <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-            <span className="font-mono text-[11px] text-[#C0B8A8]">02</span>
+            <span className="font-mono text-[11px] text-faint">02</span>
             <span className="text-[25px] font-display text-ink">Who&rsquo;s in</span>
           </div>
           <div className="flex flex-col gap-2">
@@ -296,7 +296,7 @@ export default async function PlannerTripPage({
 
         <div className="mb-14">
           <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-            <span className="font-mono text-[11px] text-[#C0B8A8]">03</span>
+            <span className="font-mono text-[11px] text-faint">03</span>
             <span className="text-[25px] font-display text-ink">The plan so far</span>
             {daysWithItems.length > 0 && (
               <span className="ml-auto text-[13.5px] text-muted">
@@ -330,7 +330,7 @@ export default async function PlannerTripPage({
         {resources.length > 0 && (
           <div id="resources" className="mb-14 max-w-[760px]">
             <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-              <span className="font-mono text-[11px] text-[#C0B8A8]">05</span>
+              <span className="font-mono text-[11px] text-faint">05</span>
               <span className="text-[25px] font-display text-ink">Where these came from</span>
               <span className="ml-auto text-[13.5px] text-muted">
                 Links, text, and screenshots

@@ -140,7 +140,7 @@ export function NewDecisionModal({
                 onClick={() => setKind("general")}
                 className={`flex-1 rounded-full border py-2.5 text-center text-sm transition-colors ${
                   kind === "general"
-                    ? "border-ink bg-[#F0EBE1] text-ink-body"
+                    ? "border-ink bg-ink text-cream"
                     : "border-border bg-card text-muted hover:border-ink"
                 }`}
               >
@@ -151,7 +151,7 @@ export function NewDecisionModal({
                 onClick={() => setKind("lodging")}
                 className={`flex-1 rounded-full border py-2.5 text-center text-sm transition-colors ${
                   kind === "lodging"
-                    ? "border-ink bg-[#F0EBE1] text-ink-body"
+                    ? "border-ink bg-ink text-cream"
                     : "border-border bg-card text-muted hover:border-ink"
                 }`}
               >
