@@ -7,8 +7,9 @@ import type {
   PlannerDecisionNote,
   PlannerDecisionOption,
 } from "@/lib/supabase/planner-types";
+import { DAY_COLORS } from "@/lib/planner/itinerary";
 
-const AVATAR_COLORS = ["#C9A227", "#6E8C6A", "#8A5A7A", "#4A453E", "#3F6E7A", "#B4664A"];
+const AVATAR_COLORS = DAY_COLORS;
 
 function initialsOf(name: string) {
   return name

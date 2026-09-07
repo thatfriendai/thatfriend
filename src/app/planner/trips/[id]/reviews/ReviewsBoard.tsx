@@ -258,7 +258,7 @@ export function ReviewsBoard({
                   className={`rounded-full border px-4 py-2.5 text-sm transition-colors ${
                     pace === opt.key
                       ? "border-accent bg-accent text-cream"
-                      : "border-input-border bg-card text-ink-soft hover:border-ink"
+                      : "border-input-border bg-card text-ink-body hover:border-ink"
                   }`}
                 >
                   {opt.label}

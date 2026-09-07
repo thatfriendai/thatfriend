@@ -90,7 +90,7 @@ export default async function JoinPage({
             <p className="mb-2.5 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
               Where it stands
             </p>
-            <p className="text-[15.5px] leading-relaxed text-ink-soft">
+            <p className="text-[15.5px] leading-relaxed text-ink-body">
               {memberNames.length > 0
                 ? `${memberNames.length} of the group ${memberNames.length === 1 ? "has" : "have"} joined so far. Nothing is booked yet, so you're not late.`
                 : "Nobody's answered yet — you could be the first."}

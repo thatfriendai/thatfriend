@@ -33,7 +33,7 @@ type Step = "lookup" | "known" | "new";
 function tabClass(on: boolean) {
   return `flex-1 rounded-full border py-2.5 text-center text-sm transition-colors ${
     on
-      ? "border-ink bg-[#F0EBE1] text-ink-soft"
+      ? "border-ink bg-[#F0EBE1] text-ink-body"
       : "border-border bg-card text-muted hover:border-ink"
   }`;
 }
@@ -143,7 +143,7 @@ export function AuthPanel({ token }: { token?: string }) {
   if (sent && mode === "phone") {
     return (
       <form onSubmit={verifyCode}>
-        <p className="mb-3.5 text-[15px] text-ink-soft">
+        <p className="mb-3.5 text-[15px] text-ink-body">
           Texted a 6-digit code to {cred} — enter it below.
         </p>
         <input
@@ -168,7 +168,7 @@ export function AuthPanel({ token }: { token?: string }) {
 
   if (sent) {
     return (
-      <p className="text-[15px] text-ink-soft">
+      <p className="text-[15px] text-ink-body">
         Check your email for a link to finish signing in.
       </p>
     );
@@ -271,7 +271,7 @@ export function AuthPanel({ token }: { token?: string }) {
           <p className="mb-2.5 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
             No account yet
           </p>
-          <p className="mb-5 text-[15.5px] leading-relaxed text-ink-soft">
+          <p className="mb-5 text-[15.5px] leading-relaxed text-ink-body">
             Nothing under {cred || "that address"}. Add your name and
             you&rsquo;re set up in one step.
           </p>
@@ -292,7 +292,7 @@ export function AuthPanel({ token }: { token?: string }) {
               }`}
             />
             <div>
-              <p className="text-[14.5px] text-ink-soft">Use the WhatsApp bot</p>
+              <p className="text-[14.5px] text-ink-body">Use the WhatsApp bot</p>
               <p className="mt-0.5 text-[13px] leading-relaxed text-[#6B7F78]">
                 Forward recs to the That Friend number and they land in the
                 trip. Nudges come back the same way.

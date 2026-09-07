@@ -24,7 +24,7 @@ function OverlapBar({ overlap }: { overlap: ConvergenceOverlap }) {
 
   return (
     <div>
-      <p className="mb-4 text-[15.5px] text-ink-soft">{overlap.label}</p>
+      <p className="mb-4 text-[15.5px] text-ink-body">{overlap.label}</p>
       <div className="relative">
         <div className="relative h-8.5 overflow-hidden rounded-lg border border-border-soft bg-card">
           <div
@@ -193,7 +193,7 @@ export default async function ConvergencePage({
               {clusters.map((c) => (
                 <div key={c.label}>
                   <div className="mb-1.5 flex items-baseline justify-between">
-                    <span className="text-[14.5px] text-ink-soft">{c.label}</span>
+                    <span className="text-[14.5px] text-ink-body">{c.label}</span>
                     <span className="font-mono text-[11.5px] text-muted">
                       {c.count} of {c.total}
                     </span>

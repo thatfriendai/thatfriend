@@ -11,9 +11,10 @@ import { StartGroupText } from "./StartGroupText";
 import { PreferencesSkipControl } from "./PreferencesSkipControl";
 import { ResourceTile } from "@/components/planner/ResourceIcon";
 import { ensureDays } from "@/lib/planner/days";
+import { DAY_COLORS } from "@/lib/planner/itinerary";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
-const AVATAR_COLORS = ["#C9A227", "#6E8C6A", "#8A5A7A", "#4A453E", "#3F6E7A", "#B4664A"];
+const AVATAR_COLORS = DAY_COLORS;
 
 function initialsOf(name: string) {
   return name
@@ -255,7 +256,7 @@ export default async function PlannerTripPage({
                 >
                   {initialsOf(m.label)}
                 </div>
-                <span className="text-[15px] text-ink-soft">{m.label}</span>
+                <span className="text-[15px] text-ink-body">{m.label}</span>
                 <span className="ml-auto font-mono text-[11px] tracking-[0.08em] text-muted uppercase">
                   {m.role}
                 </span>

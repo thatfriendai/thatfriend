@@ -159,7 +159,7 @@ export function ItineraryBoard({
           );
         })}
         {selectedDay && (
-          <div className="absolute bottom-3.5 left-3.5 rounded-lg border border-border bg-card px-2.5 py-1.5 font-mono text-[10.5px] text-ink-soft">
+          <div className="absolute bottom-3.5 left-3.5 rounded-lg border border-border bg-card px-2.5 py-1.5 font-mono text-[10.5px] text-ink-body">
             {formatDayLabel(selectedDay.date)}
             {selectedDay.city ? ` · ${selectedDay.city}` : ""}
           </div>
