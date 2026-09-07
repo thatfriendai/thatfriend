@@ -52,14 +52,24 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
-  const [{ data: trip }, user] = await Promise.all([
-    admin
-      .from("planner_trips")
-      .select("id, name")
-      .eq("twilio_conversation_sid", conversationSid)
-      .maybeSingle(),
-    findPlannerUserByPhone(admin, fromDigits),
-  ]);
+  let trip: { id: string; name: string } | null = null;
+  let user: Awaited<ReturnType<typeof findPlannerUserByPhone>> = null;
+  try {
+    const [tripResult, userResult] = await Promise.all([
+      admin
+        .from("planner_trips")
+        .select("id, name")
+        .eq("twilio_conversation_sid", conversationSid)
+        .maybeSingle(),
+      findPlannerUserByPhone(admin, fromDigits),
+    ]);
+    trip = tripResult.data;
+    user = userResult;
+  } catch {
+    // A lookup failure here has no one obvious to reply to (could be the
+    // trip query or the phone query) — stay quiet rather than guess.
+    return NextResponse.json({ ok: true });
+  }
 
   if (!trip || !user) {
     // A message in a conversation we don't recognize, or from a number we

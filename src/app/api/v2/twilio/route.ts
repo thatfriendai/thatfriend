@@ -41,7 +41,12 @@ export async function POST(request: Request) {
   const numMedia = Number(params.NumMedia ?? "0");
 
   const admin = createAdminClient();
-  const user = await findPlannerUserByPhone(admin, fromDigits);
+  let user: Awaited<ReturnType<typeof findPlannerUserByPhone>>;
+  try {
+    user = await findPlannerUserByPhone(admin, fromDigits);
+  } catch {
+    return reply("Something went wrong looking that up — try again in a bit.");
+  }
 
   if (!user) {
     return reply(

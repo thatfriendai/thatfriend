@@ -2,12 +2,20 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { normalizePhoneDigits } from "./phone";
 
-/** Finds a planner_users row whose phone matches, comparing digits-only (ignores +/formatting differences). */
+/**
+ * Finds a planner_users row whose phone matches, comparing digits-only
+ * (ignores +/formatting differences). Throws on a DB error rather than
+ * treating it as "no match" — a lookup failure isn't the same thing as an
+ * unrecognized number, and telling someone to "sign in first" when the real
+ * problem is a database hiccup is actively misleading.
+ */
 export async function findPlannerUserByPhone(admin: SupabaseClient, fromDigits: string) {
-  const { data: candidates } = await admin
+  const { data: candidates, error } = await admin
     .from("planner_users")
     .select("id, phone")
     .not("phone", "is", null);
+
+  if (error) throw new Error(`Phone lookup failed: ${error.message}`);
 
   return (candidates ?? []).find((c) => normalizePhoneDigits(c.phone as string) === fromDigits) ?? null;
 }
