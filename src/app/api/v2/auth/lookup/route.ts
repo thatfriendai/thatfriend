@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { toE164 } from "@/lib/planner/phone";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const rawPhone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const phone = rawPhone ? toE164(rawPhone) : "";
 
   if (!email && !phone) {
     return NextResponse.json({ error: "Provide an email or phone." }, { status: 400 });

@@ -10,7 +10,8 @@ const CODE_TTL_MS = 10 * 60 * 1000;
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
-  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const rawPhone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const phone = rawPhone ? toE164(rawPhone) : "";
   const token = typeof body.token === "string" ? body.token : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const waOptIn = body.whatsapp_opt_in === true;
@@ -33,10 +34,7 @@ export async function POST(request: Request) {
     }
 
     try {
-      await sendSmsText(
-        toE164(phone),
-        `Your That Friend sign-in code is ${code}. It expires in 10 minutes.`
-      );
+      await sendSmsText(phone, `Your That Friend sign-in code is ${code}. It expires in 10 minutes.`);
     } catch (e) {
       return NextResponse.json(
         { error: e instanceof Error ? e.message : "Could not send the sign-in code." },

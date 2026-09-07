@@ -9,7 +9,8 @@ import { autoFriendTripMembers } from "@/lib/planner/follows";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
-  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const rawPhone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const phone = rawPhone ? toE164(rawPhone) : "";
   const code = typeof body.code === "string" ? body.code.trim() : "";
 
   if (!phone || !code) {
@@ -109,7 +110,7 @@ export async function POST(request: Request) {
         .eq("id", invite.trip_id)
         .maybeSingle();
       if (invitedTrip?.twilio_conversation_sid) {
-        await addParticipantToConversation(invitedTrip.twilio_conversation_sid, toE164(phone)).catch(
+        await addParticipantToConversation(invitedTrip.twilio_conversation_sid, phone).catch(
           () => {
             // Best-effort — they can still be synced into the group thread later.
           }
