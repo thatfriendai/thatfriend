@@ -23,6 +23,16 @@ export function PlacesBoard({
   const [places, setPlaces] = useState(initialPlaces);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [removingId, setRemovingId] = useState<string | null>(null);
+
+  async function removePlace(id: string) {
+    setRemovingId(id);
+    const res = await fetch(`/api/v2/trips/${tripId}/places/${id}`, { method: "DELETE" });
+    setRemovingId(null);
+    if (!res.ok) return;
+    setPlaces((list) => list.filter((p) => p.id !== id));
+    setSelectedId((current) => (current === id ? null : current));
+  }
 
   const groups = KIND_OPTIONS.map((k) => ({
     ...k,
@@ -95,7 +105,7 @@ export function PlacesBoard({
                         ) : (
                           <PlaceKindTile kind={p.kind} size={54} />
                         )}
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="text-[15px] font-medium text-[#2B2825]">{p.name}</div>
                           {p.note && (
                             <div className="mt-1 text-[13.5px] leading-[1.5] text-body">
@@ -115,6 +125,18 @@ export function PlacesBoard({
                             <span>added by {p.who}</span>
                           </div>
                         </div>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removePlace(p.id);
+                          }}
+                          disabled={removingId === p.id}
+                          aria-label={`Remove ${p.name}`}
+                          className="flex h-6 w-6 flex-none items-center justify-center self-start rounded-full text-[15px] leading-none text-faint hover:bg-[#F2EEE5] hover:text-red-700 disabled:opacity-40"
+                        >
+                          ×
+                        </button>
                       </div>
                     );
                   })}
