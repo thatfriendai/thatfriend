@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { KIND_OPTIONS, hashPercent } from "@/lib/planner/itinerary";
 import { geocodePlace } from "@/lib/planner/geocode";
+import { isGoogleMapsUrl } from "@/lib/planner/mapsLink";
 
 export async function POST(
   request: Request,
@@ -27,11 +28,16 @@ export async function POST(
 
   const { data: resource } = await admin
     .from("planner_resources")
-    .select("id")
+    .select("id, type, source_url")
     .eq("id", resourceId)
     .eq("trip_id", tripId)
     .maybeSingle();
   if (!resource) return NextResponse.json({ error: "Resource not found." }, { status: 404 });
+
+  // The Place Photo lookup is a second billed Places API call on top of the
+  // geocoding search — only worth it for a real Maps link, where we know
+  // there's a genuine listing photo, not for text/screenshot sources.
+  const wantPhoto = resource.type === "link" && isGoogleMapsUrl(resource.source_url);
 
   interface IncomingPlace {
     name?: unknown;
@@ -92,7 +98,10 @@ export async function POST(
 
       // Always looked up, even when a Maps link already gave us lat/lng —
       // this is also where the real photo and Google place id come from.
-      const geo = await geocodePlace(trip?.destination ? `${name}, ${trip.destination}` : name);
+      const geo = await geocodePlace(
+        trip?.destination ? `${name}, ${trip.destination}` : name,
+        { wantPhoto }
+      );
       if (lat == null || lng == null) {
         lat = geo?.lat ?? null;
         lng = geo?.lng ?? null;
