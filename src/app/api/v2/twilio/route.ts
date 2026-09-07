@@ -89,11 +89,20 @@ export async function POST(request: Request) {
   }
 
   if (result.places.length === 0) {
+    if (result.duplicates.length > 0) {
+      return reply(
+        `Already on the map for "${tripName}": ${result.duplicates.join(", ")}.`
+      );
+    }
     return reply(`Didn't find any named places in that for "${tripName}".`);
   }
 
   const names = result.places.map((p) => p.name).join(", ");
+  const dupNote =
+    result.duplicates.length > 0
+      ? ` (already had ${result.duplicates.join(", ")}.)`
+      : "";
   return reply(
-    `Added to "${tripName}": ${names}. ${result.places.length === 1 ? "It's" : "They're"} on the map now.`
+    `Added to "${tripName}": ${names}. ${result.places.length === 1 ? "It's" : "They're"} on the map now.${dupNote}`
   );
 }
