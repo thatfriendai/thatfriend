@@ -2,12 +2,39 @@ import "server-only";
 
 // Google Maps place pages are 100% client-JS-rendered — fetching one
 // returns an "enable JavaScript" shell with no place info anywhere, not
-// even in meta tags. But the place name is right there in the URL path
-// (`/maps/place/Time+Out+Market+Lisboa/@lat,lng,zoom`), and short links
-// (maps.app.goo.gl/...) redirect to that same pattern, which `fetch`
-// follows by default — so pull the name from the resolved URL instead of
-// trying to scrape the page.
-const MAPS_PLACE_RE = /\/maps\/place\/([^/@]+)/;
+// even in meta tags. But the place name is right there in the resolved
+// URL, and short links (maps.app.goo.gl/...) redirect to it, which
+// `fetch` follows by default — so pull the name from the resolved URL
+// instead of trying to scrape the page. Google uses at least two
+// redirect shapes for a shared place link: a path form
+// (`/maps/place/Time+Out+Market+Lisboa/@lat,lng,zoom`) and a query form
+// (`/maps?q=Uchi+Miami,+252+NW+25th+St,...`) — both are handled here.
+const MAPS_PLACE_PATH_RE = /\/maps\/place\/([^/@]+)/;
+
+function extractMapsPlaceName(resolvedUrl: string): string | null {
+  let url: URL;
+  try {
+    url = new URL(resolvedUrl);
+  } catch {
+    return null;
+  }
+  if (!/(^|\.)google\.[a-z.]+$/i.test(url.hostname)) return null;
+
+  const pathMatch = url.pathname.match(MAPS_PLACE_PATH_RE);
+  if (pathMatch) {
+    const name = decodeURIComponent(pathMatch[1].replace(/\+/g, " ")).trim();
+    if (name) return name;
+  }
+
+  // The query form's "q" is "Name, Address..." — keep just the name.
+  const q = url.searchParams.get("q");
+  if (q) {
+    const name = q.split(",")[0].trim();
+    if (name) return name;
+  }
+
+  return null;
+}
 
 /** HTML attribute values are entity-encoded in the source (e.g. "&amp;" for a literal "&") — a real browser's HTML parser decodes this automatically, but a plain regex extraction like this one doesn't, so it's done by hand here. */
 function decodeHtmlEntities(s: string): string {
@@ -65,10 +92,9 @@ export async function fetchPageText(
     });
     if (!res.ok) return null;
 
-    const mapsMatch = (res.url || parsed.toString()).match(MAPS_PLACE_RE);
-    if (mapsMatch) {
-      const name = decodeURIComponent(mapsMatch[1].replace(/\+/g, " ")).trim();
-      if (name) return { text: `Place: ${name}`, label: name.slice(0, 80), mapsPlaceName: name };
+    const mapsName = extractMapsPlaceName(res.url || parsed.toString());
+    if (mapsName) {
+      return { text: `Place: ${mapsName}`, label: mapsName.slice(0, 80), mapsPlaceName: mapsName };
     }
 
     const html = await res.text();
