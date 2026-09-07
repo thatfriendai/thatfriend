@@ -17,6 +17,7 @@ function isLikelyUrl(s: string): boolean {
 interface AddResult {
   places: { name: string; kind: string }[];
   resourceLabel: string;
+  duplicates: string[];
 }
 
 /**
@@ -83,10 +84,25 @@ async function persistCandidates(
   }
 
   if (candidates.length === 0) {
-    return { places: [], resourceLabel: label };
+    return { places: [], resourceLabel: label, duplicates: [] };
   }
 
-  const rows = candidates.map((c) => {
+  // Forwarded texts get no review step, so the same link or caption
+  // texted twice (easy to do by accident) would otherwise create a
+  // second copy of the same place every time.
+  const { data: existing } = await admin.from("planner_places").select("name").eq("trip_id", tripId);
+  const existingNames = new Set((existing ?? []).map((p) => p.name.trim().toLowerCase()));
+
+  const newCandidates = candidates.filter((c) => !existingNames.has(c.name.trim().toLowerCase()));
+  const duplicates = candidates
+    .filter((c) => existingNames.has(c.name.trim().toLowerCase()))
+    .map((c) => c.name);
+
+  if (newCandidates.length === 0) {
+    return { places: [], resourceLabel: label, duplicates };
+  }
+
+  const rows = newCandidates.map((c) => {
     const id = randomUUID();
     const { x, y } = hashPercent(id);
     const kind = KIND_OPTIONS.some((k) => k.kind === c.kind) ? c.kind : "Other";
@@ -107,5 +123,5 @@ async function persistCandidates(
   const { error: placesError } = await admin.from("planner_places").insert(rows);
   if (placesError) return { error: placesError.message };
 
-  return { places: rows.map((r) => ({ name: r.name, kind: r.kind })), resourceLabel: label };
+  return { places: rows.map((r) => ({ name: r.name, kind: r.kind })), resourceLabel: label, duplicates };
 }
