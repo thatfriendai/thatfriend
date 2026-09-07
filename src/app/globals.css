@@ -1,38 +1,98 @@
 @import "tailwindcss";
 
 :root {
-  --color-cream: #F7F4EE;
-  --color-card: #FFFDF9;
-  --color-ink: #1B1917;
-  --color-ink-soft: #2B2825;
-  --color-body: #4A453E;
-  --color-muted: #8C8478;
-  --color-faint: #A19A8E;
-  --color-border: #E4DED2;
-  --color-border-soft: #EDE8DD;
-  --color-input-border: #D9D2C4;
+  /* Source of truth — see the "Colors" design doc. Every hex here is lifted
+     directly from the design files (That Friend.dc.html, New Features -
+     Explorations.dc.html); nothing here is guessed at or sampled. */
+
+  /* Grounds */
+  --color-canvas: #EFEBE3;       /* app background, outside any card */
+  --color-surface: #FFFDF9;      /* cards, panels, table cells */
+  --color-surface-warm: #FBF6EC; /* highlighted card, agent strip, leading option */
+  --color-surface-sunk: #FCFAF5; /* sidebars, table row headers, footers */
+
+  /* Lines */
+  --color-line: #EDE8DD;         /* default hairline, table grid */
+  --color-line-strong: #E4DED2;  /* card outline, chip outline */
+  --color-line-warm: #E8DFD0;    /* hairline inside a warm surface */
+  --color-line-dashed: #DCD4C4;  /* empty slot, "nothing planned" */
+
+  /* Ink — do not introduce intermediate greys */
+  --color-ink: #1B1917;          /* headings, primary button bg */
+  --color-ink-body: #2B2825;     /* body copy inside warm surfaces */
+  --color-ink-soft: #4A453E;     /* body copy, secondary labels */
+  --color-ink-muted: #8C8478;    /* captions, helper text */
+  --color-ink-faint: #A19A8E;    /* mono eyebrow labels, metadata */
+  --color-ink-ghost: #C4BCAE;    /* "not rated", absent values */
+  --color-on-dark: #F7F4EE;      /* text on --color-ink */
+  --color-on-accent: #FFFDF9;    /* text on --color-accent */
+
+  /* Brand — the one accent. See the "purple question" note in the doc:
+     if the ask is "more purple," the day/category set below is what moves,
+     never this. */
   --color-accent: #8A5A7A;
-  --color-warm-bg: #FBF6EC;
-  --color-warm-border: #E8DFD0;
-  --color-dark: #1B1917;
+  --color-accent-tint: #C9A0B8;  /* dashed borders on draft/ghost content only */
+  --color-accent-wash: #FDF8F1;  /* fill behind ghost/draft content */
+
+  /* Semantics — earthy, never saturated */
+  --color-positive: #6E8C6A;     /* best value in a row, completed step */
+  --color-caution: #A98A5A;      /* over budget, needs attention */
+
+  /* Legacy aliases — pre-existing utility classes read these so nothing
+     broke when the tokens above were introduced. New code should reach for
+     the tokens above directly; these names are not the source of truth.
+     ink-soft is NOT aliased here: the doc reassigns that name to a
+     different value (#4A453E) than the existing "text-ink-soft" usages
+     expect (#2B2825) — those were renamed to ink-body instead, which now
+     owns #2B2825 under its correct name. */
+  --color-cream: var(--color-on-dark);
+  --color-card: var(--color-surface);
+  --color-body: var(--color-ink-soft);
+  --color-muted: var(--color-ink-muted);
+  --color-faint: var(--color-ink-faint);
+  --color-border: var(--color-line-strong);
+  --color-border-soft: var(--color-line);
+  --color-input-border: #D9D2C4;
+  --color-warm-bg: var(--color-surface-warm);
+  --color-warm-border: var(--color-line-warm);
+  --color-dark: var(--color-ink);
   --color-dark-panel: #232120;
   --color-dark-border: #363231;
-  --color-dark-muted: #8C8478;
+  --color-dark-muted: var(--color-ink-muted);
   --color-dark-body: #C9C2B6;
 }
 
 @theme inline {
+  --color-canvas: var(--color-canvas);
+  --color-surface: var(--color-surface);
+  --color-surface-warm: var(--color-surface-warm);
+  --color-surface-sunk: var(--color-surface-sunk);
+  --color-line: var(--color-line);
+  --color-line-strong: var(--color-line-strong);
+  --color-line-warm: var(--color-line-warm);
+  --color-line-dashed: var(--color-line-dashed);
+  --color-ink: var(--color-ink);
+  --color-ink-body: var(--color-ink-body);
+  --color-ink-soft: var(--color-ink-soft);
+  --color-ink-muted: var(--color-ink-muted);
+  --color-ink-faint: var(--color-ink-faint);
+  --color-ink-ghost: var(--color-ink-ghost);
+  --color-on-dark: var(--color-on-dark);
+  --color-on-accent: var(--color-on-accent);
+  --color-accent: var(--color-accent);
+  --color-accent-tint: var(--color-accent-tint);
+  --color-accent-wash: var(--color-accent-wash);
+  --color-positive: var(--color-positive);
+  --color-caution: var(--color-caution);
+
   --color-cream: var(--color-cream);
   --color-card: var(--color-card);
-  --color-ink: var(--color-ink);
-  --color-ink-soft: var(--color-ink-soft);
   --color-body: var(--color-body);
   --color-muted: var(--color-muted);
   --color-faint: var(--color-faint);
   --color-border: var(--color-border);
   --color-border-soft: var(--color-border-soft);
   --color-input-border: var(--color-input-border);
-  --color-accent: var(--color-accent);
   --color-warm-bg: var(--color-warm-bg);
   --color-warm-border: var(--color-warm-border);
   --color-dark: var(--color-dark);

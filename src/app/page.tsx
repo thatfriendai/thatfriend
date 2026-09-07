@@ -78,7 +78,7 @@ export default async function Home() {
   if (plannerUser) redirect("/planner/trips");
 
   return (
-    <div className="flex flex-1 flex-col bg-cream">
+    <div className="flex flex-1 flex-col bg-canvas">
       <SiteNav />
 
       <section className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 px-6 py-16 sm:px-10 lg:grid-cols-[1.05fr_1fr] lg:py-24">
@@ -214,7 +214,7 @@ export default async function Home() {
                   WhatsApp &middot; you &rarr; that friend
                 </p>
               </div>
-              <p className="mb-3 text-[15.5px] leading-relaxed text-ink-soft">
+              <p className="mb-3 text-[15.5px] leading-relaxed text-ink-body">
                 {whatsappExample.incoming}
               </p>
               <p className="border-t border-dashed border-[#CBD9D4] pt-2.5 text-[14.5px] leading-relaxed text-body">
@@ -229,7 +229,7 @@ export default async function Home() {
                 <p className="mb-2.5 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
                   {card.label}
                 </p>
-                <p className="text-[15.5px] leading-relaxed text-ink-soft">
+                <p className="text-[15.5px] leading-relaxed text-ink-body">
                   {card.body}
                 </p>
               </div>

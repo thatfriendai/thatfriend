@@ -2,8 +2,9 @@ import { notFound, redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PreferencesForm } from "./PreferencesForm";
+import { DAY_COLORS } from "@/lib/planner/itinerary";
 
-const AVATAR_COLORS = ["#C9A227", "#6E8C6A", "#8A5A7A", "#4A453E", "#3F6E7A", "#B4664A"];
+const AVATAR_COLORS = DAY_COLORS;
 
 function initialsOf(name: string) {
   return name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();

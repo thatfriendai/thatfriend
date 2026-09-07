@@ -83,7 +83,7 @@ export default async function FriendsPage() {
                     {initialsOf(label)}
                   </div>
                   <div>
-                    <div className="text-[14.5px] text-ink-soft">{label}</div>
+                    <div className="text-[14.5px] text-ink-body">{label}</div>
                     {mutual > 0 && (
                       <div className="text-[12px] text-faint">
                         {mutual} trip{mutual === 1 ? "" : "s"} together
@@ -103,7 +103,7 @@ export default async function FriendsPage() {
                     {initialsOf(label)}
                   </div>
                   <div>
-                    <div className="text-[14.5px] text-ink-soft">{label}</div>
+                    <div className="text-[14.5px] text-ink-body">{label}</div>
                     {mutual > 0 && (
                       <div className="text-[12px] text-faint">
                         {mutual} trip{mutual === 1 ? "" : "s"} together

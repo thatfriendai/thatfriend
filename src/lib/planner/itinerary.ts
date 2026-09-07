@@ -1,21 +1,26 @@
 import type { PlaceKind } from "@/lib/supabase/planner-types";
 
+// Day/category distinction only — never the brand accent (--color-accent
+// stays plum #8A5A7A everywhere else). Stays inside the warm/plum family so
+// nothing here reads as a second brand color; adjacent entries are still
+// distinguishable. Day 1 intentionally matches the accent plum itself.
 export const DAY_COLORS = [
-  "#8A5A7A",
-  "#3F6E7A",
-  "#6E8C6A",
-  "#C9A227",
-  "#B4664A",
-  "#5B6478",
+  "#8A5A7A", // plum — the accent, day 1
+  "#6E5A7A", // iris
+  "#A9709A", // mauve
+  "#5E5A6E", // slate violet
+  "#B08AA6", // dusty lilac
+  "#7A5A6E", // wine
+  "#9A7A8E", // ash rose
 ] as const;
 
 export const KIND_OPTIONS: { kind: PlaceKind; color: string }[] = [
-  { kind: "Restaurants", color: "#B4664A" },
-  { kind: "Coffee shops", color: "#6F4E37" },
-  { kind: "Bars", color: "#8A5A7A" },
-  { kind: "Museums", color: "#3F6E7A" },
-  { kind: "Activities", color: "#C9A227" },
-  { kind: "Other", color: "#6B655C" },
+  { kind: "Restaurants", color: "#8A5A7A" },
+  { kind: "Coffee shops", color: "#7A5A6E" },
+  { kind: "Bars", color: "#6E5A7A" },
+  { kind: "Museums", color: "#5E5A6E" },
+  { kind: "Activities", color: "#A9709A" },
+  { kind: "Other", color: "#9A7A8E" },
 ];
 
 export function kindColor(kind: string): string {

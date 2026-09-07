@@ -2,7 +2,7 @@ import Link from "next/link";
 
 export function SiteNav() {
   return (
-    <header className="sticky top-0 z-10 border-b border-border bg-cream/92 backdrop-blur-sm">
+    <header className="sticky top-0 z-10 border-b border-border bg-canvas/92 backdrop-blur-sm">
       <nav className="mx-auto flex w-full max-w-6xl items-center justify-between px-6 py-5.5 sm:px-14">
         <span className="text-[25px] tracking-tight font-display text-ink">
           &ldquo;that friend&rdquo;

@@ -63,7 +63,7 @@ export default function PrivacyPage() {
           <p className="mb-4 font-mono text-[11px] tracking-[0.12em] text-muted uppercase">
             In this policy
           </p>
-          <ol className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-[15px] text-ink-soft sm:grid-cols-2">
+          <ol className="grid grid-cols-1 gap-x-8 gap-y-2.5 text-[15px] text-ink-body sm:grid-cols-2">
             {sections.map((s, i) => (
               <li key={s.id}>
                 <a href={`#${s.id}`} className="hover:text-accent">

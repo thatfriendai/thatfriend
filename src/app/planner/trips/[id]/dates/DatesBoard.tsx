@@ -4,8 +4,9 @@ import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { AvailabilityCalendar } from "@/components/planner/AvailabilityCalendar";
 import type { DateCoverageDay, DateProposal } from "@/lib/planner/dates";
+import { DAY_COLORS } from "@/lib/planner/itinerary";
 
-const AVATAR_COLORS = ["#C9A227", "#6E8C6A", "#8A5A7A", "#4A453E", "#3F6E7A", "#B4664A"];
+const AVATAR_COLORS = DAY_COLORS;
 
 function initialsOf(name: string) {
   return name
@@ -405,7 +406,7 @@ export function DatesBoard({
                       <span
                         key={cell.iso}
                         title={`${cell.count} of ${totalMembers} free`}
-                        className={`mx-auto flex h-7 w-7 items-center justify-center rounded-md text-[12.5px] text-ink-soft ${
+                        className={`mx-auto flex h-7 w-7 items-center justify-center rounded-md text-[12.5px] text-ink-body ${
                           inProposal ? "outline outline-2 outline-offset-[-2px] outline-accent" : ""
                         }`}
                         style={{ background: BUCKET_COLORS[bucket(cell.count, totalMembers)] }}
@@ -441,7 +442,7 @@ export function DatesBoard({
               >
                 {initialsOf(m.label)}
               </div>
-              <span className="text-[15px] text-ink-soft">{m.label}</span>
+              <span className="text-[15px] text-ink-body">{m.label}</span>
               <span className="ml-auto text-[12.5px] text-muted">
                 {m.answeredAt ? `Answered ${formatShort(m.answeredAt.slice(0, 10))}` : "Not yet"}
               </span>

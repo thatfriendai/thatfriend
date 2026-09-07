@@ -153,7 +153,7 @@ export function AvailabilityCalendar({
                     className={`mx-auto flex h-7 w-7 touch-none items-center justify-center rounded-md text-[12.5px] transition-colors select-none ${
                       on
                         ? "bg-accent text-cream"
-                        : "text-ink-soft hover:bg-border-soft"
+                        : "text-ink-body hover:bg-border-soft"
                     }`}
                   >
                     {d}

@@ -60,7 +60,7 @@ export function DecisionsSection({
                 }}
               />
               <div className="min-w-0">
-                <div className="text-[15.5px] text-ink-soft">{d.title}</div>
+                <div className="text-[15.5px] text-ink-body">{d.title}</div>
                 <div className="mt-0.5 text-[13px] text-muted">
                   {d.status === "closed"
                     ? `Decided: ${d.decidedLabel ?? "an option"}`

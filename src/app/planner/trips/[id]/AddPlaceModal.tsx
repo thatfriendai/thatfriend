@@ -459,7 +459,7 @@ export function AddPlaceModal({
                       <select
                         value={c.kind}
                         onChange={(e) => updateCandidate(i, { kind: e.target.value as PlaceKind })}
-                        className="rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-ink-soft"
+                        className="rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-ink-body"
                       >
                         {KIND_OPTIONS.map((k) => (
                           <option key={k.kind} value={k.kind}>
@@ -470,7 +470,7 @@ export function AddPlaceModal({
                       {daySelect(
                         c.day_id,
                         (v) => updateCandidate(i, { day_id: v }),
-                        "rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-ink-soft"
+                        "rounded-full border border-border bg-card px-3 py-1.5 text-[12.5px] text-ink-body"
                       )}
                     </div>
                   </div>
@@ -579,7 +579,7 @@ export function AddPlaceModal({
                     className={`rounded-full border px-3.5 py-2 text-sm transition-colors ${
                       kind === k.kind
                         ? "border-transparent text-cream"
-                        : "border-input-border bg-card text-ink-soft hover:border-ink"
+                        : "border-input-border bg-card text-ink-body hover:border-ink"
                     }`}
                     style={kind === k.kind ? { background: k.color } : undefined}
                   >

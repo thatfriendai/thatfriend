@@ -35,7 +35,7 @@ export function TripVisibilityList({ trips }: { trips: TripRow[] }) {
           key={t.id}
           className="flex items-center justify-between gap-3 rounded-xl border border-border bg-card px-4 py-3"
         >
-          <span className="text-[14.5px] text-ink-soft">{t.name}</span>
+          <span className="text-[14.5px] text-ink-body">{t.name}</span>
           <button
             type="button"
             onClick={() => toggle(t.id, !t.is_public)}

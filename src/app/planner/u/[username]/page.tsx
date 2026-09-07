@@ -212,7 +212,7 @@ export default async function PublicProfilePage({
                   >
                     {initialsOf(f.name || f.username || "?")}
                   </div>
-                  <span className="text-[14px] text-ink-soft">{f.name || `@${f.username}`}</span>
+                  <span className="text-[14px] text-ink-body">{f.name || `@${f.username}`}</span>
                 </Link>
               ))}
             </div>
