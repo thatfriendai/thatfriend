@@ -6,6 +6,9 @@ import { sendConversationMessage } from "@/lib/twilio/conversations";
 import { normalizePhoneDigits } from "@/lib/planner/phone";
 import { findPlannerUserByPhone } from "@/lib/planner/plannerUser";
 import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib/planner/whatsappResource";
+import { classifyIntent } from "@/lib/planner/inboundIntent";
+import { answerTripQuestion } from "@/lib/planner/tripQA";
+import { sendNudge } from "@/lib/planner/nudge";
 
 const ASSISTANT_AUTHOR = "That Friend";
 
@@ -75,6 +78,36 @@ export async function POST(request: Request) {
     // A message in a conversation we don't recognize, or from a number we
     // can't match to an account — nothing sane to do, stay quiet.
     return NextResponse.json({ ok: true });
+  }
+
+  if (body) {
+    const intent = await classifyIntent(body);
+
+    if (intent.kind === "question") {
+      const answer = await answerTripQuestion(admin, trip.id, intent.topic, intent.dayRef);
+      await sendConversationMessage(conversationSid, answer);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (intent.kind === "nudge") {
+      const nudged = await sendNudge(
+        admin,
+        { id: trip.id, name: trip.name, twilio_conversation_sid: conversationSid },
+        "preferences",
+        "group"
+      );
+      if (!("error" in nudged)) return NextResponse.json({ ok: true }); // sendNudge already messaged the group
+      await sendConversationMessage(conversationSid, nudged.error);
+      return NextResponse.json({ ok: true });
+    }
+
+    if (intent.kind === "close_decision") {
+      await sendConversationMessage(
+        conversationSid,
+        "Closing a poll by text is coming soon — head to the app to close this one."
+      );
+      return NextResponse.json({ ok: true });
+    }
   }
 
   let media: ConversationMedia[] = [];
