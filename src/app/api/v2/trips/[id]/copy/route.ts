@@ -22,7 +22,7 @@ export async function POST(
 
   const { data: sourceTrip } = await admin
     .from("planner_trips")
-    .select("id, name, destination, occasion, is_public")
+    .select("id, name, destination, occasion, is_public, end_date")
     .eq("id", tripId)
     .maybeSingle();
   if (!sourceTrip) return NextResponse.json({ error: "Trip not found." }, { status: 404 });
@@ -54,10 +54,31 @@ export async function POST(
 
   await admin.from("planner_memberships").insert({ trip_id: newTrip.id, user_id: user.id, role: "owner" });
 
-  const { data: sourcePlaces } = await admin
+  // Once a trip has actually happened, only bring along places someone
+  // rated — a completed trip's saved-places list is full of things that
+  // got extracted and never visited, and copying all of it would carry
+  // that noise into the next trip. A trip still being planned has nothing
+  // to rate yet, so it copies everything, same as before.
+  const today = new Date().toISOString().slice(0, 10);
+  const hasEnded = Boolean(sourceTrip.end_date && sourceTrip.end_date < today);
+
+  let ratedPlaceIds: Set<string> | null = null;
+  if (hasEnded) {
+    const { data: ratingRows } = await admin
+      .from("planner_place_ratings")
+      .select("place_id")
+      .eq("trip_id", tripId);
+    ratedPlaceIds = new Set((ratingRows ?? []).map((r) => r.place_id as string));
+  }
+
+  const { data: allSourcePlaces } = await admin
     .from("planner_places")
-    .select("name, kind, note, map_x, map_y, lat, lng, address")
+    .select("id, name, kind, note, map_x, map_y, lat, lng, address")
     .eq("trip_id", tripId);
+
+  const sourcePlaces = ratedPlaceIds
+    ? (allSourcePlaces ?? []).filter((p) => ratedPlaceIds!.has(p.id))
+    : allSourcePlaces;
 
   if (sourcePlaces && sourcePlaces.length > 0) {
     await admin.from("planner_places").insert(
