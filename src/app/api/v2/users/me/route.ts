@@ -10,7 +10,7 @@ export async function PATCH(request: Request) {
 
   const body = await request.json().catch(() => ({}));
   const admin = createAdminClient();
-  const update: Record<string, string | null> = {};
+  const update: Record<string, string | boolean | null> = {};
 
   if (typeof body.username === "string") {
     const username = body.username.trim().toLowerCase();
@@ -34,6 +34,10 @@ export async function PATCH(request: Request) {
     update.tagline = body.tagline.trim().slice(0, 140) || null;
   }
 
+  if (typeof body.is_public === "boolean") {
+    update.is_public = body.is_public;
+  }
+
   if (Object.keys(update).length === 0) {
     return NextResponse.json({ error: "Nothing to update." }, { status: 400 });
   }
@@ -42,7 +46,7 @@ export async function PATCH(request: Request) {
     .from("planner_users")
     .update(update)
     .eq("id", user.id)
-    .select("username, tagline")
+    .select("username, tagline, is_public")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -19,11 +19,42 @@ export interface PlannerUser {
   created_at: string;
   username: string | null;
   tagline: string | null;
+  is_public: boolean;
 }
 
 export interface PlannerFollow {
   follower_id: string;
   followee_id: string;
+  created_at: string;
+}
+
+export type FriendshipSource = "trip" | "manual";
+
+/** Distinct from Follow (one-directional) — a friendship is mutual and, today, only ever created by sharing a trip. Stored with user_a < user_b so a pair has exactly one row. */
+export interface PlannerFriendship {
+  user_a: string;
+  user_b: string;
+  source: FriendshipSource;
+  created_at: string;
+}
+
+export interface PlannerPlaceRating {
+  id: string;
+  trip_id: string;
+  place_id: string;
+  user_id: string;
+  rating: number;
+  body: string | null;
+  created_at: string;
+}
+
+export type JoinRequestStatus = "pending" | "accepted" | "declined";
+
+export interface PlannerJoinRequest {
+  id: string;
+  trip_id: string;
+  user_id: string;
+  status: JoinRequestStatus;
   created_at: string;
 }
 

@@ -487,6 +487,61 @@ update planner_decision_options set amenities = '{}'::jsonb where jsonb_typeof(a
 alter table planner_decisions add column if not exists deadline timestamptz;
 
 -- ---------------------------------------------------------------------------
+-- Phase 11 — public profile (1b, the taste feed) + 2a fallback state.
+--
+-- Follow (planner_follows, Phase 8) is untouched — it was already correctly
+-- one-directional. What Phase 8 got wrong for this spec is conflating it
+-- with friendship: auto-friending on trip join inserted follow rows in
+-- both directions and called that "friends." Friendship is now its own
+-- table so following an influencer never implies a friendship, and a
+-- shared trip always does. Stored with user_a < user_b so each pair has
+-- exactly one row regardless of insert order.
+--
+-- planner_place_ratings backs both the profile's taste feed AND the 2b
+-- rating-capture flow (not built in this pass — that's its own ticket).
+-- Building the table now, with the profile querying it, means the profile
+-- code is correct on day one even though nothing writes to this table
+-- until 2b ships; every profile shows the 2a fallback until then, which is
+-- the honest state (nobody has rated anything yet).
+-- ---------------------------------------------------------------------------
+alter table planner_users add column if not exists is_public boolean not null default true;
+
+create table if not exists planner_friendships (
+  user_a uuid not null references planner_users (id) on delete cascade,
+  user_b uuid not null references planner_users (id) on delete cascade,
+  source text not null default 'trip' check (source in ('trip', 'manual')),
+  created_at timestamptz not null default now(),
+  primary key (user_a, user_b),
+  check (user_a < user_b)
+);
+create index if not exists planner_friendships_b_idx on planner_friendships (user_b);
+
+create table if not exists planner_place_ratings (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  place_id uuid not null references planner_places (id) on delete cascade,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  rating smallint not null check (rating between 1 and 5),
+  body text,
+  created_at timestamptz not null default now(),
+  unique (trip_id, user_id, place_id)
+);
+create index if not exists planner_place_ratings_user_idx on planner_place_ratings (user_id);
+
+-- "Ask to join" on someone's public upcoming trip. Creating a request is
+-- built; the owner-side accept/decline list is a small addition to the
+-- trip page's existing roster section (see PlannerTripPage) rather than a
+-- whole new screen.
+create table if not exists planner_join_requests (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'accepted', 'declined')),
+  created_at timestamptz not null default now(),
+  unique (trip_id, user_id)
+);
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to
@@ -510,11 +565,14 @@ alter table planner_availability_marks enable row level security;
 alter table planner_item_ratings enable row level security;
 alter table planner_trip_reviews enable row level security;
 alter table planner_follows enable row level security;
+alter table planner_friendships enable row level security;
+alter table planner_place_ratings enable row level security;
+alter table planner_join_requests enable row level security;
 
 grant usage on schema public to anon, authenticated, service_role;
 grant all on planner_users, planner_trips, planner_memberships, planner_invites, planner_preferences,
   planner_days, planner_itinerary_items, planner_places, planner_resources,
   planner_decisions, planner_decision_options, planner_decision_votes, planner_decision_notes,
   planner_whatsapp_codes, planner_availability_marks, planner_item_ratings, planner_trip_reviews,
-  planner_follows
+  planner_follows, planner_friendships, planner_place_ratings, planner_join_requests
   to anon, authenticated, service_role;
