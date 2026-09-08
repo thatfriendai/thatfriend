@@ -4,6 +4,8 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ensureDays } from "@/lib/planner/days";
 import { ReviewsBoard } from "./ReviewsBoard";
+import { PlaceRatingQueue } from "./PlaceRatingQueue";
+import { listVisits } from "@/lib/planner/ratingCapture";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
 function labelOf(person: { name: string | null; email: string | null } | null) {
@@ -72,6 +74,27 @@ export default async function ReviewsPage({
     .eq("user_id", user.id)
     .maybeSingle();
 
+  const visits = await listVisits(admin, tripId);
+  const visitIds = visits.map((v) => v.id);
+  const { data: placeRatingRows } = visitIds.length
+    ? await admin
+        .from("planner_place_ratings")
+        .select("place_id, user_id, rating, body, planner_users(name, email)")
+        .in("place_id", visitIds)
+    : { data: [] };
+
+  const myPlaceRatings: Record<string, { rating: number; body: string | null }> = {};
+  const othersByPlace: Record<string, { who: string; rating: number }[]> = {};
+  for (const r of placeRatingRows ?? []) {
+    if (r.user_id === user.id) {
+      myPlaceRatings[r.place_id] = { rating: r.rating, body: r.body };
+    } else {
+      const person = r.planner_users as unknown as { name: string | null; email: string | null } | null;
+      const who = person?.name || person?.email?.split("@")[0] || "Someone";
+      (othersByPlace[r.place_id] ??= []).push({ who, rating: r.rating });
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-border bg-card px-7 py-4">
@@ -79,6 +102,17 @@ export default async function ReviewsPage({
           &larr; {trip.name}
         </Link>
       </header>
+      {visits.length > 0 && (
+        <div className="mx-auto max-w-[820px] px-6 pt-9.5">
+          <PlaceRatingQueue
+            tripId={tripId}
+            visits={visits}
+            initialMyRatings={myPlaceRatings}
+            othersByPlace={othersByPlace}
+            showSocialProof={trip.privacy !== "private"}
+          />
+        </div>
+      )}
       <ReviewsBoard
         tripId={tripId}
         tripName={trip.name}

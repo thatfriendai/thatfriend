@@ -93,6 +93,8 @@ export interface PlannerTrip {
   preferences_skipped_at: string | null;
   preferences_skipped_by: string | null;
   is_public: boolean;
+  rating_prompt_sent_at: string | null;
+  rating_reminder_sent_at: string | null;
 }
 
 export interface PlannerMembership {

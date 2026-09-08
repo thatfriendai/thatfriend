@@ -542,6 +542,18 @@ create table if not exists planner_join_requests (
 );
 
 -- ---------------------------------------------------------------------------
+-- Phase 12 — rating capture (2b). Two timestamps, not a counter: the first
+-- prompt fires once end_date is 3+ days past and rating_prompt_sent_at is
+-- still null; the one reminder fires once rating_prompt_sent_at is 7+ days
+-- old and rating_reminder_sent_at is still null. Once both are set, the
+-- daily cron (src/app/api/v2/cron/rating-prompts/route.ts) has nothing
+-- left to do for that trip, ever — that's the whole "then never again"
+-- rule, with no extra state needed to enforce it.
+-- ---------------------------------------------------------------------------
+alter table planner_trips add column if not exists rating_prompt_sent_at timestamptz;
+alter table planner_trips add column if not exists rating_reminder_sent_at timestamptz;
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to
