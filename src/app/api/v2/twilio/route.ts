@@ -5,6 +5,9 @@ import { downloadTwilioMedia, getPublicWebhookUrl } from "@/lib/twilio/client";
 import { normalizePhoneDigits } from "@/lib/planner/phone";
 import { findPlannerUserByPhone } from "@/lib/planner/plannerUser";
 import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib/planner/whatsappResource";
+import { classifyIntent } from "@/lib/planner/inboundIntent";
+import { answerTripQuestion } from "@/lib/planner/tripQA";
+import { sendNudge } from "@/lib/planner/nudge";
 
 /**
  * Plain SMS/MMS webhook — handles anyone who isn't (yet) part of a trip's
@@ -67,7 +70,7 @@ export async function POST(request: Request) {
 
   const { data: membership } = await admin
     .from("planner_memberships")
-    .select("trip_id, planner_trips(name)")
+    .select("trip_id, planner_trips(id, name, twilio_conversation_sid)")
     .eq("user_id", user.id)
     .order("joined_at", { ascending: false })
     .limit(1)
@@ -77,8 +80,35 @@ export async function POST(request: Request) {
     return reply("You're signed in, but you're not part of any trips yet.");
   }
 
-  const tripName =
-    (membership.planner_trips as unknown as { name: string } | null)?.name ?? "your trip";
+  const trip = membership.planner_trips as unknown as {
+    id: string;
+    name: string;
+    twilio_conversation_sid: string | null;
+  } | null;
+  const tripName = trip?.name ?? "your trip";
+
+  if (body && !(numMedia > 0)) {
+    const intent = await classifyIntent(body);
+
+    if (intent.kind === "question") {
+      const answer = await answerTripQuestion(admin, membership.trip_id, intent.topic, intent.dayRef);
+      return reply(answer);
+    }
+
+    if (intent.kind === "nudge" && trip) {
+      const nudged = await sendNudge(admin, trip, "preferences", "individual");
+      if ("error" in nudged) return reply(nudged.error);
+      return reply(
+        nudged.sentCount === 0
+          ? "Nobody to nudge right now."
+          : `Nudged ${nudged.sentCount} ${nudged.sentCount === 1 ? "person" : "people"} about "${tripName}".`
+      );
+    }
+
+    if (intent.kind === "close_decision") {
+      return reply("Closing a poll by text is coming soon — head to the app to close this one.");
+    }
+  }
 
   let result: Awaited<ReturnType<typeof addResourceFromWhatsAppText>> | null = null;
 
