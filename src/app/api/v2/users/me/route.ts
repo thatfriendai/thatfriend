@@ -12,6 +12,10 @@ export async function PATCH(request: Request) {
   const admin = createAdminClient();
   const update: Record<string, string | boolean | null> = {};
 
+  if (typeof body.whatsapp_opt_in === "boolean") {
+    update.whatsapp_opt_in = body.whatsapp_opt_in;
+  }
+
   if (typeof body.username === "string") {
     const username = body.username.trim().toLowerCase();
     if (!USERNAME_RE.test(username)) {
@@ -46,7 +50,7 @@ export async function PATCH(request: Request) {
     .from("planner_users")
     .update(update)
     .eq("id", user.id)
-    .select("username, tagline, is_public")
+    .select("username, tagline, is_public, whatsapp_opt_in")
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -52,7 +52,7 @@ export default async function ProfilePage() {
             <p className="mb-2 font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
               Phone
             </p>
-            <PhoneLinkPanel currentPhone={user.phone} />
+            <PhoneLinkPanel currentPhone={user.phone} initialWhatsAppOptIn={user.whatsapp_opt_in} />
             <p className="mt-2 text-[13px] leading-relaxed text-muted">
               Your phone is how texting works: forward a link or photo to
               That Friend&rsquo;s number and it lands on your trip&rsquo;s

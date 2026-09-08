@@ -12,7 +12,7 @@ import { normalizePhoneDigits } from "./phone";
 export async function findPlannerUserByPhone(admin: SupabaseClient, fromDigits: string) {
   const { data: candidates, error } = await admin
     .from("planner_users")
-    .select("id, phone")
+    .select("id, phone, whatsapp_opt_in")
     .not("phone", "is", null);
 
   if (error) throw new Error(`Phone lookup failed: ${error.message}`);

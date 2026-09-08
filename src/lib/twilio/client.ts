@@ -28,6 +28,13 @@ export function getSmsFrom() {
   return number;
 }
 
+/** The real, non-sandbox Twilio WhatsApp Sender (E.164), for planner_ 1:1 messaging. */
+export function getWhatsAppSender() {
+  const number = process.env.TWILIO_WHATSAPP_SENDER;
+  if (!number) throw new Error("TWILIO_WHATSAPP_SENDER is not configured.");
+  return number;
+}
+
 /** Downloads a Twilio media attachment (MMS image, etc.) — requires Basic Auth with the account's credentials. */
 export async function downloadTwilioMedia(
   url: string

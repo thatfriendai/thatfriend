@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
     await admin
       .from("planner_users")
-      .update({ phone, whatsapp_opt_in: true })
+      .update({ phone })
       .eq("id", currentUser.id);
 
     return NextResponse.json({ ok: true });
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
   } else {
     const { data: created, error: createError } = await admin
       .from("planner_users")
-      .insert({ phone, name: codeRow.name, whatsapp_opt_in: true })
+      .insert({ phone, name: codeRow.name })
       .select("id")
       .single();
     if (createError || !created) {

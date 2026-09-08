@@ -1,8 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendSmsText } from "@/lib/twilio/send";
+import { sendUserText } from "@/lib/twilio/send";
 import { getOrCreateTripConversation, sendConversationMessage } from "@/lib/twilio/conversations";
-import { toE164 } from "./phone";
 
 export interface VisitedPlace {
   id: string;
@@ -86,15 +85,15 @@ export async function sendRatingPrompt(
 
   const { data: members } = await admin
     .from("planner_memberships")
-    .select("planner_users(phone)")
+    .select("planner_users(phone, whatsapp_opt_in)")
     .eq("trip_id", trip.id);
-  const phones = (members ?? [])
-    .map((m) => (m.planner_users as unknown as { phone: string | null } | null)?.phone)
-    .filter((p): p is string => Boolean(p));
+  const recipients = (members ?? [])
+    .map((m) => m.planner_users as unknown as { phone: string | null; whatsapp_opt_in: boolean } | null)
+    .filter((r): r is { phone: string; whatsapp_opt_in: boolean } => Boolean(r?.phone));
 
-  for (const phone of phones) {
+  for (const recipient of recipients) {
     try {
-      await sendSmsText(toE164(phone), message);
+      await sendUserText(recipient.phone, recipient.whatsapp_opt_in, message);
     } catch {
       // Best-effort — keep going for the rest.
     }

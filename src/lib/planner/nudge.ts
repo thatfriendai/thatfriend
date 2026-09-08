@@ -1,8 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { sendSmsText } from "@/lib/twilio/send";
+import { sendUserText } from "@/lib/twilio/send";
 import { getOrCreateTripConversation, sendConversationMessage } from "@/lib/twilio/conversations";
-import { toE164 } from "./phone";
 
 export type NudgeStage = "availability" | "preferences";
 export type NudgeMode = "group" | "individual";
@@ -20,7 +19,7 @@ export async function sendNudge(
 ): Promise<{ sentCount: number } | { error: string }> {
   const { data: members } = await admin
     .from("planner_memberships")
-    .select("planner_users(id, name, phone)")
+    .select("planner_users(id, name, phone, whatsapp_opt_in)")
     .eq("trip_id", trip.id);
 
   const nudgeable = (members ?? [])
@@ -30,6 +29,7 @@ export async function sendNudge(
           id: string;
           name: string | null;
           phone: string | null;
+          whatsapp_opt_in: boolean;
         } | null
     )
     .filter((m): m is NonNullable<typeof m> => Boolean(m?.phone));
@@ -74,8 +74,9 @@ export async function sendNudge(
   for (const member of toNudge) {
     try {
       const namePart = member.name ? ` ${member.name.split(" ")[0]}` : "";
-      await sendSmsText(
-        toE164(member.phone as string),
+      await sendUserText(
+        member.phone as string,
+        member.whatsapp_opt_in,
         `Hey${namePart}! "${trip.name}" still needs ${what}. Answer here: ${link}`
       );
       sentCount++;

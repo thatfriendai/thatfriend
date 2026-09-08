@@ -5,7 +5,13 @@ import { useRouter } from "next/navigation";
 
 type Step = "idle" | "sent";
 
-export function PhoneLinkPanel({ currentPhone }: { currentPhone: string | null }) {
+export function PhoneLinkPanel({
+  currentPhone,
+  initialWhatsAppOptIn,
+}: {
+  currentPhone: string | null;
+  initialWhatsAppOptIn: boolean;
+}) {
   const router = useRouter();
   const [changing, setChanging] = useState(false);
   const [phone, setPhone] = useState("");
@@ -13,6 +19,20 @@ export function PhoneLinkPanel({ currentPhone }: { currentPhone: string | null }
   const [step, setStep] = useState<Step>("idle");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [whatsappOptIn, setWhatsappOptIn] = useState(initialWhatsAppOptIn);
+  const [channelPending, setChannelPending] = useState(false);
+
+  async function toggleWhatsApp(next: boolean) {
+    setWhatsappOptIn(next);
+    setChannelPending(true);
+    const res = await fetch("/api/v2/users/me", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ whatsapp_opt_in: next }),
+    });
+    setChannelPending(false);
+    if (!res.ok) setWhatsappOptIn(!next);
+  }
 
   async function sendCode(e: React.FormEvent) {
     e.preventDefault();
@@ -58,15 +78,28 @@ export function PhoneLinkPanel({ currentPhone }: { currentPhone: string | null }
 
   if (!changing) {
     return (
-      <div className="flex items-center gap-3">
-        <span className="text-[15.5px] text-ink">{currentPhone || "No phone number"}</span>
-        <button
-          type="button"
-          onClick={() => setChanging(true)}
-          className="text-[13.5px] text-muted hover:text-accent"
-        >
-          {currentPhone ? "Change" : "Add a phone number"}
-        </button>
+      <div className="flex flex-col gap-2">
+        <div className="flex items-center gap-3">
+          <span className="text-[15.5px] text-ink">{currentPhone || "No phone number"}</span>
+          <button
+            type="button"
+            onClick={() => setChanging(true)}
+            className="text-[13.5px] text-muted hover:text-accent"
+          >
+            {currentPhone ? "Change" : "Add a phone number"}
+          </button>
+        </div>
+        {currentPhone && (
+          <label className="flex items-center gap-2 text-[13.5px] text-body">
+            <input
+              type="checkbox"
+              checked={whatsappOptIn}
+              disabled={channelPending}
+              onChange={(e) => toggleWhatsApp(e.target.checked)}
+            />
+            Use WhatsApp instead of SMS for texts to and from That Friend
+          </label>
+        )}
       </div>
     );
   }
