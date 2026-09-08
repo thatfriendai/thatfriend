@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LodgingMatrix } from "./LodgingMatrix";
+import { StayMatrix, type StayComparisonData } from "./StayMatrix";
 import type {
   PlannerDecision,
   PlannerDecisionNote,
@@ -40,20 +40,24 @@ export function DecisionDetail({
   initialDecision,
   options: initialOptions,
   myVoteOptionId,
+  myUserId,
   myLabel,
   totalMembers,
   waitingOn: initialWaitingOn,
   notes: initialNotes,
+  initialComparison,
 }: {
   tripId: string;
   decisionId: string;
   initialDecision: PlannerDecision;
   options: OptionWithVotes[];
   myVoteOptionId: string | null;
+  myUserId: string;
   myLabel: string;
   totalMembers: number;
   waitingOn: string[];
   notes: NoteWithWho[];
+  initialComparison: StayComparisonData | null;
 }) {
   const [decision, setDecision] = useState(initialDecision);
   const [options, setOptions] = useState(initialOptions);
@@ -100,11 +104,6 @@ export function DecisionDetail({
       });
       if (!previous) setWaitingOn((list) => [...list, myLabel]);
     }
-  }
-
-  function addOption(option: PlannerDecisionOption) {
-    setOptions((list) => [...list, { ...option, voters: [] }]);
-    setOptionVotes((v) => ({ ...v, [option.id]: [] }));
   }
 
   async function closeDecision() {
@@ -155,19 +154,16 @@ export function DecisionDetail({
         <p className="mb-9 max-w-[36em] text-[16.5px] leading-relaxed text-body">{decision.why}</p>
       )}
 
-      {decision.kind === "lodging" ? (
-        <LodgingMatrix
+      {decision.kind === "stay" && initialComparison ? (
+        <StayMatrix
           tripId={tripId}
           decisionId={decisionId}
-          options={options}
-          optionVotes={optionVotes}
-          myVote={myVote}
+          initial={initialComparison}
           isOpen={isOpen}
           decidedOptionId={decision.decided_option_id}
+          myUserId={myUserId}
           totalMembers={totalMembers}
-          voting={voting}
           onVote={castVote}
-          onOptionAdded={addOption}
         />
       ) : (
       <div className="mb-8.5 flex flex-wrap gap-4">

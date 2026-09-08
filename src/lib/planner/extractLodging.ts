@@ -1,22 +1,26 @@
 import "server-only";
 import Anthropic from "@anthropic-ai/sdk";
+import type { StayAmenities, StaySource } from "@/lib/supabase/planner-types";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
+const AMENITY_KEYS = ["kitchen", "ac", "washer", "pool", "breakfast", "wifi"] as const;
+const SOURCE_VALUES: StaySource[] = ["airbnb", "hotel", "aparthotel", "other"];
+
 export interface ExtractedLodgingOption {
   label: string;
-  option_type: string | null;
-  price_per_person_night: number | null;
-  total_price: number | null;
+  source: StaySource | null;
+  total_cost: number | null;
+  currency: string | null;
   bedrooms: number | null;
   bathrooms: number | null;
-  sharing_note: string | null;
-  amenities: { label: string; available: boolean }[];
+  beds_note: string | null;
+  amenities: StayAmenities;
   neighborhood: string | null;
   location_note: string | null;
 }
 
-const SYSTEM = `You pull structured lodging details out of a listing page's text (Airbnb, hotel booking site, aparthotel, etc.) for a group trip planning tool. Call record_lodging_option with whatever the page actually states — leave a field null rather than guessing. price_per_person_night and total_price are for the whole stay described on the page (assume the group size and night count implied by the listing; if unclear, leave null). amenities should list the handful of amenities a group deciding between places would care about (kitchen, AC, washer, pool, parking, wifi) with available true/false based on what the listing says — omit amenities the listing doesn't mention either way. sharing_note is a short one-line description of the sleeping arrangement (e.g. "3 bedrooms, 2 baths" or "one bathroom for six" if notably cramped). location_note is a short one-line note about the location if the listing gives one (walkability, distance to a landmark).`;
+const SYSTEM = `You pull structured lodging details out of a listing page's text (Airbnb, hotel booking site, aparthotel, etc.) for a group trip planning tool. Call record_lodging_option with whatever the page actually states — leave a field null rather than guessing. source is which kind of listing this is. total_cost is for the whole stay described on the page, with currency as a 3-letter code (e.g. USD, EUR) if stated. For each amenity key (kitchen, ac, washer, pool, breakfast, wifi), set true or false only if the listing actually says so either way — leave a key out entirely if it's not mentioned at all; never guess. beds_note is a short one-line description of the sleeping arrangement (e.g. "3 bedrooms, 2 baths" or "one bathroom for six" if notably cramped). location_note is a short one-line note about the location if the listing gives one (walkability, distance to a landmark).`;
 
 export async function extractLodgingOption(pageText: string): Promise<ExtractedLodgingOption | null> {
   const trimmed = pageText.trim().slice(0, 8000);
@@ -35,22 +39,15 @@ export async function extractLodgingOption(pageText: string): Promise<ExtractedL
           type: "object",
           properties: {
             label: { type: "string", description: "The listing's name/title." },
-            option_type: { type: "string", description: "e.g. \"Airbnb · Entire home\", \"Hotel · 3 doubles\"." },
-            price_per_person_night: { type: ["number", "null"] },
-            total_price: { type: ["number", "null"] },
+            source: { type: "string", enum: SOURCE_VALUES },
+            total_cost: { type: ["number", "null"] },
+            currency: { type: ["string", "null"] },
             bedrooms: { type: ["integer", "null"] },
             bathrooms: { type: ["integer", "null"] },
-            sharing_note: { type: ["string", "null"] },
+            beds_note: { type: ["string", "null"] },
             amenities: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  label: { type: "string" },
-                  available: { type: "boolean" },
-                },
-                required: ["label", "available"],
-              },
+              type: "object",
+              properties: Object.fromEntries(AMENITY_KEYS.map((k) => [k, { type: "boolean" }])),
             },
             neighborhood: { type: ["string", "null"] },
             location_note: { type: ["string", "null"] },
@@ -65,18 +62,27 @@ export async function extractLodgingOption(pageText: string): Promise<ExtractedL
   const toolUse = message.content.find((b) => b.type === "tool_use");
   if (!toolUse || toolUse.type !== "tool_use") return null;
 
-  const input = toolUse.input as Partial<ExtractedLodgingOption> & { label?: string };
+  const input = toolUse.input as Partial<ExtractedLodgingOption> & {
+    label?: string;
+    amenities?: Partial<Record<string, boolean>>;
+  };
   if (!input.label || typeof input.label !== "string") return null;
+
+  const amenities: StayAmenities = { kitchen: null, ac: null, washer: null, pool: null, breakfast: null, wifi: null };
+  for (const key of AMENITY_KEYS) {
+    const v = input.amenities?.[key];
+    if (typeof v === "boolean") amenities[key] = v;
+  }
 
   return {
     label: input.label.trim().slice(0, 120),
-    option_type: input.option_type ?? null,
-    price_per_person_night: input.price_per_person_night ?? null,
-    total_price: input.total_price ?? null,
+    source: SOURCE_VALUES.includes(input.source as StaySource) ? (input.source as StaySource) : null,
+    total_cost: input.total_cost ?? null,
+    currency: input.currency ?? null,
     bedrooms: input.bedrooms ?? null,
     bathrooms: input.bathrooms ?? null,
-    sharing_note: input.sharing_note ?? null,
-    amenities: Array.isArray(input.amenities) ? input.amenities : [],
+    beds_note: input.beds_note ?? null,
+    amenities,
     neighborhood: input.neighborhood ?? null,
     location_note: input.location_note ?? null,
   };

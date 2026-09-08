@@ -3,6 +3,8 @@ import { notFound, redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { DecisionDetail } from "./DecisionDetail";
+import { buildStayComparison } from "@/lib/planner/stayComparison";
+import { generateStayRead } from "@/lib/planner/stayNarrative";
 
 function labelOf(person: { name: string | null; email: string | null } | null) {
   return person?.name || person?.email?.split("@")[0] || "Someone";
@@ -87,6 +89,14 @@ export default async function DecisionPage({
     who: labelOf(n.planner_users as unknown as { name: string | null; email: string | null } | null),
   }));
 
+  let initialComparison = null;
+  if (decision.kind === "stay") {
+    const partySize = decision.party_size ?? roster.length ?? 1;
+    const comparison = await buildStayComparison(admin, tripId, decisionId, decision.nights, partySize);
+    const read = await generateStayRead(decision.title, comparison);
+    initialComparison = { ...comparison, read };
+  }
+
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-border bg-card px-7 py-4">
@@ -100,10 +110,12 @@ export default async function DecisionPage({
         initialDecision={decision}
         options={options}
         myVoteOptionId={myVote?.option_id ?? null}
+        myUserId={user.id}
         myLabel={labelOf({ name: user.name, email: user.email })}
         totalMembers={roster.length}
         waitingOn={waitingOn}
         notes={notes}
+        initialComparison={initialComparison}
       />
     </div>
   );

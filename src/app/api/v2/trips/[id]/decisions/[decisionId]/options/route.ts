@@ -3,6 +3,20 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { fetchPageText } from "@/lib/planner/fetchPage";
 import { extractLodgingOption } from "@/lib/planner/extractLodging";
+import type { StayAmenities, StaySource } from "@/lib/supabase/planner-types";
+
+const SOURCE_VALUES: StaySource[] = ["airbnb", "hotel", "aparthotel", "other"];
+const AMENITY_KEYS = ["kitchen", "ac", "washer", "pool", "breakfast", "wifi"] as const;
+
+function parseAmenities(v: unknown): StayAmenities {
+  const amenities: StayAmenities = { kitchen: null, ac: null, washer: null, pool: null, breakfast: null, wifi: null };
+  if (!v || typeof v !== "object") return amenities;
+  for (const key of AMENITY_KEYS) {
+    const val = (v as Record<string, unknown>)[key];
+    if (typeof val === "boolean") amenities[key] = val;
+  }
+  return amenities;
+}
 
 /**
  * Adds one option to an already-open decision. Two shapes of request:
@@ -53,7 +67,7 @@ export async function POST(
       return NextResponse.json({ error: "Couldn't find listing details on that page." }, { status: 400 });
     }
     return NextResponse.json({
-      candidate: { ...candidate, source_url: body.url.trim(), photo_url: page.imageUrl ?? null },
+      candidate: { ...candidate, url: body.url.trim(), image_url: page.imageUrl ?? null },
     });
   }
 
@@ -62,16 +76,6 @@ export async function POST(
 
   const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : null);
   const str = (v: unknown) => (typeof v === "string" && v.trim() ? v.trim() : null);
-  const amenities = Array.isArray(body.amenities)
-    ? body.amenities
-        .filter((a: unknown): a is { label: unknown; available: unknown } => !!a && typeof a === "object")
-        .map((a: { label: unknown; available: unknown }) => ({
-          label: String(a.label ?? "").slice(0, 40),
-          available: Boolean(a.available),
-        }))
-        .filter((a: { label: string }) => a.label)
-        .slice(0, 12)
-    : [];
 
   const { count } = await admin
     .from("planner_decision_options")
@@ -89,19 +93,21 @@ export async function POST(
       cost: str(body.cost),
       fors: [],
       against: [],
-      option_type: str(body.option_type),
-      price_per_person_night: num(body.price_per_person_night),
-      total_price: num(body.total_price),
+      source: SOURCE_VALUES.includes(body.source) ? body.source : null,
+      total_cost: num(body.total_cost),
+      currency: str(body.currency),
       bedrooms: Number.isInteger(body.bedrooms) ? body.bedrooms : null,
       bathrooms: Number.isInteger(body.bathrooms) ? body.bathrooms : null,
-      sharing_note: str(body.sharing_note),
-      amenities,
+      beds_note: str(body.beds_note),
+      amenities: parseAmenities(body.amenities),
+      rating: num(body.rating),
+      rating_count: Number.isInteger(body.rating_count) ? body.rating_count : null,
       neighborhood: str(body.neighborhood),
       location_note: str(body.location_note),
       lat: num(body.lat),
       lng: num(body.lng),
-      source_url: str(body.source_url),
-      photo_url: str(body.photo_url),
+      url: str(body.url),
+      image_url: str(body.image_url),
     })
     .select("*")
     .single();

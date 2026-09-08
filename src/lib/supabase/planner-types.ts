@@ -6,7 +6,8 @@ export type PlaceKind = "Restaurants" | "Coffee shops" | "Bars" | "Museums" | "A
 export type ResourceType = "link" | "text" | "screenshot";
 export type DecisionStatus = "open" | "closed";
 export type PaceFeedback = "saw_everything" | "about_right" | "not_enough_time" | "too_packed";
-export type DecisionKind = "general" | "lodging";
+export type DecisionKind = "general" | "stay";
+export type StaySource = "airbnb" | "hotel" | "aparthotel" | "other";
 
 export interface PlannerUser {
   id: string;
@@ -29,6 +30,16 @@ export interface PlannerFollow {
 export interface AmenityEntry {
   label: string;
   available: boolean;
+}
+
+/** null = nobody's checked, true/false = a real reported value. Never coerce a missing amenity to false — that would claim knowledge nobody has. */
+export interface StayAmenities {
+  kitchen: boolean | null;
+  ac: boolean | null;
+  washer: boolean | null;
+  pool: boolean | null;
+  breakfast: boolean | null;
+  wifi: boolean | null;
 }
 
 export interface PlannerTrip {
@@ -140,6 +151,8 @@ export interface PlannerDecision {
   created_at: string;
   closed_at: string | null;
   kind: DecisionKind;
+  nights: number | null;
+  party_size: number | null;
 }
 
 export interface PlannerDecisionOption {
@@ -153,19 +166,21 @@ export interface PlannerDecisionOption {
   against: string[];
   position: number;
   created_at: string;
-  option_type: string | null;
-  price_per_person_night: number | null;
-  total_price: number | null;
+  url: string | null;
+  source: StaySource | null;
+  total_cost: number | null;
+  currency: string | null;
   bedrooms: number | null;
   bathrooms: number | null;
-  sharing_note: string | null;
-  amenities: AmenityEntry[];
+  beds_note: string | null;
+  amenities: StayAmenities;
+  rating: number | null;
+  rating_count: number | null;
   neighborhood: string | null;
   location_note: string | null;
   lat: number | null;
   lng: number | null;
-  source_url: string | null;
-  photo_url: string | null;
+  image_url: string | null;
 }
 
 export interface PlannerDecisionVote {
