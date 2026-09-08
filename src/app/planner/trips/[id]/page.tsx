@@ -10,8 +10,10 @@ import { NudgeButton } from "./NudgeButton";
 import { StartGroupText } from "./StartGroupText";
 import { PreferencesSkipControl } from "./PreferencesSkipControl";
 import { ResourceTile } from "@/components/planner/ResourceIcon";
+import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { ensureDays } from "@/lib/planner/days";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
+import { computeAttention } from "@/lib/planner/attention";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
 const AVATAR_COLORS = DAY_COLORS;
@@ -125,13 +127,13 @@ export default async function PlannerTripPage({
 
   const { data: decisionRows } = await admin
     .from("planner_decisions")
-    .select("*, planner_decision_options(id, label), planner_decision_votes(option_id), planner_decision_notes(id)")
+    .select("*, planner_decision_options(id, label), planner_decision_votes(option_id, user_id), planner_decision_notes(id)")
     .eq("trip_id", id)
     .order("created_at", { ascending: false });
 
   const decisions = (decisionRows ?? []).map((d) => {
     const options = (d.planner_decision_options ?? []) as { id: string; label: string }[];
-    const votes = (d.planner_decision_votes ?? []) as { option_id: string }[];
+    const votes = (d.planner_decision_votes ?? []) as { option_id: string; user_id: string }[];
     const decidedOption = options.find((o) => o.id === d.decided_option_id);
     return {
       ...d,
@@ -141,6 +143,14 @@ export default async function PlannerTripPage({
       decidedLabel: decidedOption?.label ?? null,
     };
   });
+
+  const stayCount = decisions.filter((d) => d.kind === "stay").length;
+  const generalCount = decisions.filter((d) => d.kind === "general").length;
+  const decisionsNeedVote = decisions.some(
+    (d) => d.status === "open" && !d.planner_decision_votes?.some((v: { user_id: string }) => v.user_id === user.id)
+  );
+
+  const attention = await computeAttention(admin, id, user.id);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const roster = (members ?? []).map((m) => {
@@ -160,59 +170,23 @@ export default async function PlannerTripPage({
 
   return (
     <div className="min-h-screen">
-      <header className="flex flex-wrap items-center justify-between gap-y-3 border-b border-border bg-card px-5 py-3.5 sm:px-7">
-        <div className="flex items-center gap-5">
-          <Link href="/planner/trips" className="text-xl font-display text-ink">
-            &ldquo;that friend&rdquo;
-          </Link>
-          <div className="hidden h-5 w-px bg-border sm:block" />
-          <div>
-            <p className="text-[15px] font-medium text-ink">{trip.name}</p>
-            <p className="mt-0.5 font-mono text-[11px] text-muted">
-              {dateRange ?? "Dates not set"} &middot; {roster.length}{" "}
-              {roster.length === 1 ? "traveller" : "travellers"}
-            </p>
-          </div>
-        </div>
-        <div className="flex flex-wrap items-center gap-3.5">
-          <div className="flex">
-            {roster.slice(0, 5).map((m, i) => (
-              <div
-                key={i}
-                className="ml-[-5px] flex h-6.5 w-6.5 items-center justify-center rounded-full border-2 border-card text-[11px] text-cream"
-                style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}
-                title={m.label}
-              >
-                {initialsOf(m.label)}
-              </div>
-            ))}
-          </div>
-          <Link
-            href={`/planner/trips/${id}/dates`}
-            className="px-1 text-[13.5px] text-body hover:text-accent"
-          >
-            {trip.dates_locked_at ? "Dates" : "Pick dates"}
-          </Link>
-          <Link
-            href={`/planner/trips/${id}/preferences`}
-            className="px-1 text-[13.5px] text-body hover:text-accent"
-          >
-            Your preferences
-          </Link>
-          <Link
-            href={`/planner/trips/${id}/convergence`}
-            className="rounded-full border border-input-border bg-card px-4 py-2 text-[13.5px] text-ink hover:border-ink"
-          >
-            Where we landed
-          </Link>
-          <Link
-            href={`/planner/trips/${id}/reviews`}
-            className="rounded-full border border-input-border bg-card px-4 py-2 text-[13.5px] text-ink hover:border-ink"
-          >
-            Reviews
-          </Link>
-        </div>
-      </header>
+      <WorkspaceTopBar
+        tripId={id}
+        tripName={trip.name}
+        dateRange={dateRange}
+        travellerCount={roster.length}
+        roster={roster}
+        avatarColors={AVATAR_COLORS}
+        datesLabel={trip.dates_locked_at ? "Dates" : "Pick dates"}
+        primary={attention.primary}
+        navCounts={{
+          places: places.length,
+          stays: stayCount,
+          sources: resources.length,
+          decisions: generalCount,
+          decisionsNeedVote,
+        }}
+      />
 
       <div className="mx-auto max-w-[1080px] px-6 py-9.5 pb-28">
         <div className="mb-10 flex items-end justify-between gap-6">
@@ -228,6 +202,23 @@ export default async function PlannerTripPage({
             {trip.privacy === "private" ? "Private trip" : "Open trip"}
           </p>
         </div>
+
+        {attention.items.length > 0 && (
+          <div className="mb-10 flex flex-col gap-1.5">
+            {attention.items.map((item, i) => (
+              <a
+                key={item.kind}
+                href={item.href}
+                className="flex items-center gap-2.5 text-[14px] text-body hover:text-accent"
+              >
+                <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">
+                  {i === 0 ? "First" : "Then"}
+                </span>
+                {item.label}
+              </a>
+            ))}
+          </div>
+        )}
 
         {membership.role === "owner" && joinInvite && (
           <div className="mb-12">
@@ -294,7 +285,7 @@ export default async function PlannerTripPage({
           </div>
         )}
 
-        <div className="mb-14">
+        <div id="itinerary" className="mb-14">
           <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
             <span className="font-mono text-[11px] text-faint">03</span>
             <span className="text-[25px] font-display text-ink">The plan so far</span>

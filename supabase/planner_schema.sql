@@ -480,6 +480,13 @@ alter table planner_decision_options alter column amenities set default '{}'::js
 update planner_decision_options set amenities = '{}'::jsonb where jsonb_typeof(amenities) is distinct from 'object';
 
 -- ---------------------------------------------------------------------------
+-- Phase 10 — workspace top bar (3a nav + 3b stuck primary). deadline drives
+-- stuck-primary rule 1 (an open decision due within 72h); see
+-- src/lib/planner/attention.ts for the full priority waterfall.
+-- ---------------------------------------------------------------------------
+alter table planner_decisions add column if not exists deadline timestamptz;
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to

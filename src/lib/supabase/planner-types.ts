@@ -153,6 +153,7 @@ export interface PlannerDecision {
   kind: DecisionKind;
   nights: number | null;
   party_size: number | null;
+  deadline: string | null;
 }
 
 export interface PlannerDecisionOption {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { KIND_OPTIONS } from "@/lib/planner/itinerary";
 import { AddPlaceModal } from "./AddPlaceModal";
 import { PlaceMapView } from "@/components/planner/PlaceMapView";
@@ -24,6 +25,18 @@ export function PlacesBoard({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  // The top bar's "+ Add" dropdown jumps here with ?openAdd=place|link and
+  // this section opens its own modal in response, rather than the top bar
+  // owning a duplicate copy of this modal's state. Adjusting state during
+  // render (not in an effect) so this only fires once per actual param
+  // change — see https://react.dev/learn/you-might-not-need-an-effect.
+  const searchParams = useSearchParams();
+  const openAddParam = searchParams.get("openAdd");
+  const [handledOpenAdd, setHandledOpenAdd] = useState<string | null>(null);
+  if (openAddParam && openAddParam !== handledOpenAdd) {
+    setHandledOpenAdd(openAddParam);
+    if (openAddParam === "place" || openAddParam === "link") setAddOpen(true);
+  }
 
   async function removePlace(id: string) {
     setRemovingId(id);
@@ -42,7 +55,7 @@ export function PlacesBoard({
   const selected = places.find((p) => p.id === selectedId) ?? null;
 
   return (
-    <div>
+    <div id="places">
       <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
         <div className="font-mono text-[11px] text-faint">04</div>
         <div className="font-display text-[25px] text-ink">Places to save</div>

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { NewDecisionModal } from "./NewDecisionModal";
 import type { PlannerDecision } from "@/lib/supabase/planner-types";
 
@@ -22,9 +23,16 @@ export function DecisionsSection({
   totalMembers: number;
 }) {
   const [open, setOpen] = useState(false);
+  const searchParams = useSearchParams();
+  const openAddParam = searchParams.get("openAdd");
+  const [handledOpenAdd, setHandledOpenAdd] = useState<string | null>(null);
+  if (openAddParam && openAddParam !== handledOpenAdd) {
+    setHandledOpenAdd(openAddParam);
+    if (openAddParam === "decision") setOpen(true);
+  }
 
   return (
-    <div className="mb-14">
+    <div id="decisions" className="mb-14">
       <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
         <span className="font-mono text-[11px] text-faint">06</span>
         <span className="text-[25px] font-display text-ink">Decisions</span>
