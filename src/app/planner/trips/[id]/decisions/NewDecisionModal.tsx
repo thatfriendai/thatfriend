@@ -25,9 +25,10 @@ export function NewDecisionModal({
   onClose: () => void;
 }) {
   const router = useRouter();
-  const [kind, setKind] = useState<"general" | "lodging">("general");
+  const [kind, setKind] = useState<"general" | "stay">("general");
   const [title, setTitle] = useState("");
   const [why, setWhy] = useState("");
+  const [nights, setNights] = useState("");
   const [options, setOptions] = useState<OptionDraft[]>([blankOption(), blankOption()]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -38,6 +39,7 @@ export function NewDecisionModal({
     setKind("general");
     setTitle("");
     setWhy("");
+    setNights("");
     setOptions([blankOption(), blankOption()]);
     setError(null);
   }
@@ -76,7 +78,8 @@ export function NewDecisionModal({
         title,
         why,
         kind,
-        options: kind === "lodging" ? [] : cleanOptions,
+        nights: kind === "stay" && nights.trim() ? Number(nights) : undefined,
+        options: kind === "stay" ? [] : cleanOptions,
       }),
     });
     const data = await res.json().catch(() => ({}));
@@ -148,9 +151,9 @@ export function NewDecisionModal({
               </button>
               <button
                 type="button"
-                onClick={() => setKind("lodging")}
+                onClick={() => setKind("stay")}
                 className={`flex-1 rounded-full border py-2.5 text-center text-sm transition-colors ${
-                  kind === "lodging"
+                  kind === "stay"
                     ? "border-ink bg-ink text-cream"
                     : "border-border bg-card text-muted hover:border-ink"
                 }`}
@@ -158,11 +161,26 @@ export function NewDecisionModal({
                 Where to stay
               </button>
             </div>
-            {kind === "lodging" && (
-              <p className="mt-2 text-[13px] leading-relaxed text-muted">
-                A side-by-side comparison table — paste listing links in
-                once this is created and they get compared automatically.
-              </p>
+            {kind === "stay" && (
+              <>
+                <p className="mt-2 text-[13px] leading-relaxed text-muted">
+                  A side-by-side comparison table — paste listing links in
+                  once this is created and they get compared automatically.
+                </p>
+                <div className="mt-3">
+                  <label className="mb-1.5 block text-sm font-medium text-ink">
+                    Nights <span className="text-muted">(for per-person pricing — can set later)</span>
+                  </label>
+                  <input
+                    type="number"
+                    min={1}
+                    value={nights}
+                    onChange={(e) => setNights(e.target.value)}
+                    placeholder="4"
+                    className="w-24 rounded-lg border border-input-border bg-card px-3.5 py-2.5 text-[14.5px] text-ink outline-none focus:border-ink"
+                  />
+                </div>
+              </>
             )}
           </div>
 
@@ -242,7 +260,7 @@ export function NewDecisionModal({
               disabled={pending}
               className="rounded-full bg-ink px-6.5 py-3 text-[15px] text-cream hover:bg-accent disabled:opacity-50"
             >
-              {pending ? "Starting…" : kind === "lodging" ? "Create comparison" : "Start the vote"}
+              {pending ? "Starting…" : kind === "stay" ? "Create comparison" : "Start the vote"}
             </button>
           </div>
         </form>

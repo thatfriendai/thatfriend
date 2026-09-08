@@ -80,7 +80,7 @@ async function answerLodgingCostQuestion(admin: SupabaseClient, tripId: string):
     .from("planner_decisions")
     .select("id, title, status, decided_option_id")
     .eq("trip_id", tripId)
-    .eq("kind", "lodging")
+    .eq("kind", "stay")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -91,12 +91,14 @@ async function answerLodgingCostQuestion(admin: SupabaseClient, tripId: string):
 
   const { data: options } = await admin
     .from("planner_decision_options")
-    .select("id, label, cost, total_price, price_per_person_night")
+    .select("id, label, cost, total_cost, currency")
     .eq("decision_id", decision.id);
 
-  const priceOf = (o: { total_price: number | null; price_per_person_night: number | null; cost: string | null }) => {
-    if (o.total_price != null) return `$${o.total_price} total`;
-    if (o.price_per_person_night != null) return `$${o.price_per_person_night}/person/night`;
+  const priceOf = (o: { total_cost: number | null; currency: string | null; cost: string | null }) => {
+    if (o.total_cost != null) {
+      const symbol = o.currency === "EUR" ? "€" : o.currency === "GBP" ? "£" : o.currency && o.currency !== "USD" ? `${o.currency} ` : "$";
+      return `${symbol}${o.total_cost} total`;
+    }
     return o.cost ?? "no price given";
   };
 

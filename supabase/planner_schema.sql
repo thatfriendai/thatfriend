@@ -401,6 +401,85 @@ alter table planner_places add column if not exists google_place_id text;
 alter table planner_places add column if not exists photo_url text;
 
 -- ---------------------------------------------------------------------------
+-- Phase 9 — accommodation comparison (1c). Supersedes Phase 8's lodging
+-- kind: no live data existed under kind='lodging' at migration time, so this
+-- reshapes the same columns in place rather than running two versions.
+--
+-- Per-person-per-night is deliberately NOT a column — it's always derived
+-- from total_cost / party_size / nights at read time (see
+-- GET /api/v2/trips/[id]/decisions/[decisionId]/comparison), so adding a
+-- traveller re-prices every option instead of leaving a stale number
+-- sitting in a row nobody remembered to update.
+--
+-- amenities changes shape from Phase 8's [{label, available}] array to a
+-- fixed keyed object ({kitchen, ac, washer, pool, breakfast, wifi}, each
+-- boolean | null) — null means nobody's checked, false means confirmed
+-- absent; the app must never coerce a missing key to false.
+-- ---------------------------------------------------------------------------
+do $$
+begin
+  if exists (select 1 from pg_constraint where conname = 'planner_decisions_kind_check') then
+    alter table planner_decisions drop constraint planner_decisions_kind_check;
+  end if;
+end $$;
+update planner_decisions set kind = 'stay' where kind = 'lodging';
+alter table planner_decisions add constraint planner_decisions_kind_check check (kind in ('general', 'stay'));
+alter table planner_decisions add column if not exists nights integer;
+alter table planner_decisions add column if not exists party_size integer;
+
+do $$
+begin
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'planner_decision_options' and column_name = 'option_type'
+  ) then
+    alter table planner_decision_options rename column option_type to source;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'planner_decision_options' and column_name = 'total_price'
+  ) then
+    alter table planner_decision_options rename column total_price to total_cost;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'planner_decision_options' and column_name = 'sharing_note'
+  ) then
+    alter table planner_decision_options rename column sharing_note to beds_note;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'planner_decision_options' and column_name = 'source_url'
+  ) then
+    alter table planner_decision_options rename column source_url to url;
+  end if;
+  if exists (
+    select 1 from information_schema.columns
+    where table_name = 'planner_decision_options' and column_name = 'photo_url'
+  ) then
+    alter table planner_decision_options rename column photo_url to image_url;
+  end if;
+end $$;
+
+alter table planner_decision_options drop column if exists price_per_person_night;
+
+do $$
+begin
+  if exists (select 1 from pg_constraint where conname = 'planner_decision_options_source_check') then
+    alter table planner_decision_options drop constraint planner_decision_options_source_check;
+  end if;
+end $$;
+alter table planner_decision_options add constraint planner_decision_options_source_check
+  check (source is null or source in ('airbnb', 'hotel', 'aparthotel', 'other'));
+
+alter table planner_decision_options add column if not exists currency text;
+alter table planner_decision_options add column if not exists rating numeric;
+alter table planner_decision_options add column if not exists rating_count integer;
+
+alter table planner_decision_options alter column amenities set default '{}'::jsonb;
+update planner_decision_options set amenities = '{}'::jsonb where jsonb_typeof(amenities) is distinct from 'object';
+
+-- ---------------------------------------------------------------------------
 -- Row Level Security — same posture as schema.sql: app code talks to these
 -- tables through the service-role admin client, so RLS here exists to deny
 -- direct anon/authenticated access via the Supabase REST API, not to
