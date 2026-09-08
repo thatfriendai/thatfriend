@@ -25,7 +25,7 @@ export function FollowButton({ username, initialFollowing }: { username: string;
       onClick={toggle}
       disabled={pending}
       className={`rounded-full px-6 py-2.5 text-[14px] disabled:opacity-50 ${
-        following ? "border border-input-border bg-card text-ink" : "bg-accent text-cream"
+        following ? "border border-input-border bg-card text-ink" : "bg-accent text-on-accent"
       }`}
     >
       {pending ? "…" : following ? "Following" : "Follow"}

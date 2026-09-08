@@ -9,6 +9,7 @@ import { DecisionsSection } from "./decisions/DecisionsSection";
 import { NudgeButton } from "./NudgeButton";
 import { StartGroupText } from "./StartGroupText";
 import { PreferencesSkipControl } from "./PreferencesSkipControl";
+import { JoinRequests } from "./JoinRequests";
 import { ResourceTile } from "@/components/planner/ResourceIcon";
 import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { ensureDays } from "@/lib/planner/days";
@@ -163,6 +164,19 @@ export default async function PlannerTripPage({
     return { label, role: m.role };
   });
 
+  let pendingJoinRequests: { id: string; label: string }[] = [];
+  if (membership.role === "owner") {
+    const { data: requestRows } = await admin
+      .from("planner_join_requests")
+      .select("id, planner_users(name, email)")
+      .eq("trip_id", id)
+      .eq("status", "pending");
+    pendingJoinRequests = (requestRows ?? []).map((r) => {
+      const person = r.planner_users as unknown as { name: string | null; email: string | null } | null;
+      return { id: r.id, label: person?.name || person?.email?.split("@")[0] || "Someone" };
+    });
+  }
+
   const dateRange =
     trip.start_date && trip.end_date
       ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase()}–${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" }).toUpperCase()}`
@@ -235,6 +249,9 @@ export default async function PlannerTripPage({
             <span className="font-mono text-[11px] text-faint">02</span>
             <span className="text-[25px] font-display text-ink">Who&rsquo;s in</span>
           </div>
+          {membership.role === "owner" && (
+            <JoinRequests tripId={id} initial={pendingJoinRequests} />
+          )}
           <div className="flex flex-col gap-2">
             {roster.map((m, i) => (
               <div

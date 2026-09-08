@@ -5,14 +5,17 @@ import { useState, useTransition } from "react";
 export function ProfileFieldsForm({
   initialUsername,
   initialTagline,
+  initialIsPublic,
 }: {
   initialUsername: string;
   initialTagline: string;
+  initialIsPublic: boolean;
 }) {
   const [username, setUsername] = useState(initialUsername);
   const [tagline, setTagline] = useState(initialTagline);
+  const [isPublic, setIsPublic] = useState(initialIsPublic);
   const [editing, setEditing] = useState(false);
-  const [saved, setSaved] = useState({ username: initialUsername, tagline: initialTagline });
+  const [saved, setSaved] = useState({ username: initialUsername, tagline: initialTagline, isPublic: initialIsPublic });
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -23,14 +26,18 @@ export function ProfileFieldsForm({
       const res = await fetch("/api/v2/users/me", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, tagline }),
+        body: JSON.stringify({ username, tagline, is_public: isPublic }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         setError(data.error ?? "Could not save.");
         return;
       }
-      setSaved({ username: data.user.username ?? "", tagline: data.user.tagline ?? "" });
+      setSaved({
+        username: data.user.username ?? "",
+        tagline: data.user.tagline ?? "",
+        isPublic: data.user.is_public ?? true,
+      });
       setEditing(false);
     });
   }
@@ -41,6 +48,9 @@ export function ProfileFieldsForm({
         <div className="flex items-center gap-3">
           <span className="text-[15.5px] text-ink">
             {saved.username ? `@${saved.username}` : "No username set"}
+          </span>
+          <span className="font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">
+            {saved.isPublic ? "Public" : "Private"}
           </span>
           <button
             type="button"
@@ -73,6 +83,10 @@ export function ProfileFieldsForm({
         placeholder="A short line about you (shown on your profile)"
         className="w-full rounded-full border border-input-border bg-card px-4 py-2 text-[14.5px] text-ink outline-none focus:border-ink"
       />
+      <label className="flex items-center gap-2 text-[13.5px] text-body">
+        <input type="checkbox" checked={isPublic} onChange={(e) => setIsPublic(e.target.checked)} />
+        Anyone can view my profile at /u/{username || "..."}
+      </label>
       <div className="flex items-center gap-2.5">
         <button
           type="submit"

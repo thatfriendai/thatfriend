@@ -67,6 +67,7 @@ export default async function ProfilePage() {
             <ProfileFieldsForm
               initialUsername={user.username ?? ""}
               initialTagline={user.tagline ?? ""}
+              initialIsPublic={user.is_public}
             />
             {user.username && (
               <Link

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
+import { listFriends } from "@/lib/planner/follows";
 
 export async function GET(
   _request: Request,
@@ -12,10 +13,15 @@ export async function GET(
 
   const { data: profileUser } = await admin
     .from("planner_users")
-    .select("id, name, username, tagline")
+    .select("id, name, username, tagline, is_public")
     .eq("username", username)
     .maybeSingle();
   if (!profileUser) return NextResponse.json({ error: "Not found." }, { status: 404 });
+
+  const isSelfCheck = viewer?.id === profileUser.id;
+  if (!profileUser.is_public && !isSelfCheck) {
+    return NextResponse.json({ error: "This profile is private." }, { status: 403 });
+  }
 
   const { data: memberships } = await admin
     .from("planner_memberships")
@@ -42,10 +48,7 @@ export async function GET(
   }, 0);
   const destinations = new Set(publicTrips.map((t) => t.destination).filter(Boolean));
 
-  const { count: friendCount } = await admin
-    .from("planner_follows")
-    .select("follower_id", { count: "exact", head: true })
-    .eq("followee_id", profileUser.id);
+  const friends = await listFriends(admin, profileUser.id);
 
   let isFollowing = false;
   if (viewer && !isSelf) {
@@ -64,7 +67,7 @@ export async function GET(
 
   return NextResponse.json({
     user: { name: profileUser.name, username: profileUser.username, tagline: profileUser.tagline },
-    stats: { trips: publicTrips.length, destinations: destinations.size, nightsAway, friends: friendCount ?? 0 },
+    stats: { trips: publicTrips.length, destinations: destinations.size, nightsAway, friends: friends.length },
     trips: publicTrips
       .filter((t) => t.id !== nextTrip?.id)
       .sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? "")),
