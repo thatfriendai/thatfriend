@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { AttentionItem } from "@/lib/planner/attention";
 
-const SECTION_IDS = ["places", "decisions", "resources", "itinerary"];
+const SECTION_IDS = ["places", "stays", "decisions", "resources", "itinerary"];
 
 function useActiveSection() {
   const [active, setActive] = useState<string | null>(null);
@@ -231,7 +231,7 @@ export function WorkspaceTopBar({
           Places
           <NavCount n={navCounts.places} />
         </NavLink>
-        <NavLink href="#decisions" active={active === "decisions"}>
+        <NavLink href="#stays" active={active === "stays"}>
           Stays
           <NavCount n={navCounts.stays} />
         </NavLink>

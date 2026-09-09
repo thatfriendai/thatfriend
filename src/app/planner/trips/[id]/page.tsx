@@ -6,6 +6,9 @@ import { CopyInviteLink } from "./CopyInviteLink";
 import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
 import { DecisionsSection } from "./decisions/DecisionsSection";
+import { StaysSection } from "./StaysSection";
+import { buildStayComparison } from "@/lib/planner/stayComparison";
+import { generateStayRead } from "@/lib/planner/stayNarrative";
 import { NudgeButton } from "./NudgeButton";
 import { StartGroupText } from "./StartGroupText";
 import { PreferencesSkipControl } from "./PreferencesSkipControl";
@@ -129,7 +132,14 @@ export default async function PlannerTripPage({
 
   const { data: decisionRows } = await admin
     .from("planner_decisions")
-    .select("*, planner_decision_options(id, label), planner_decision_votes(option_id, user_id), planner_decision_notes(id)")
+    // Explicit FK name: planner_decisions has two relationships to
+    // planner_decision_options (the options belonging to it, and
+    // decided_option_id pointing back at one of them) — PostgREST can't
+    // pick one on its own once decided_option_id is set, and silently
+    // fails the whole query instead of erroring loudly.
+    .select(
+      "*, planner_decision_options!planner_decision_options_decision_id_fkey(id, label), planner_decision_votes(option_id, user_id), planner_decision_notes(id)"
+    )
     .eq("trip_id", id)
     .order("created_at", { ascending: false });
 
@@ -170,6 +180,28 @@ export default async function PlannerTripPage({
     const label = person?.name || person?.email?.split("@")[0] || person?.phone || "Someone";
     return { label, role: m.role };
   });
+
+  const stayDecisionRow = decisions.find((d) => d.kind === "stay") ?? null;
+  let stayDecision: {
+    id: string;
+    title: string;
+    status: "open" | "closed";
+    deadline: string | null;
+    decidedOptionLabel: string | null;
+    comparison: Awaited<ReturnType<typeof buildStayComparison>> & { read: string | null };
+  } | null = null;
+  if (stayDecisionRow) {
+    const comparison = await buildStayComparison(admin, id, stayDecisionRow.id, stayDecisionRow.nights, roster.length);
+    const read = await generateStayRead(stayDecisionRow.title, comparison);
+    stayDecision = {
+      id: stayDecisionRow.id,
+      title: stayDecisionRow.title,
+      status: stayDecisionRow.status,
+      deadline: stayDecisionRow.deadline,
+      decidedOptionLabel: stayDecisionRow.decidedLabel,
+      comparison: { ...comparison, read },
+    };
+  }
 
   let pendingJoinRequests: { id: string; label: string }[] = [];
   if (membership.role === "owner") {
@@ -347,10 +379,12 @@ export default async function PlannerTripPage({
           googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}
         />
 
+        <StaysSection tripId={id} stayDecision={stayDecision} myUserId={user.id} totalMembers={roster.length} />
+
         {resources.length > 0 && (
           <div id="resources" className="mb-14 max-w-[760px]">
             <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-              <span className="font-mono text-[11px] text-faint">05</span>
+              <span className="font-mono text-[11px] text-faint">06</span>
               <span className="text-[25px] font-display text-ink">Where these came from</span>
               <span className="ml-auto text-[13.5px] text-muted">
                 Links, text, and screenshots
