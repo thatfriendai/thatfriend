@@ -121,5 +121,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ redirect: "/planner/trips" });
+  return NextResponse.json({ redirect: "/planner/home" });
 }

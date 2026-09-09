@@ -137,7 +137,7 @@ export function AuthPanel({ token }: { token?: string }) {
       setError(data.error ?? "Could not verify that code.");
       return;
     }
-    router.push(data.redirect ?? "/planner/trips");
+    router.push(data.redirect ?? "/planner/home");
   }
 
   if (sent && mode === "phone") {

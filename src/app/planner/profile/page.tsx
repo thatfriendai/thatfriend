@@ -12,7 +12,7 @@ export default async function ProfilePage() {
       <div className="mx-auto max-w-[1080px] px-6 py-10 sm:px-10">
         <div className="mb-2 flex items-center gap-4">
           <Link
-            href="/planner/trips"
+            href="/planner/home"
             aria-label="Back"
             className="flex h-9 w-9 flex-none items-center justify-center rounded-full border border-input-border bg-card text-ink hover:border-ink"
           >
