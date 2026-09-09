@@ -21,7 +21,7 @@ export function AddToItineraryButton({
   savedPlaceId: string;
   place: SavedPlaceCandidate;
   trips: { id: string; name: string; days: { id: string; label: string }[] }[];
-  onAdded: () => void;
+  onAdded: (info: { createdPlaceId: string; tripId: string; dayLabel: string | null }) => void;
 }) {
   const [open, setOpen] = useState(false);
   const [tripId, setTripId] = useState(trips[0]?.id ?? "");
@@ -73,7 +73,8 @@ export function AddToItineraryButton({
     }
     await fetch(`/api/v2/saved-places/${savedPlaceId}`, { method: "DELETE" });
     setPending(false);
-    onAdded();
+    const dayLabel = days.find((d) => d.id === dayId)?.label ?? null;
+    onAdded({ createdPlaceId: data.place.id, tripId, dayLabel });
   }
 
   return (

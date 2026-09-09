@@ -27,6 +27,13 @@ export interface RatingCardData {
   photoUrl: string | null;
 }
 
+export interface VisitedPlaceRow {
+  id: string;
+  name: string;
+  tripName: string;
+  dayLabel: string | null;
+}
+
 export interface TripCardData {
   id: string;
   name: string;
@@ -64,6 +71,7 @@ export function ProfileView({
   isFollowingInitial,
   viewerSignedIn,
   feed: initialFeed,
+  visits,
   trips: initialTrips,
   privateTripCount: initialPrivateTripCount,
 }: {
@@ -82,6 +90,7 @@ export function ProfileView({
   isFollowingInitial: boolean;
   viewerSignedIn: boolean;
   feed: RatingCardData[];
+  visits: VisitedPlaceRow[];
   trips: TripCardData[];
   privateTripCount: number;
 }) {
@@ -204,13 +213,26 @@ export function ProfileView({
         </div>
 
         <div className="mb-12">
-          <h2 className="mb-1 font-display text-[26px] tracking-tight text-ink">
-            {effectiveSelf ? "Places you rated" : `Places ${firstName} rated`}
-          </h2>
+          <div className="mb-1 flex items-baseline justify-between gap-4">
+            <h2 className="font-display text-[26px] tracking-tight text-ink">
+              {feed.length > 0
+                ? effectiveSelf
+                  ? "Places you rated"
+                  : `Places ${firstName} rated`
+                : effectiveSelf
+                  ? "Places you've visited"
+                  : `Places ${firstName} has visited`}
+            </h2>
+            {feed.length > 0 && (
+              <span className="font-mono text-[11px] tracking-[0.08em] text-faint uppercase">Highest first</span>
+            )}
+          </div>
           <p className="mb-5 text-[14px] text-muted">
-            {effectiveSelf
-              ? "These are what visitors see first. Ratings come from the nudge after each trip."
-              : "Rated after the trip, not saved before it. That's the difference between a wishlist and a recommendation."}
+            {feed.length > 0
+              ? effectiveSelf
+                ? "These are what visitors see first. Ratings come from the nudge after each trip."
+                : "Rated after the trip, not saved before it. That's the difference between a wishlist and a recommendation."
+              : "Not rated yet — nothing to sort until then."}
           </p>
 
           {feed.length > 0 && (
@@ -240,7 +262,27 @@ export function ProfileView({
           )}
 
           {feed.length === 0 ? (
-            <p className="text-[14px] text-muted">Nothing rated yet.</p>
+            visits.length === 0 ? (
+              <p className="text-[14px] text-muted">Nothing visited yet.</p>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {visits.map((v) => (
+                  <div
+                    key={v.id}
+                    className="flex items-center justify-between gap-4 rounded-xl border border-border bg-card px-4 py-3"
+                  >
+                    <div>
+                      <div className="text-[14.5px] text-ink-body">{v.name}</div>
+                      <div className="mt-0.5 text-[12px] text-muted">
+                        {v.tripName}
+                        {v.dayLabel ? ` · ${v.dayLabel}` : ""}
+                      </div>
+                    </div>
+                    <span className="font-mono text-[11px] text-ink-ghost uppercase">Not rated</span>
+                  </div>
+                ))}
+              </div>
+            )
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {visibleFeed.map((r) => (

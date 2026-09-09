@@ -148,8 +148,14 @@ export default async function PlannerTripPage({
 
   const stayCount = decisions.filter((d) => d.kind === "stay").length;
   const generalCount = decisions.filter((d) => d.kind === "general").length;
+  // Scoped to the same "general" decisions the adjacent count already
+  // shows — a stay decision needing a vote shouldn't light up a badge next
+  // to a number that doesn't include it.
   const decisionsNeedVote = decisions.some(
-    (d) => d.status === "open" && !d.planner_decision_votes?.some((v: { user_id: string }) => v.user_id === user.id)
+    (d) =>
+      d.kind === "general" &&
+      d.status === "open" &&
+      !d.planner_decision_votes?.some((v: { user_id: string }) => v.user_id === user.id)
   );
 
   const attention = await computeAttention(admin, id, user.id);
