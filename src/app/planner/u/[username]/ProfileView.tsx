@@ -114,7 +114,7 @@ export function ProfileView({
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-border bg-card px-5 py-5 sm:px-10">
-        <Link href="/planner/trips" className="text-[23px] tracking-tight font-display text-ink">
+        <Link href="/planner/home" className="text-[23px] tracking-tight font-display text-ink">
           &ldquo;that friend&rdquo;
         </Link>
         {isSelf && (

@@ -75,7 +75,7 @@ const forGroups = [
 
 export default async function Home() {
   const plannerUser = await getPlannerUser();
-  if (plannerUser) redirect("/planner/trips");
+  if (plannerUser) redirect("/planner/home");
 
   return (
     <div className="flex flex-1 flex-col bg-canvas">

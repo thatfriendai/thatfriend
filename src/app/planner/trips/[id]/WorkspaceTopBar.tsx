@@ -126,7 +126,7 @@ export function WorkspaceTopBar({
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-card">
       <div className="flex flex-wrap items-center gap-y-2 px-5 py-3 sm:px-7">
-        <Link href="/planner/trips" className="text-xl font-display text-ink">
+        <Link href="/planner/home" className="text-xl font-display text-ink">
           &ldquo;that friend&rdquo;
         </Link>
         <div className="mx-4 hidden h-5 w-px bg-border sm:block" />
