@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listFriends } from "@/lib/planner/follows";
+import { buildFollowingLists } from "@/lib/planner/followingLists";
 import { listVisits } from "@/lib/planner/ratingCapture";
 import { ProfileView, type RatingCardData, type TripCardData, type VisitedPlaceRow } from "./ProfileView";
 
@@ -227,6 +228,30 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     mutualFriendsCount = profileFriends.filter((f) => viewerFriendIds.has(f.id)).length;
   }
 
+  const { startedFollowingYou, following, travelledWith } = await buildFollowingLists(admin, profileUser.id);
+
+  let viewerFollowsSet = new Set<string>();
+  if (!isSelf && viewer && following.length > 0) {
+    const { data: viewerFollowRows } = await admin
+      .from("planner_follows")
+      .select("followee_id")
+      .eq("follower_id", viewer.id)
+      .in(
+        "followee_id",
+        following.map((f) => f.id)
+      );
+    viewerFollowsSet = new Set((viewerFollowRows ?? []).map((r) => r.followee_id as string));
+  }
+
+  const followingRows = following.map((f) => ({
+    id: f.id,
+    name: f.name,
+    username: f.username,
+    publicTripCount: f.publicTripCount,
+    followsOwnerBack: f.followsYouBack,
+    viewerFollowsInitial: isSelf ? true : viewerFollowsSet.has(f.id),
+  }));
+
   const label = profileUser.name || `@${profileUser.username}`;
   const firstName = (profileUser.name || profileUser.username || "they").split(" ")[0];
 
@@ -253,6 +278,10 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       recentViewerCount={recentViewerCount}
       trips={trips}
       privateTripCount={privateTripCount}
+      following={followingRows}
+      startedFollowingYou={isSelf ? startedFollowingYou : []}
+      travelledWith={isSelf ? travelledWith : []}
+      viewerCanFollow={Boolean(viewer)}
     />
   );
 }

@@ -35,10 +35,10 @@ function fieldsOf(u: PlannerUser) {
 type Fields = ReturnType<typeof fieldsOf>;
 
 function previewCopy(f: Fields) {
-  const channels = [f.notifySms && "text", f.notifyEmail && "email", f.notifyInapp && "the app"].filter(
-    Boolean
-  ) as string[];
-  const channelText = channels.length === 0 ? "nowhere — you wouldn't hear about it" : `by ${channels.join(" and ")}`;
+  const channels = [f.notifySms && "text", f.notifyEmail && "email"].filter(Boolean) as string[];
+  if (channels.length === 0) {
+    return `With text and email off, nudges like "four of six have picked dates" only show up in the app.`;
+  }
   const timing =
     f.digestFrequency === "instant"
       ? "right away"
@@ -47,7 +47,7 @@ function previewCopy(f: Fields) {
         : f.digestFrequency === "weekly"
           ? "in Monday's digest"
           : "only if it's urgent";
-  return `Four of six have picked dates for Lisbon — you'd get this ${channelText}, ${timing}.`;
+  return `Four of six have picked dates for Lisbon — you'd get this by ${channels.join(" and ")}, ${timing}.`;
 }
 
 export function SettingsForm({ user }: { user: PlannerUser }) {
@@ -213,7 +213,7 @@ export function SettingsForm({ user }: { user: PlannerUser }) {
                 value={fields.tagline}
                 onChange={(e) => set("tagline", e.target.value)}
                 rows={3}
-                placeholder="A short line about you"
+                placeholder="The kind of traveller you are, in a sentence."
                 className="w-full resize-none rounded-2xl border border-input-border bg-card px-4 py-3 text-[14.5px] text-ink outline-none focus:border-ink"
               />
               <p className="mt-1.5 text-[12.5px] text-muted">

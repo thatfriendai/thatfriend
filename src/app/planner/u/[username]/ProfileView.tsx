@@ -3,12 +3,22 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { kindColor } from "@/lib/planner/itinerary";
+import type { FollowPersonRow } from "@/lib/planner/followingLists";
 import { FollowButton } from "./FollowButton";
 import { CopyTripButton } from "./CopyTripButton";
 import { AskToJoinButton } from "./AskToJoinButton";
 import { EditRatingButton } from "./EditRatingButton";
 import { SavePlaceButton } from "./SavePlaceButton";
 import { MakePrivateButton } from "./MakePrivateButton";
+
+export interface ProfileFollowingRow {
+  id: string;
+  name: string;
+  username: string | null;
+  publicTripCount: number;
+  followsOwnerBack: boolean;
+  viewerFollowsInitial: boolean;
+}
 
 export interface RatingCardData {
   id: string;
@@ -55,6 +65,111 @@ function initialsOf(name: string) {
   );
 }
 
+function FollowAvatar({ name }: { name: string }) {
+  return (
+    <div
+      className="flex h-9 w-9 flex-none items-center justify-center rounded-full text-[12px] text-on-accent"
+      style={{ background: "var(--color-accent)" }}
+    >
+      {initialsOf(name)}
+    </div>
+  );
+}
+
+function FollowPersonLink({ person, caption, right }: { person: { id: string; name: string; username: string | null }; caption: string | null; right: React.ReactNode }) {
+  const inner = (
+    <>
+      <FollowAvatar name={person.name} />
+      <div className="min-w-0 flex-1">
+        <p className="text-[14.5px] text-ink-body">{person.name}</p>
+        {caption && <p className="mt-0.5 truncate text-[12px] text-muted">{caption}</p>}
+      </div>
+    </>
+  );
+  return (
+    <div className="flex items-center gap-3 px-4 py-3">
+      {person.username ? (
+        <Link href={`/planner/u/${person.username}`} className="flex min-w-0 flex-1 items-center gap-3 hover:opacity-80">
+          {inner}
+        </Link>
+      ) : (
+        <div className="flex min-w-0 flex-1 items-center gap-3">{inner}</div>
+      )}
+      <div className="flex-none">{right}</div>
+    </div>
+  );
+}
+
+function ProfileFollowToggle({
+  username,
+  following: initial,
+  onChange,
+}: {
+  username: string;
+  following: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  const [following, setFollowing] = useState(initial);
+  const [pending, setPending] = useState(false);
+
+  async function toggle() {
+    const next = !following;
+    setFollowing(next);
+    setPending(true);
+    const res = await fetch(`/api/v2/users/${username}/follow`, { method: next ? "POST" : "DELETE" });
+    setPending(false);
+    if (!res.ok) {
+      setFollowing(!next);
+      return;
+    }
+    onChange(next);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      className={`rounded-full px-3.5 py-1.5 text-[12.5px] disabled:opacity-50 ${
+        following ? "border border-input-border bg-card text-ink" : "bg-accent text-on-accent"
+      }`}
+    >
+      {pending ? "…" : following ? "Following" : "Follow"}
+    </button>
+  );
+}
+
+function ProfileFollowBack({ username, onDone }: { username: string; onDone: () => void }) {
+  const [pending, setPending] = useState(false);
+  return (
+    <button
+      type="button"
+      disabled={pending}
+      onClick={async () => {
+        setPending(true);
+        const res = await fetch(`/api/v2/users/${username}/follow`, { method: "POST" });
+        setPending(false);
+        if (res.ok) onDone();
+      }}
+      className="rounded-full bg-accent px-3.5 py-1.5 text-[12.5px] text-on-accent disabled:opacity-50"
+    >
+      {pending ? "…" : "Follow back"}
+    </button>
+  );
+}
+
+function mutualFriendsPart(p: FollowPersonRow) {
+  return p.mutualFriendCount > 0 ? `${p.mutualFriendCount} mutual friend${p.mutualFriendCount === 1 ? "" : "s"}` : null;
+}
+
+function metContextLine(p: FollowPersonRow) {
+  return [mutualFriendsPart(p), p.metOn ? `met on ${p.metOn}` : null].filter(Boolean).join(" · ") || null;
+}
+
+function travelledWithLine(p: FollowPersonRow) {
+  return [p.metOn, mutualFriendsPart(p)].filter(Boolean).join(" · ") || null;
+}
+
 export function ProfileView({
   username,
   ownerId,
@@ -77,6 +192,10 @@ export function ProfileView({
   recentViewerCount,
   trips: initialTrips,
   privateTripCount: initialPrivateTripCount,
+  following: initialFollowing,
+  startedFollowingYou: initialStartedFollowingYou,
+  travelledWith: initialTravelledWith,
+  viewerCanFollow,
 }: {
   username: string;
   ownerId: string;
@@ -99,6 +218,10 @@ export function ProfileView({
   recentViewerCount: number;
   trips: TripCardData[];
   privateTripCount: number;
+  following: ProfileFollowingRow[];
+  startedFollowingYou: FollowPersonRow[];
+  travelledWith: FollowPersonRow[];
+  viewerCanFollow: boolean;
 }) {
   const [previewMode, setPreviewMode] = useState<"self" | "visitor">("self");
   const effectiveSelf = isSelf && previewMode === "self";
@@ -110,6 +233,18 @@ export function ProfileView({
 
   const kinds = useMemo(() => [...new Set(feed.map((r) => r.kind))], [feed]);
   const visibleFeed = kindFilter === "All" ? feed : feed.filter((r) => r.kind === kindFilter);
+
+  const [following, setFollowing] = useState(initialFollowing);
+  const [dismissedStarted, setDismissedStarted] = useState<Set<string>>(new Set());
+  const [travelledWith, setTravelledWith] = useState(initialTravelledWith);
+  const [followQuery, setFollowQuery] = useState("");
+
+  const visibleStarted = initialStartedFollowingYou.filter((p) => !dismissedStarted.has(p.id));
+  const filteredFollowing = useMemo(() => {
+    const q = followQuery.trim().toLowerCase();
+    if (!q) return following;
+    return following.filter((p) => p.name.toLowerCase().includes(q) || (p.username ?? "").toLowerCase().includes(q));
+  }, [following, followQuery]);
 
   return (
     <div className="min-h-screen">
@@ -463,6 +598,136 @@ export function ProfileView({
               >
                 Manage privacy
               </Link>
+            </div>
+          )}
+        </div>
+
+        <div className="mt-14">
+          <h2 className="mb-1 font-display text-[26px] tracking-tight text-ink">Following</h2>
+          <p className="mb-5 max-w-[560px] text-[14px] text-muted">
+            {effectiveSelf
+              ? "Their public trips show up in your Explore. Following is one-way — nothing to accept."
+              : `People whose trips ${firstName} follows. Following someone puts their public trips in your Explore.`}
+          </p>
+
+          {effectiveSelf && (
+            <div className="mb-5 flex items-center gap-3 rounded-full border border-input-border bg-card px-5 py-2.5">
+              <span className="text-muted" aria-hidden="true">
+                🔍
+              </span>
+              <input
+                value={followQuery}
+                onChange={(e) => setFollowQuery(e.target.value)}
+                placeholder="Find someone by name, @username, or phone"
+                className="w-full bg-transparent text-[14.5px] text-ink outline-none placeholder:text-muted"
+              />
+            </div>
+          )}
+
+          {effectiveSelf && visibleStarted.length > 0 && (
+            <div className="mb-6">
+              <p className="mb-2.5 font-mono text-[11px] tracking-[0.1em] text-muted uppercase">Started following you</p>
+              <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                {visibleStarted.map((p, i) => (
+                  <div key={p.id} className={i > 0 ? "border-t border-border-soft" : ""}>
+                    <FollowPersonLink
+                      person={p}
+                      caption={metContextLine(p)}
+                      right={
+                        <div className="flex items-center gap-2.5">
+                          <ProfileFollowBack
+                            username={p.username ?? ""}
+                            onDone={() => {
+                              setFollowing((list) => [
+                                { id: p.id, name: p.name, username: p.username, publicTripCount: p.publicTripCount, followsOwnerBack: true, viewerFollowsInitial: true },
+                                ...list,
+                              ]);
+                              setDismissedStarted((s) => new Set(s).add(p.id));
+                              setTravelledWith((list) => list.filter((x) => x.id !== p.id));
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => setDismissedStarted((s) => new Set(s).add(p.id))}
+                            className="text-[12px] text-muted hover:text-ink"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="overflow-hidden rounded-2xl border border-border bg-card">
+            {filteredFollowing.length === 0 ? (
+              <p className="px-4 py-6 text-center text-[14px] text-muted">
+                {followQuery ? "Nothing matches that search." : effectiveSelf ? "You're not following anyone yet." : `${firstName} isn't following anyone yet.`}
+              </p>
+            ) : (
+              filteredFollowing.map((p, i) => (
+                <div key={p.id} className={i > 0 ? "border-t border-border-soft" : ""}>
+                  <FollowPersonLink
+                    person={p}
+                    caption={[
+                      p.username ? `@${p.username}` : null,
+                      `${p.publicTripCount} public trip${p.publicTripCount === 1 ? "" : "s"}`,
+                      p.followsOwnerBack ? (effectiveSelf ? "Follows you back" : `Follows ${firstName} back`) : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                    right={
+                      viewerCanFollow ? (
+                        <ProfileFollowToggle
+                          username={p.username ?? ""}
+                          following={p.viewerFollowsInitial}
+                          onChange={(v) => {
+                            if (!v && effectiveSelf) setFollowing((list) => list.filter((x) => x.id !== p.id));
+                          }}
+                        />
+                      ) : (
+                        <Link href="/planner/login" className="text-[12.5px] text-muted hover:text-accent">
+                          Sign in to follow
+                        </Link>
+                      )
+                    }
+                  />
+                </div>
+              ))
+            )}
+          </div>
+
+          {effectiveSelf && travelledWith.length > 0 && (
+            <div className="mt-6">
+              <p className="mb-2.5 font-mono text-[11px] tracking-[0.1em] text-muted uppercase">People you&rsquo;ve travelled with</p>
+              <div className="overflow-hidden rounded-2xl border border-border bg-card">
+                {travelledWith.map((p, i) => (
+                  <div key={p.id} className={i > 0 ? "border-t border-border-soft" : ""}>
+                    <FollowPersonLink
+                      person={p}
+                      caption={travelledWithLine(p)}
+                      right={
+                        <ProfileFollowToggle
+                          username={p.username ?? ""}
+                          following={false}
+                          onChange={(v) => {
+                            if (v) {
+                              setFollowing((list) => [
+                                { id: p.id, name: p.name, username: p.username, publicTripCount: p.publicTripCount, followsOwnerBack: p.followsYouBack, viewerFollowsInitial: true },
+                                ...list,
+                              ]);
+                              setTravelledWith((list) => list.filter((x) => x.id !== p.id));
+                            }
+                          }}
+                        />
+                      }
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
         </div>
