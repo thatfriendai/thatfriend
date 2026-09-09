@@ -2,7 +2,20 @@ import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listFriends } from "@/lib/planner/follows";
+import { getNavCounts } from "@/lib/planner/navCounts";
+import { signOut } from "@/app/planner/actions";
 import { ExploreView, type FriendChip, type TripCard } from "./ExploreView";
+
+function initialsOf(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .map((p) => p[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "?"
+  );
+}
 
 function formatMonthYear(dateStr: string | null) {
   if (!dateStr) return null;
@@ -109,6 +122,7 @@ export default async function ExplorePage() {
   }
 
   const [friendsTrips, fofTrips] = await Promise.all([fetchTripCards(friendIds), fetchTripCards(fofIds)]);
+  const { tripsCount, savedCount } = await getNavCounts(admin, viewer.id);
 
   return (
     <ExploreView
@@ -116,7 +130,11 @@ export default async function ExplorePage() {
       fofChips={fofChips}
       friendsTrips={friendsTrips}
       fofTrips={fofTrips}
-      tripsAndSavedCount={savedTripIds.size}
+      navInitial={initialsOf(viewer.name || viewer.email || "?")}
+      navUsername={viewer.username}
+      navTripsCount={tripsCount}
+      navSavedCount={savedCount}
+      signOutAction={signOut}
     />
   );
 }

@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signOut } from "@/app/planner/actions";
+import { HomeNav } from "@/components/planner/HomeNav";
+import { getNavCounts } from "@/lib/planner/navCounts";
 import { TripsAndSavedView } from "./TripsAndSavedView";
 
 function formatDates(start: string | null, end: string | null) {
@@ -136,7 +138,14 @@ export default async function PlannerTripsPage() {
   for (const r of rows) grouped[statusOf(r.trip)].push(r);
 
   const firstName = (user.name || user.email || "there").split(/[\s@]/)[0];
-  const initial = (user.name || user.email || "?").trim()[0]?.toUpperCase() ?? "?";
+  const initial = (user.name || user.email || "?")
+    .trim()
+    .split(/\s+/)
+    .map((p) => p[0])
+    .join("")
+    .slice(0, 2)
+    .toUpperCase();
+  const { savedCount } = await getNavCounts(admin, user.id);
   const needsSomething = grouped.just_back.length + grouped.in_planning.length;
 
   const sections: { key: TripStatus; label: string }[] = [
@@ -322,38 +331,10 @@ export default async function PlannerTripsPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="flex flex-wrap items-center justify-between gap-y-3 border-b border-border bg-card px-5 py-5 sm:px-10">
-        <span className="text-[23px] tracking-tight font-display text-ink">
-          &ldquo;that friend&rdquo;
-        </span>
-        <div className="flex items-center gap-3.5 sm:gap-5">
-          <Link
-            href="/planner/trips/new"
-            className="rounded-full bg-ink px-5 py-2.5 text-[14.5px] text-cream hover:bg-accent"
-          >
-            Start a trip
-          </Link>
-          <form action={signOut}>
-            <button
-              type="submit"
-              className="text-[14.5px] text-body hover:text-accent"
-            >
-              Sign out
-            </button>
-          </form>
-          <Link
-            href="/planner/profile"
-            className="flex h-7.5 w-7.5 items-center justify-center rounded-full bg-accent text-xs text-on-accent hover:opacity-80"
-            title="Profile"
-          >
-            {initial}
-          </Link>
-        </div>
-      </header>
+      <HomeNav initial={initial} username={user.username} tripsCount={rows.length} savedCount={savedCount} signOutAction={signOut} />
 
       <div className="mx-auto max-w-[1000px] px-6 py-15 pb-28">
         <TripsAndSavedView
-          tripsAndSavedCount={savedTripIds.length}
           savedTrips={savedTrips}
           savedPlaces={savedPlaces}
           ownTripsForPicker={ownTripsForPicker}
