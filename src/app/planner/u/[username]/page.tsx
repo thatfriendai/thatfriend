@@ -2,7 +2,8 @@ import { notFound } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listFriends } from "@/lib/planner/follows";
-import { ProfileView, type RatingCardData, type TripCardData } from "./ProfileView";
+import { listVisits } from "@/lib/planner/ratingCapture";
+import { ProfileView, type RatingCardData, type TripCardData, type VisitedPlaceRow } from "./ProfileView";
 
 function formatDates(start: string | null, end: string | null) {
   if (!start) return null;
@@ -160,6 +161,20 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     })
     .filter((r): r is RatingCardData => r !== null);
 
+  const visits: VisitedPlaceRow[] = [];
+  if (feed.length === 0) {
+    const today = new Date().toISOString().slice(0, 10);
+    const endedTripIds = allTrips
+      .filter((t) => ratingScopeTripIds.includes(t.id) && t.end_date && t.end_date < today)
+      .map((t) => t.id);
+    for (const tripId of endedTripIds) {
+      const tripVisits = await listVisits(admin, tripId);
+      for (const v of tripVisits) {
+        visits.push({ id: v.id, name: v.name, tripName: destinationByTripId.get(tripId) ?? "a trip", dayLabel: v.dayLabel });
+      }
+    }
+  }
+
   const { count: followersCount } = await admin
     .from("planner_follows")
     .select("*", { count: "exact", head: true })
@@ -204,6 +219,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       isFollowingInitial={isFollowing}
       viewerSignedIn={Boolean(viewer)}
       feed={feed}
+      visits={visits}
       trips={trips}
       privateTripCount={privateTripCount}
     />

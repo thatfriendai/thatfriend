@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { ExploreNav } from "@/components/planner/ExploreNav";
 import { kindColor } from "@/lib/planner/itinerary";
 import { CopyTripButton } from "@/app/planner/u/[username]/CopyTripButton";
@@ -25,6 +25,9 @@ export interface SavedPlaceRow {
   photoUrl: string | null;
   location: string | null;
   ownerName: string;
+  sourcePlaceId: string | null;
+  sourceTripId: string | null;
+  sourceUserId: string | null;
 }
 
 export interface OwnTripForPicker {
@@ -103,6 +106,50 @@ export function TripsAndSavedView({
   const [tab, setTab] = useState<"yours" | "saved">("yours");
   const [savedTrips, setSavedTrips] = useState(initialSavedTrips);
   const [savedPlaces, setSavedPlaces] = useState(initialSavedPlaces);
+  const [undo, setUndo] = useState<{ place: SavedPlaceRow; createdPlaceId: string; tripId: string; dayLabel: string | null } | null>(
+    null
+  );
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (undoTimer.current) clearTimeout(undoTimer.current);
+    };
+  }, []);
+
+  function armUndo(place: SavedPlaceRow, info: { createdPlaceId: string; tripId: string; dayLabel: string | null }) {
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndo({ place, ...info });
+    undoTimer.current = setTimeout(() => setUndo(null), 8000);
+  }
+
+  async function performUndo() {
+    if (!undo) return;
+    const { place, createdPlaceId, tripId } = undo;
+    if (undoTimer.current) clearTimeout(undoTimer.current);
+    setUndo(null);
+    await fetch(`/api/v2/trips/${tripId}/places/${createdPlaceId}`, { method: "DELETE" });
+    const res = await fetch("/api/v2/saved-places", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        source_place_id: place.sourcePlaceId,
+        source_trip_id: place.sourceTripId,
+        source_user_id: place.sourceUserId,
+        name: place.name,
+        kind: place.kind,
+        lat: place.lat,
+        lng: place.lng,
+        address: place.address,
+        google_place_id: place.googlePlaceId,
+        photo_url: place.photoUrl,
+      }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok && data.savedPlace) {
+      setSavedPlaces((list) => [{ ...place, id: data.savedPlace.id }, ...list]);
+    }
+  }
 
   return (
     <div>
@@ -204,7 +251,10 @@ export function TripsAndSavedView({
                     savedPlaceId={p.id}
                     place={p}
                     trips={ownTripsForPicker}
-                    onAdded={() => setSavedPlaces((list) => list.filter((x) => x.id !== p.id))}
+                    onAdded={(info) => {
+                      setSavedPlaces((list) => list.filter((x) => x.id !== p.id));
+                      armUndo(p, info);
+                    }}
                   />
                   <RemovePlaceButton
                     id={p.id}
@@ -215,6 +265,17 @@ export function TripsAndSavedView({
             </div>
           )}
         </>
+      )}
+
+      {undo && (
+        <div className="fixed bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-4 rounded-full border border-border bg-ink px-5 py-3 text-cream shadow-lg">
+          <span className="text-[13.5px]">
+            Added to {undo.dayLabel ?? "the trip"}.
+          </span>
+          <button type="button" onClick={performUndo} className="text-[13.5px] font-medium text-cream underline hover:opacity-80">
+            Undo
+          </button>
+        </div>
       )}
     </div>
   );

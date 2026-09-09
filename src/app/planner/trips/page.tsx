@@ -209,6 +209,9 @@ export default async function PlannerTripsPage() {
     photoUrl: p.photo_url as string | null,
     location: p.source_trip_id ? (sourceDestinationByTripId.get(p.source_trip_id as string) ?? null) : null,
     ownerName: p.source_user_id ? (ownerNameById.get(p.source_user_id as string) ?? "someone") : "someone",
+    sourcePlaceId: p.source_place_id as string | null,
+    sourceTripId: p.source_trip_id as string | null,
+    sourceUserId: p.source_user_id as string | null,
   }));
 
   // ---- Own trips + days, for the "Add to itinerary" picker ----

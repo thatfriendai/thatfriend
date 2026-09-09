@@ -67,8 +67,11 @@ export function StayMatrix({
   const [diffsOnly, setDiffsOnly] = useState(false);
 
   const options = comparison.options;
-  const visibleOptions = options.slice(0, 4);
-  const overflowCount = options.length - visibleOptions.length;
+  // All options render — past four, the row-header column stays pinned
+  // (sticky left-0 below) and the rest scroll horizontally rather than
+  // being dropped.
+  const visibleOptions = options;
+  const overflowCount = Math.max(0, options.length - 4);
 
   async function refresh() {
     const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/comparison`);
@@ -161,7 +164,7 @@ export function StayMatrix({
         )}
         {overflowCount > 0 && (
           <span className="text-[12.5px] text-muted">
-            Showing 4 of {options.length} — scroll to see the rest.
+            {overflowCount} more — scroll to see {overflowCount === 1 ? "it" : "the rest"}.
           </span>
         )}
       </div>
@@ -369,11 +372,11 @@ export function StayMatrix({
                       {visibleAmenityRows.map((row) => {
                         const value = o.amenities[row.key];
                         if (value === null) {
-                          return (
-                            <div key={row.key} className="text-faint">
-                              {row.label}
-                            </div>
-                          );
+                          // Nobody checked this one — a blank line, not a
+                          // guess. Keeps the row's line count (and therefore
+                          // its alignment against the other option columns)
+                          // even though there's nothing to say.
+                          return <div key={row.key}>&nbsp;</div>;
                         }
                         return (
                           <div

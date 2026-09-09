@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { DigestFrequency, PlannerUser } from "@/lib/supabase/planner-types";
 import { Toggle } from "@/components/planner/Toggle";
 import { signOut } from "../actions";
@@ -55,16 +55,46 @@ export function SettingsForm({ user }: { user: PlannerUser }) {
   const [fields, setFields] = useState(saved);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkedUsername, setCheckedUsername] = useState<{ name: string; available: boolean } | null>(null);
 
   const dirty = JSON.stringify(fields) !== JSON.stringify(saved);
+  const usernameUnchanged = fields.username === saved.username;
+  const usernameEmpty = !fields.username.trim();
+  const checkingUsername = !usernameUnchanged && !usernameEmpty && checkedUsername?.name !== fields.username;
+  const usernameAvailable = usernameUnchanged
+    ? true
+    : usernameEmpty
+      ? null
+      : checkedUsername?.name === fields.username
+        ? checkedUsername.available
+        : null;
 
   function set<K extends keyof Fields>(key: K, value: Fields[K]) {
     setFields((f) => ({ ...f, [key]: value }));
   }
 
+  useEffect(() => {
+    if (usernameUnchanged || usernameEmpty) return;
+    const candidate = fields.username;
+    const timer = setTimeout(async () => {
+      const res = await fetch(`/api/v2/users/username-check?u=${encodeURIComponent(candidate)}`);
+      const data = await res.json().catch(() => ({}));
+      setCheckedUsername({ name: candidate, available: typeof data.available === "boolean" ? data.available : true });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [fields.username, usernameUnchanged, usernameEmpty]);
+
   async function save() {
     if (!fields.username.trim()) {
       setError("Pick a username.");
+      return;
+    }
+    if (usernameAvailable === false) {
+      setError("That username is taken.");
+      return;
+    }
+    if (fields.tagline.length > 160) {
+      setError("Bio is too long — trim it to 160 characters.");
       return;
     }
     setSaving(true);
@@ -135,7 +165,19 @@ export function SettingsForm({ user }: { user: PlannerUser }) {
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <p className="font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Username</p>
-                  <span className="font-mono text-[9.5px] tracking-[0.08em] text-faint uppercase">Free</span>
+                  <span
+                    className={`font-mono text-[9.5px] tracking-[0.08em] uppercase ${
+                      checkingUsername
+                        ? "text-faint"
+                        : usernameAvailable === false
+                          ? "text-caution"
+                          : usernameAvailable === true
+                            ? "text-positive"
+                            : "text-faint"
+                    }`}
+                  >
+                    {checkingUsername ? "Checking…" : usernameAvailable === false ? "Taken" : usernameAvailable === true ? "Free" : ""}
+                  </span>
                 </div>
                 <div className="flex items-center gap-1.5 rounded-full border border-input-border bg-card px-4 py-2 focus-within:border-ink">
                   <span className="text-[15px] text-muted">@</span>
@@ -163,11 +205,13 @@ export function SettingsForm({ user }: { user: PlannerUser }) {
             <div className="mt-4">
               <div className="mb-1.5 flex items-center justify-between">
                 <p className="font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Bio</p>
-                <span className="text-[11px] text-faint">{fields.tagline.length}/160</span>
+                <span className={`text-[11px] ${fields.tagline.length > 160 ? "text-caution" : "text-faint"}`}>
+                  {fields.tagline.length}/160
+                </span>
               </div>
               <textarea
                 value={fields.tagline}
-                onChange={(e) => set("tagline", e.target.value.slice(0, 160))}
+                onChange={(e) => set("tagline", e.target.value)}
                 rows={3}
                 placeholder="A short line about you"
                 className="w-full resize-none rounded-2xl border border-input-border bg-card px-4 py-3 text-[14.5px] text-ink outline-none focus:border-ink"

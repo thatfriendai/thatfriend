@@ -1,7 +1,7 @@
 import "server-only";
 import { milesBetween } from "./distance";
 
-const WALK_SPEED_MPH = 3;
+const WALK_SPEED_MPH = 4;
 const DETOUR_FACTOR = 1.35;
 const NEARBY_WALK_MINUTES = 15;
 

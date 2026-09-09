@@ -45,7 +45,10 @@ export async function GET(
     .select("id", { count: "exact", head: true })
     .eq("trip_id", tripId);
 
-  const partySize = decision.party_size ?? memberCount ?? 1;
+  // Live membership count, not the decision's stored party_size — so a
+  // traveller joining or leaving mid-trip re-prices every option the next
+  // time this is read, not just at decision-creation time.
+  const partySize = memberCount ?? decision.party_size ?? 1;
   const comparison = await buildStayComparison(admin, tripId, decisionId, decision.nights, partySize);
   const read = await generateStayRead(decision.title, comparison);
 

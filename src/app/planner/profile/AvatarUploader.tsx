@@ -3,6 +3,41 @@
 import { useRef, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
+const AVATAR_MAX_DIM = 512;
+
+/** Client-side downscale (no server-side image pipeline exists yet) — caps the longer edge at 512px so uploads stay small without a second thumbnail variant nothing in the UI uses yet. */
+function downscaleImage(file: File, maxDim: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+      const w = Math.round(img.width * scale);
+      const h = Math.round(img.height * scale);
+      const canvas = document.createElement("canvas");
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) {
+        reject(new Error("Canvas not supported."));
+        return;
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(
+        (blob) => (blob ? resolve(blob) : reject(new Error("Could not process that image."))),
+        "image/jpeg",
+        0.9
+      );
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error("Could not read that image."));
+    };
+    img.src = url;
+  });
+}
+
 function initialsOf(name: string) {
   return (
     name
@@ -44,12 +79,20 @@ export function AvatarUploader({
     setPending(true);
     setError(null);
 
+    let upload: Blob;
+    try {
+      upload = await downscaleImage(file, AVATAR_MAX_DIM);
+    } catch (err) {
+      setPending(false);
+      setError(err instanceof Error ? err.message : "Could not process that image.");
+      return;
+    }
+
     const supabase = createClient();
-    const ext = file.name.split(".").pop() || "jpg";
-    const path = `${authUserId}/avatar-${Date.now()}.${ext}`;
+    const path = `${authUserId}/avatar-${Date.now()}.jpg`;
     const { error: uploadError } = await supabase.storage
       .from("avatars")
-      .upload(path, file, { cacheControl: "3600", upsert: true });
+      .upload(path, upload, { cacheControl: "3600", upsert: true, contentType: "image/jpeg" });
 
     if (uploadError) {
       setPending(false);
