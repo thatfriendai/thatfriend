@@ -364,9 +364,29 @@ export function ProfileView({
               ))}
             </div>
           )}
+
+          {trips.length > 0 && (
+            <div className="mt-6 border-t border-border-soft pt-5">
+              <p className="mb-2.5 font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">
+                Itineraries these came from
+              </p>
+              <div className="flex flex-wrap gap-2">
+                {trips.map((t) => (
+                  <a
+                    key={t.id}
+                    href="#trips"
+                    className="rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[12.5px] text-ink-body hover:border-ink"
+                  >
+                    {t.name}
+                    <span className="ml-1.5 text-faint">{t.placeCount}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        <div>
+        <div id="trips">
           <h2 className="mb-1 font-display text-[26px] tracking-tight text-ink">Trips</h2>
           <p className="mb-5 text-[14px] text-muted">
             {effectiveSelf

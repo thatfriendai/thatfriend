@@ -34,7 +34,7 @@ export function DecisionsSection({
   return (
     <div id="decisions" className="mb-14">
       <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-        <span className="font-mono text-[11px] text-faint">06</span>
+        <span className="font-mono text-[11px] text-faint">07</span>
         <span className="text-[25px] font-display text-ink">Decisions</span>
         <button
           onClick={() => setOpen(true)}
@@ -56,7 +56,7 @@ export function DecisionsSection({
           {decisions.map((d) => (
             <Link
               key={d.id}
-              href={`/planner/trips/${tripId}/decisions/${d.id}`}
+              href={d.kind === "stay" ? `/planner/trips/${tripId}#stays` : `/planner/trips/${tripId}/decisions/${d.id}`}
               className="flex items-center gap-4 rounded-xl border border-border bg-card px-5 py-4 transition-colors hover:border-input-border"
               style={{ borderColor: d.status === "open" ? undefined : "#DDD6C8" }}
             >

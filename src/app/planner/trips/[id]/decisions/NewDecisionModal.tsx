@@ -19,13 +19,15 @@ export function NewDecisionModal({
   tripId,
   open,
   onClose,
+  initialKind = "general",
 }: {
   tripId: string;
   open: boolean;
   onClose: () => void;
+  initialKind?: "general" | "stay";
 }) {
   const router = useRouter();
-  const [kind, setKind] = useState<"general" | "stay">("general");
+  const [kind, setKind] = useState<"general" | "stay">(initialKind);
   const [title, setTitle] = useState("");
   const [why, setWhy] = useState("");
   const [nights, setNights] = useState("");
@@ -36,7 +38,7 @@ export function NewDecisionModal({
   if (!open) return null;
 
   function reset() {
-    setKind("general");
+    setKind(initialKind);
     setTitle("");
     setWhy("");
     setNights("");
