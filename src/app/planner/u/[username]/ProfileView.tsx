@@ -72,6 +72,9 @@ export function ProfileView({
   viewerSignedIn,
   feed: initialFeed,
   visits,
+  unratedVisitCount,
+  firstUnratedTripId,
+  recentViewerCount,
   trips: initialTrips,
   privateTripCount: initialPrivateTripCount,
 }: {
@@ -91,6 +94,9 @@ export function ProfileView({
   viewerSignedIn: boolean;
   feed: RatingCardData[];
   visits: VisitedPlaceRow[];
+  unratedVisitCount: number;
+  firstUnratedTripId: string | null;
+  recentViewerCount: number;
   trips: TripCardData[];
   privateTripCount: number;
 }) {
@@ -192,16 +198,12 @@ export function ProfileView({
             </div>
           ) : (
             <div className="text-right">
-              {!isSelf && viewerSignedIn ? (
+              {viewerSignedIn ? (
                 <FollowButton username={username} initialFollowing={isFollowingInitial} />
-              ) : !isSelf ? (
+              ) : (
                 <Link href="/planner/login" className="rounded-full bg-accent px-6 py-2.5 text-[14px] text-on-accent">
                   Follow
                 </Link>
-              ) : (
-                <span className="rounded-full bg-accent px-6 py-2.5 text-[14px] text-on-accent opacity-40">
-                  Follow
-                </span>
               )}
               {!isSelf && mutualFriendsCount > 0 && (
                 <p className="mt-2 text-[12px] text-faint">
@@ -211,6 +213,29 @@ export function ProfileView({
             </div>
           )}
         </div>
+
+        {effectiveSelf && unratedVisitCount > 0 && (
+          <div className="mb-10 rounded-2xl border border-warm-border bg-warm-bg p-5">
+            <p className="mb-1.5 text-[15px] text-ink-body">
+              {recentViewerCount > 0
+                ? `${recentViewerCount} ${recentViewerCount === 1 ? "person" : "people"} looked at your profile this month — rate a few places while it's fresh.`
+                : "Rate the places from your trips while it's fresh."}
+            </p>
+            <div className="flex items-center justify-between gap-4">
+              <p className="text-[13.5px] text-muted">
+                {unratedVisitCount} place{unratedVisitCount === 1 ? "" : "s"} not rated yet
+              </p>
+              {firstUnratedTripId && (
+                <Link
+                  href={`/planner/trips/${firstUnratedTripId}/reviews`}
+                  className="rounded-full bg-ink px-4 py-2 text-[13px] text-cream hover:bg-accent"
+                >
+                  Rate now
+                </Link>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="mb-12">
           <div className="mb-1 flex items-baseline justify-between gap-4">

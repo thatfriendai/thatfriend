@@ -672,3 +672,21 @@ create index if not exists planner_saved_places_user_idx on planner_saved_places
 
 alter table planner_saved_places enable row level security;
 grant all on planner_saved_places to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- planner_profile_views — powers the owner-only "N people looked at your
+-- profile" nudge copy. One row per visit from a signed-in, non-owner
+-- viewer; the nudge counts distinct viewers in a rolling window rather
+-- than raw rows, and stays generic (never a fabricated "0 people") when
+-- there's no real demand to cite.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_profile_views (
+  id uuid primary key default gen_random_uuid(),
+  profile_user_id uuid not null references planner_users (id) on delete cascade,
+  viewer_id uuid not null references planner_users (id) on delete cascade,
+  viewed_at timestamptz not null default now()
+);
+create index if not exists planner_profile_views_owner_idx on planner_profile_views (profile_user_id, viewed_at);
+
+alter table planner_profile_views enable row level security;
+grant all on planner_profile_views to anon, authenticated, service_role;

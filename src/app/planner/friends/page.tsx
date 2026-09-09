@@ -90,6 +90,8 @@ export default async function FollowingPage() {
     return null;
   }
 
+  const followerIdSet = new Set(followerIds);
+
   function toPerson(id: string): PersonRow {
     const u = nameById.get(id);
     return {
@@ -99,6 +101,7 @@ export default async function FollowingPage() {
       publicTripCount: publicTripCountByUser.get(id) ?? 0,
       mutualFriendCount: mutualCount(id),
       metOn: metOn(id),
+      followsYouBack: followerIdSet.has(id),
     };
   }
 

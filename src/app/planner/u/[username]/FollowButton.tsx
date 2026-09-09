@@ -12,10 +12,11 @@ export function FollowButton({ username, initialFollowing }: { username: string;
     setPending(true);
     const res = await fetch(`/api/v2/users/${username}/follow`, { method: following ? "DELETE" : "POST" });
     setPending(false);
-    if (!res.ok) {
+    if (res.status === 401) {
       router.push("/planner/login");
       return;
     }
+    if (!res.ok) return;
     setFollowing((v) => !v);
   }
 
