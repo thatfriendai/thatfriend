@@ -588,3 +588,87 @@ grant all on planner_users, planner_trips, planner_memberships, planner_invites,
   planner_whatsapp_codes, planner_availability_marks, planner_item_ratings, planner_trip_reviews,
   planner_follows, planner_friendships, planner_place_ratings, planner_join_requests
   to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- Settings page: profile photo, notification channels/cadence, and a
+-- default for whether trips this person creates start out public.
+-- ---------------------------------------------------------------------------
+alter table planner_users add column if not exists avatar_url text;
+alter table planner_users add column if not exists notify_sms boolean not null default true;
+alter table planner_users add column if not exists notify_email boolean not null default true;
+alter table planner_users add column if not exists notify_inapp boolean not null default true;
+alter table planner_users add column if not exists digest_frequency text not null default 'daily';
+alter table planner_users drop constraint if exists planner_users_digest_frequency_check;
+alter table planner_users add constraint planner_users_digest_frequency_check
+  check (digest_frequency in ('instant', 'daily', 'weekly', 'urgent'));
+alter table planner_users add column if not exists default_trip_public boolean not null default false;
+alter table planner_users add column if not exists location text;
+
+-- One public bucket, one folder per Supabase Auth user (avatar upload is
+-- only available to email/OAuth-signed-in members — phone-only members
+-- have no auth.uid() to scope a folder to).
+insert into storage.buckets (id, name, public)
+values ('avatars', 'avatars', true)
+on conflict (id) do nothing;
+
+drop policy if exists "avatar public read" on storage.objects;
+create policy "avatar public read" on storage.objects for select
+  using (bucket_id = 'avatars');
+
+drop policy if exists "avatar owner write" on storage.objects;
+create policy "avatar owner write" on storage.objects for insert to authenticated
+  with check (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "avatar owner update" on storage.objects;
+create policy "avatar owner update" on storage.objects for update to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+drop policy if exists "avatar owner delete" on storage.objects;
+create policy "avatar owner delete" on storage.objects for delete to authenticated
+  using (bucket_id = 'avatars' and (storage.foldername(name))[1] = auth.uid()::text);
+
+-- ---------------------------------------------------------------------------
+-- planner_trip_saves — bookmarking a friend's public trip from Explore.
+-- Lighter than Copy trip: keeps a reference for later instead of
+-- duplicating the itinerary into one of your own.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_trip_saves (
+  user_id uuid not null references planner_users (id) on delete cascade,
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  primary key (user_id, trip_id)
+);
+create index if not exists planner_trip_saves_user_idx on planner_trip_saves (user_id);
+
+alter table planner_trip_saves enable row level security;
+grant all on planner_trip_saves to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- planner_saved_places — a place "pulled out" of someone else's trip into
+-- your own personal pool, independent of any trip until you assign it to
+-- one. Snapshotted (name/kind/lat/lng/...) rather than a live reference,
+-- since the source place can move or be removed without breaking what you
+-- saved. Add to itinerary writes a real planner_places row elsewhere and
+-- deletes the pool row here — that's what makes it "leave this list".
+-- ---------------------------------------------------------------------------
+create table if not exists planner_saved_places (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references planner_users (id) on delete cascade,
+  source_place_id uuid references planner_places (id) on delete set null,
+  source_trip_id uuid references planner_trips (id) on delete set null,
+  source_user_id uuid references planner_users (id) on delete set null,
+  name text not null,
+  kind text not null,
+  lat double precision,
+  lng double precision,
+  address text,
+  google_place_id text,
+  photo_url text,
+  created_at timestamptz not null default now()
+);
+create unique index if not exists planner_saved_places_user_source_idx
+  on planner_saved_places (user_id, source_place_id) where source_place_id is not null;
+create index if not exists planner_saved_places_user_idx on planner_saved_places (user_id);
+
+alter table planner_saved_places enable row level security;
+grant all on planner_saved_places to anon, authenticated, service_role;

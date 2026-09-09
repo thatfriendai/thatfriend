@@ -50,6 +50,7 @@ export async function POST(request: Request) {
     headers: { "Content-Type": "text/xml" },
   });
 
+  const isWhatsApp = (params.From ?? "").startsWith("whatsapp:");
   const fromDigits = normalizePhoneDigits(params.From ?? "");
   const body = (params.Body ?? "").trim();
   const numMedia = Number(params.NumMedia ?? "0");
@@ -66,6 +67,13 @@ export async function POST(request: Request) {
     return reply(
       "Hi! I don't recognize this number yet. Sign in at the web app first — then text me anything and it'll land in your trip."
     );
+  }
+
+  // Texting the WhatsApp number is itself the clearest signal of channel
+  // preference — flip it on so proactive sends (nudges, rating prompts)
+  // follow suit. Best-effort: a failed update here shouldn't block the reply.
+  if (isWhatsApp && !user.whatsapp_opt_in) {
+    await admin.from("planner_users").update({ whatsapp_opt_in: true }).eq("id", user.id);
   }
 
   const { data: membership } = await admin

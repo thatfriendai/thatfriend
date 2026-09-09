@@ -9,6 +9,8 @@ export type PaceFeedback = "saw_everything" | "about_right" | "not_enough_time" 
 export type DecisionKind = "general" | "stay";
 export type StaySource = "airbnb" | "hotel" | "aparthotel" | "other";
 
+export type DigestFrequency = "instant" | "daily" | "weekly" | "urgent";
+
 export interface PlannerUser {
   id: string;
   name: string | null;
@@ -20,6 +22,13 @@ export interface PlannerUser {
   username: string | null;
   tagline: string | null;
   is_public: boolean;
+  avatar_url: string | null;
+  notify_sms: boolean;
+  notify_email: boolean;
+  notify_inapp: boolean;
+  digest_frequency: DigestFrequency;
+  default_trip_public: boolean;
+  location: string | null;
 }
 
 export interface PlannerFollow {

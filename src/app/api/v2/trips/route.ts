@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       budget_band: body.budget_band || null,
       privacy,
       created_by: user.id,
+      is_public: user.default_trip_public,
     })
     .select("*")
     .single();
