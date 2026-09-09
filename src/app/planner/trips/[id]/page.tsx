@@ -12,6 +12,7 @@ import { PreferencesSkipControl } from "./PreferencesSkipControl";
 import { JoinRequests } from "./JoinRequests";
 import { ResourceTile } from "@/components/planner/ResourceIcon";
 import { WorkspaceTopBar } from "./WorkspaceTopBar";
+import { TripVisibilityToggle } from "./TripVisibilityToggle";
 import { ensureDays } from "@/lib/planner/days";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 import { computeAttention } from "@/lib/planner/attention";
@@ -212,9 +213,14 @@ export default async function PlannerTripPage({
               <p className="mt-1.5 text-sm text-muted">{trip.destination}</p>
             )}
           </div>
-          <p className="font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
-            {trip.privacy === "private" ? "Private trip" : "Open trip"}
-          </p>
+          <div className="flex items-center gap-2.5">
+            <p className="font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
+              {trip.privacy === "private" ? "Private trip" : "Open trip"}
+            </p>
+            {membership.role === "owner" && (
+              <TripVisibilityToggle tripId={id} initialIsPublic={trip.is_public} />
+            )}
+          </div>
         </div>
 
         {attention.items.length > 0 && (
