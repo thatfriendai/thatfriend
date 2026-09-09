@@ -161,18 +161,46 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     })
     .filter((r): r is RatingCardData => r !== null);
 
+  // Unrated visits feed the zero-rating fallback list (any viewer, only
+  // when there's nothing rated yet) and the owner-only "rate your places"
+  // nudge (isSelf, regardless of feed state — you can have rated places
+  // from one trip and still have unrated ones from a more recent trip).
   const visits: VisitedPlaceRow[] = [];
-  if (feed.length === 0) {
-    const today = new Date().toISOString().slice(0, 10);
+  let unratedVisitCount = 0;
+  let firstUnratedTripId: string | null = null;
+  if (feed.length === 0 || isSelf) {
+    const ratedPlaceIds = new Set(feed.map((r) => r.placeId));
     const endedTripIds = allTrips
       .filter((t) => ratingScopeTripIds.includes(t.id) && t.end_date && t.end_date < today)
       .map((t) => t.id);
     for (const tripId of endedTripIds) {
       const tripVisits = await listVisits(admin, tripId);
       for (const v of tripVisits) {
-        visits.push({ id: v.id, name: v.name, tripName: destinationByTripId.get(tripId) ?? "a trip", dayLabel: v.dayLabel });
+        if (ratedPlaceIds.has(v.id)) continue;
+        unratedVisitCount++;
+        firstUnratedTripId ??= tripId;
+        if (feed.length === 0) {
+          visits.push({ id: v.id, name: v.name, tripName: destinationByTripId.get(tripId) ?? "a trip", dayLabel: v.dayLabel });
+        }
       }
     }
+  }
+
+  let recentViewerCount = 0;
+  if (isSelf) {
+    const thirtyDaysAgo = new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { data: viewRows } = await admin
+      .from("planner_profile_views")
+      .select("viewer_id")
+      .eq("profile_user_id", profileUser.id)
+      .gte("viewed_at", thirtyDaysAgo);
+    recentViewerCount = new Set((viewRows ?? []).map((r) => r.viewer_id as string)).size;
+  } else if (viewer) {
+    // Best-effort, non-blocking — a failed insert shouldn't break the page.
+    void admin
+      .from("planner_profile_views")
+      .insert({ profile_user_id: profileUser.id, viewer_id: viewer.id })
+      .then(undefined, () => {});
   }
 
   const { count: followersCount } = await admin
@@ -220,6 +248,9 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       viewerSignedIn={Boolean(viewer)}
       feed={feed}
       visits={visits}
+      unratedVisitCount={unratedVisitCount}
+      firstUnratedTripId={firstUnratedTripId}
+      recentViewerCount={recentViewerCount}
       trips={trips}
       privateTripCount={privateTripCount}
     />

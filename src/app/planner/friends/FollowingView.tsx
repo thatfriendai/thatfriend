@@ -11,6 +11,7 @@ export interface PersonRow {
   publicTripCount: number;
   mutualFriendCount: number;
   metOn: string | null;
+  followsYouBack: boolean;
 }
 
 function initialsOf(name: string) {
@@ -35,7 +36,11 @@ function metContextLine(p: PersonRow) {
 
 /** "Following": handle first, then how active they are. */
 function followingLine(p: PersonRow) {
-  const parts = [p.username ? `@${p.username}` : null, `${p.publicTripCount} public trip${p.publicTripCount === 1 ? "" : "s"}`];
+  const parts = [
+    p.username ? `@${p.username}` : null,
+    `${p.publicTripCount} public trip${p.publicTripCount === 1 ? "" : "s"}`,
+    p.followsYouBack ? "Follows you back" : null,
+  ];
   return parts.filter(Boolean).join(" · ");
 }
 
