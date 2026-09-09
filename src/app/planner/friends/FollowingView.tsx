@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ExploreNav } from "@/components/planner/ExploreNav";
+import { HomeNav } from "@/components/planner/HomeNav";
 
 export interface PersonRow {
   id: string;
@@ -140,14 +140,20 @@ export function FollowingView({
   followerCount,
   travelledWith: initialTravelledWith,
   viewerUsername,
-  tripsAndSavedCount,
+  navInitial,
+  navTripsCount,
+  navSavedCount,
+  signOutAction,
 }: {
   startedFollowingYou: PersonRow[];
   following: PersonRow[];
   followerCount: number;
   travelledWith: PersonRow[];
   viewerUsername: string | null;
-  tripsAndSavedCount: number;
+  navInitial: string;
+  navTripsCount: number;
+  navSavedCount: number;
+  signOutAction: () => Promise<void>;
 }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [following, setFollowing] = useState(initialFollowing);
@@ -168,15 +174,15 @@ export function FollowingView({
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center gap-5 border-b border-border bg-card px-5 py-5 sm:px-10">
-        <Link href="/planner/home" className="text-[23px] tracking-tight font-display text-ink">
-          &ldquo;that friend&rdquo;
-        </Link>
-      </header>
+      <HomeNav
+        initial={navInitial}
+        username={viewerUsername}
+        tripsCount={navTripsCount}
+        savedCount={navSavedCount}
+        signOutAction={signOutAction}
+      />
 
       <div className="mx-auto max-w-[760px] px-6 py-10 pb-28 sm:px-10">
-        <ExploreNav active="following" tripsAndSavedCount={tripsAndSavedCount} />
-
         <h1 className="mb-2 text-[42px] leading-[1.06] font-display tracking-tight text-ink">Following</h1>
         <p className="mb-8 max-w-[560px] text-[15px] leading-relaxed text-body">
           Following someone puts their public trips in your Explore feed. It&rsquo;s one-way — no request

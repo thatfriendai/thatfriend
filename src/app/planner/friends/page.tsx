@@ -2,7 +2,20 @@ import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listFriends } from "@/lib/planner/follows";
+import { getNavCounts } from "@/lib/planner/navCounts";
+import { signOut } from "@/app/planner/actions";
 import { FollowingView, type PersonRow } from "./FollowingView";
+
+function initialsOf(name: string) {
+  return (
+    name
+      .split(/\s+/)
+      .map((p) => p[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase() || "?"
+  );
+}
 
 function countBy<T>(rows: T[], key: (row: T) => string) {
   const counts = new Map<string, number>();
@@ -19,11 +32,10 @@ export default async function FollowingPage() {
 
   const admin = createAdminClient();
 
-  const [{ data: followingRows }, { data: followerRows }, { data: viewerMemberships }, { data: tripSaveRows }] = await Promise.all([
+  const [{ data: followingRows }, { data: followerRows }, { data: viewerMemberships }] = await Promise.all([
     admin.from("planner_follows").select("followee_id").eq("follower_id", viewer.id),
     admin.from("planner_follows").select("follower_id").eq("followee_id", viewer.id),
     admin.from("planner_memberships").select("trip_id").eq("user_id", viewer.id),
-    admin.from("planner_trip_saves").select("trip_id").eq("user_id", viewer.id),
   ]);
 
   const followingIds = (followingRows ?? []).map((r) => r.followee_id as string);
@@ -108,6 +120,7 @@ export default async function FollowingPage() {
   const startedFollowingYou = startedFollowingIds.map(toPerson);
   const following = followingIds.map(toPerson).sort((a, b) => b.publicTripCount - a.publicTripCount);
   const travelledWith = travelledWithIds.map(toPerson);
+  const { tripsCount, savedCount } = await getNavCounts(admin, viewer.id);
 
   return (
     <FollowingView
@@ -116,7 +129,10 @@ export default async function FollowingPage() {
       followerCount={followerIds.length}
       travelledWith={travelledWith}
       viewerUsername={viewer.username}
-      tripsAndSavedCount={(tripSaveRows ?? []).length}
+      navInitial={initialsOf(viewer.name || viewer.email || "?")}
+      navTripsCount={tripsCount}
+      navSavedCount={savedCount}
+      signOutAction={signOut}
     />
   );
 }

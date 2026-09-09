@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { ExploreNav } from "@/components/planner/ExploreNav";
+import { HomeNav } from "@/components/planner/HomeNav";
 
 export interface FriendChip {
   id: string;
@@ -75,13 +75,21 @@ export function ExploreView({
   fofChips,
   friendsTrips,
   fofTrips,
-  tripsAndSavedCount,
+  navInitial,
+  navUsername,
+  navTripsCount,
+  navSavedCount,
+  signOutAction,
 }: {
   friendChips: FriendChip[];
   fofChips: FriendChip[];
   friendsTrips: TripCard[];
   fofTrips: TripCard[];
-  tripsAndSavedCount: number;
+  navInitial: string;
+  navUsername: string | null;
+  navTripsCount: number;
+  navSavedCount: number;
+  signOutAction: () => Promise<void>;
 }) {
   const [scope, setScope] = useState<"friends" | "fof">("friends");
   const [query, setQuery] = useState("");
@@ -100,15 +108,15 @@ export function ExploreView({
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center gap-5 border-b border-border bg-card px-5 py-5 sm:px-10">
-        <Link href="/planner/home" className="text-[23px] tracking-tight font-display text-ink">
-          &ldquo;that friend&rdquo;
-        </Link>
-      </header>
+      <HomeNav
+        initial={navInitial}
+        username={navUsername}
+        tripsCount={navTripsCount}
+        savedCount={navSavedCount}
+        signOutAction={signOutAction}
+      />
 
       <div className="mx-auto max-w-[1080px] px-6 py-10 pb-28 sm:px-10">
-        <ExploreNav active="explore" tripsAndSavedCount={tripsAndSavedCount} />
-
         <h1 className="mb-3 max-w-[720px] text-[42px] leading-[1.05] font-display tracking-tight text-ink">
           Where your friends have actually been
         </h1>

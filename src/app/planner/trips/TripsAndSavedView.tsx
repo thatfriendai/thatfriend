@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { ExploreNav } from "@/components/planner/ExploreNav";
+import { useSearchParams } from "next/navigation";
 import { kindColor } from "@/lib/planner/itinerary";
 import { CopyTripButton } from "@/app/planner/u/[username]/CopyTripButton";
 import { AddToItineraryButton } from "./AddToItineraryButton";
@@ -90,20 +90,19 @@ function RemovePlaceButton({ id, onRemoved }: { id: string; onRemoved: () => voi
 
 export function TripsAndSavedView({
   children,
-  tripsAndSavedCount,
   savedTrips: initialSavedTrips,
   savedPlaces: initialSavedPlaces,
   ownTripsForPicker,
   ownTripCount,
 }: {
   children: ReactNode;
-  tripsAndSavedCount: number;
   savedTrips: SavedTripRow[];
   savedPlaces: SavedPlaceRow[];
   ownTripsForPicker: OwnTripForPicker[];
   ownTripCount: number;
 }) {
-  const [tab, setTab] = useState<"yours" | "saved">("yours");
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState<"yours" | "saved">(searchParams.get("tab") === "saved" ? "saved" : "yours");
   const [savedTrips, setSavedTrips] = useState(initialSavedTrips);
   const [savedPlaces, setSavedPlaces] = useState(initialSavedPlaces);
   const [undo, setUndo] = useState<{ place: SavedPlaceRow; createdPlaceId: string; tripId: string; dayLabel: string | null } | null>(
@@ -153,8 +152,6 @@ export function TripsAndSavedView({
 
   return (
     <div>
-      <ExploreNav active="trips" tripsAndSavedCount={tripsAndSavedCount} />
-
       <div className="mb-9 flex gap-2">
         <button
           type="button"
