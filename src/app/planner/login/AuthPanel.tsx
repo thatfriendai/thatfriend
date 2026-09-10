@@ -102,7 +102,12 @@ export function AuthPanel({ token }: { token?: string }) {
                 name: withName,
                 whatsapp_opt_in: withName ? waOptIn : undefined,
               }
-            : { phone: cred.trim() }
+            : {
+                phone: cred.trim(),
+                token,
+                name: withName,
+                whatsapp_opt_in: withName ? waOptIn : undefined,
+              }
         ),
         signal: AbortSignal.timeout(15_000),
       });
