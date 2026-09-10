@@ -690,3 +690,26 @@ create index if not exists planner_profile_views_owner_idx on planner_profile_vi
 
 alter table planner_profile_views enable row level security;
 grant all on planner_profile_views to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- planner_email_links — bridges "add an email to a phone-only account" to
+-- the magic-link confirmation Supabase actually sends. A phone-only
+-- account's auth.users row carries a synthetic, unreachable placeholder
+-- email (see lib/planner/phoneSession.ts) — Supabase's normal secure email
+-- change tries to confirm both the old AND new address, and that
+-- placeholder fails Supabase's own validation, so the self-service
+-- updateUser() call always errors even though the new-email confirmation
+-- still gets sent. This table lets /api/v2/auth/callback recognize "this
+-- magic-link click was really an email-add for an already-signed-in phone
+-- account" and fold the resulting (throwaway) auth identity into the real
+-- one, instead of routing through updateUser()'s dual confirmation at all.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_email_links (
+  email text primary key,
+  requesting_planner_user_id uuid not null references planner_users (id) on delete cascade,
+  created_at timestamptz not null default now(),
+  expires_at timestamptz not null
+);
+
+alter table planner_email_links enable row level security;
+grant all on planner_email_links to anon, authenticated, service_role;

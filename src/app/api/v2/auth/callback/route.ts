@@ -5,6 +5,7 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { toE164 } from "@/lib/planner/phone";
 import { autoFriendTripMembers } from "@/lib/planner/follows";
+import { completePendingEmailLink } from "@/lib/planner/emailLink";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -22,6 +23,9 @@ export async function GET(request: Request) {
   if (error) {
     return NextResponse.redirect(`${origin}/planner/login?error=Could not sign in`);
   }
+
+  const emailLinkResponse = await completePendingEmailLink(request, supabase);
+  if (emailLinkResponse) return emailLinkResponse;
 
   const plannerUser = await getPlannerUser();
   if (!plannerUser) {
