@@ -35,6 +35,7 @@ export function AvailabilityCalendar({
   monthsToShow?: number;
 }) {
   const today = new Date();
+  const todayIso = toISO(today.getFullYear(), today.getMonth(), today.getDate());
   const [anchor, setAnchor] = useState({ y: today.getFullYear(), m: today.getMonth() });
   const marked = useMemo(() => new Set(value), [value]);
   // Mutated synchronously for the life of one drag gesture, independent of
@@ -49,18 +50,18 @@ export function AvailabilityCalendar({
       dragModeRef.current = null;
       dragSetRef.current = null;
     }
-    window.addEventListener("mouseup", endDrag);
-    window.addEventListener("touchend", endDrag);
+    window.addEventListener("pointerup", endDrag);
+    window.addEventListener("pointercancel", endDrag);
     return () => {
-      window.removeEventListener("mouseup", endDrag);
-      window.removeEventListener("touchend", endDrag);
+      window.removeEventListener("pointerup", endDrag);
+      window.removeEventListener("pointercancel", endDrag);
     };
   }, []);
 
   function applyDrag(iso: string) {
     const mode = dragModeRef.current;
     const set = dragSetRef.current;
-    if (!mode || !set) return;
+    if (!mode || !set || iso < todayIso) return;
     const has = set.has(iso);
     if (mode === "add" && !has) {
       set.add(iso);
@@ -73,21 +74,36 @@ export function AvailabilityCalendar({
   }
 
   function startDrag(iso: string) {
+    if (iso < todayIso) return;
     const set = new Set(value);
     dragModeRef.current = set.has(iso) ? "remove" : "add";
     dragSetRef.current = set;
     applyDrag(iso);
   }
 
-  function handleTouchMove(e: React.TouchEvent) {
+  // One handler for mouse, touch, and pen alike. Pointer capture keeps every
+  // move event routed to the cell the gesture *started* on, no matter which
+  // element the cursor/finger is actually over — so resolving the day under
+  // the pointer via elementFromPoint (rather than depending on each cell's
+  // own hover/enter event firing as the pointer sweeps across, which is
+  // unreliable for a fast drag) is what makes the multi-day drag reliable.
+  function handlePointerDown(e: React.PointerEvent, iso: string) {
+    e.preventDefault();
+    e.currentTarget.setPointerCapture(e.pointerId);
+    startDrag(iso);
+  }
+
+  function handlePointerMove(e: React.PointerEvent) {
     if (!dragModeRef.current) return;
-    const touch = e.touches[0];
-    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const el = document.elementFromPoint(e.clientX, e.clientY);
     const iso = el?.getAttribute("data-iso");
     if (iso) applyDrag(iso);
   }
 
+  const atEarliestMonth = anchor.y === today.getFullYear() && anchor.m === today.getMonth();
+
   function shift(delta: number) {
+    if (delta < 0 && atEarliestMonth) return;
     setAnchor((a) => {
       const total = a.m + delta;
       const y = a.y + Math.floor(total / 12);
@@ -107,8 +123,9 @@ export function AvailabilityCalendar({
         <button
           type="button"
           onClick={() => shift(-1)}
+          disabled={atEarliestMonth}
           aria-label="Previous month"
-          className="rounded-full border border-input-border px-2.5 py-1 text-sm text-muted hover:border-ink hover:text-ink"
+          className="rounded-full border border-input-border px-2.5 py-1 text-sm text-muted hover:border-ink hover:text-ink disabled:cursor-not-allowed disabled:opacity-30 disabled:hover:border-input-border disabled:hover:text-muted"
         >
           ‹
         </button>
@@ -135,25 +152,21 @@ export function AvailabilityCalendar({
                 if (d === null) return <span key={i} />;
                 const iso = toISO(y, m, d);
                 const on = marked.has(iso);
+                const past = iso < todayIso;
                 return (
                   <button
                     key={i}
                     type="button"
                     data-iso={iso}
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      startDrag(iso);
-                    }}
-                    onMouseEnter={() => applyDrag(iso)}
-                    onTouchStart={(e) => {
-                      e.preventDefault();
-                      startDrag(iso);
-                    }}
-                    onTouchMove={handleTouchMove}
+                    disabled={past}
+                    onPointerDown={(e) => handlePointerDown(e, iso)}
+                    onPointerMove={handlePointerMove}
                     className={`mx-auto flex h-7 w-7 touch-none items-center justify-center rounded-md text-[12.5px] transition-colors select-none ${
-                      on
-                        ? "bg-accent text-cream"
-                        : "text-ink-body hover:bg-border-soft"
+                      past
+                        ? "cursor-not-allowed text-faint opacity-40"
+                        : on
+                          ? "bg-accent text-cream"
+                          : "text-ink-body hover:bg-border-soft"
                     }`}
                   >
                     {d}

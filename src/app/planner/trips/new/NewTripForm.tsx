@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { AvailabilityCalendar } from "@/components/planner/AvailabilityCalendar";
+import { DestinationSearch } from "@/components/planner/DestinationSearch";
 import { CopyInviteLink } from "@/app/planner/trips/[id]/CopyInviteLink";
 
 const OCCASIONS = [
@@ -30,7 +31,7 @@ const PRIVACY_OPTIONS = [
   {
     key: "open" as const,
     label: "Open",
-    hint: "Everyone sees each other's numbers and notes as they come in.",
+    hint: "Everyone sees each other's budget and notes as they come in.",
   },
 ];
 
@@ -46,7 +47,13 @@ function cardClass(on: boolean) {
   }`;
 }
 
-export function NewTripForm({ defaultName }: { defaultName?: string }) {
+export function NewTripForm({
+  defaultName,
+  googleMapsApiKey,
+}: {
+  defaultName?: string;
+  googleMapsApiKey: string;
+}) {
   const router = useRouter();
   const [name, setName] = useState(defaultName ?? "");
   const [destination, setDestination] = useState("");
@@ -167,14 +174,22 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
             {undecidedDestination ? "Actually, I know" : "We haven't decided"}
           </button>
         </div>
-        {!undecidedDestination && (
-          <input
-            value={destination}
-            onChange={(e) => setDestination(e.target.value)}
-            placeholder="Lisbon, Portugal"
-            className="w-full rounded-xl border border-input-border bg-card px-4.5 py-3.5 text-base text-ink outline-none focus:border-ink"
-          />
-        )}
+        {!undecidedDestination &&
+          (googleMapsApiKey ? (
+            <DestinationSearch
+              apiKey={googleMapsApiKey}
+              value={destination}
+              onChange={setDestination}
+              placeholder="Lisbon, Portugal"
+            />
+          ) : (
+            <input
+              value={destination}
+              onChange={(e) => setDestination(e.target.value)}
+              placeholder="Lisbon, Portugal"
+              className="w-full rounded-xl border border-input-border bg-card px-4.5 py-3.5 text-base text-ink outline-none focus:border-ink"
+            />
+          ))}
         <p className="mt-2.5 text-[13.5px] text-muted">
           {undecidedDestination
             ? "That Friend can suggest a few once everyone's answered."
@@ -300,7 +315,7 @@ export function NewTripForm({ defaultName }: { defaultName?: string }) {
                 addInvitee();
               }
             }}
-            placeholder="friend@email.com or +351 912 345 678"
+            placeholder="friend@email.com or +1 415 555 0100"
             className="flex-1 rounded-xl border border-input-border bg-card px-4.5 py-3.5 text-base text-ink outline-none focus:border-ink"
           />
           <button

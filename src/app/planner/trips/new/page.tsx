@@ -29,7 +29,7 @@ export default async function NewPlannerTripPage({
           Nothing here is final. You can leave any of it undecided and let
           the group sort it out.
         </p>
-        <NewTripForm defaultName={name} />
+        <NewTripForm defaultName={name} googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""} />
       </div>
     </div>
   );
