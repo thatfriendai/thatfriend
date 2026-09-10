@@ -18,6 +18,7 @@ import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { TripVisibilityToggle } from "./TripVisibilityToggle";
 import { ensureDays } from "@/lib/planner/days";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
+import { formatPhoneDisplay } from "@/lib/planner/phone";
 import { computeAttention } from "@/lib/planner/attention";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
@@ -177,7 +178,8 @@ export default async function PlannerTripPage({
       email: string | null;
       phone: string | null;
     } | null;
-    const label = person?.name || person?.email?.split("@")[0] || person?.phone || "Someone";
+    const label =
+      person?.name || person?.email?.split("@")[0] || (person?.phone ? formatPhoneDisplay(person.phone) : null) || "Someone";
     return { label, role: m.role };
   });
 

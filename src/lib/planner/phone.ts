@@ -14,3 +14,20 @@ export function toE164(phone: string): string {
   if (digits.length === 10) return `+1${digits}`;
   return `+${digits}`;
 }
+
+/**
+ * Human-readable form of a stored E.164 number, e.g. "+14155550100" ->
+ * "+1 (415) 555-0100". Only US/Canada gets special-cased formatting, same
+ * as toE164's own assumption — any other country code is shown as-is
+ * rather than guessing at a format that doesn't apply to it.
+ */
+export function formatPhoneDisplay(phone: string): string {
+  const digits = normalizePhoneDigits(phone);
+  if (digits.length === 11 && digits.startsWith("1")) {
+    const area = digits.slice(1, 4);
+    const mid = digits.slice(4, 7);
+    const last = digits.slice(7, 11);
+    return `+1 (${area}) ${mid}-${last}`;
+  }
+  return phone;
+}

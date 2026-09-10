@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { formatPhoneDisplay } from "@/lib/planner/phone";
 
 type Step = "idle" | "sent";
 
@@ -80,7 +81,9 @@ export function PhoneLinkPanel({
     return (
       <div className="flex flex-col gap-2">
         <div className="flex items-center gap-3">
-          <span className="text-[15.5px] text-ink">{currentPhone || "No phone number"}</span>
+          <span className="text-[15.5px] text-ink">
+            {currentPhone ? formatPhoneDisplay(currentPhone) : "No phone number"}
+          </span>
           {currentPhone && (
             <span className="rounded-full border border-input-border font-mono text-[9.5px] tracking-[0.08em] text-muted uppercase px-2 py-0.5">
               Verified

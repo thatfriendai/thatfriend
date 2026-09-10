@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { DigestFrequency, PlannerUser } from "@/lib/supabase/planner-types";
+import { formatPhoneDisplay } from "@/lib/planner/phone";
 import { Toggle } from "@/components/planner/Toggle";
 import { signOut } from "../actions";
 import { AvatarUploader } from "./AvatarUploader";
@@ -228,7 +229,7 @@ export function SettingsForm({ user }: { user: PlannerUser }) {
               <div>
                 <div className="mb-1.5 flex items-center justify-between gap-3">
                   <p className="font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Email</p>
-                  <EmailChangePanel />
+                  <EmailChangePanel hasEmail={Boolean(user.email)} />
                 </div>
                 <p className="text-[15px] text-ink">{user.email ?? "No email on this account"}</p>
               </div>
@@ -268,7 +269,7 @@ export function SettingsForm({ user }: { user: PlannerUser }) {
               <div className="flex items-center justify-between gap-4">
                 <div>
                   <p className="text-[15px] text-ink">Text messages</p>
-                  {user.phone && <p className="text-[13px] text-muted">To {user.phone}</p>}
+                  {user.phone && <p className="text-[13px] text-muted">To {formatPhoneDisplay(user.phone)}</p>}
                 </div>
                 <Toggle checked={fields.notifySms} onChange={(v) => set("notifySms", v)} />
               </div>

@@ -3,7 +3,17 @@
 import { useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-export function EmailChangePanel() {
+/**
+ * hasEmail distinguishes two genuinely different flows. With a real email
+ * already on the account, this is Supabase's own self-service change —
+ * confirming both the old and new address makes sense there, since both
+ * are real. Phone-only accounts have no real "old" email to confirm (their
+ * auth identity carries a synthetic placeholder — see lib/planner/
+ * phoneSession.ts), so that goes through a separate server-driven route
+ * instead; see /api/v2/users/me/email and the auth callback's
+ * completePendingEmailLink for why.
+ */
+export function EmailChangePanel({ hasEmail }: { hasEmail: boolean }) {
   const [changing, setChanging] = useState(false);
   const [email, setEmail] = useState("");
   const [pending, setPending] = useState(false);
@@ -16,11 +26,31 @@ export function EmailChangePanel() {
     if (!trimmed) return;
     setPending(true);
     setError(null);
-    const supabase = createClient();
-    const { error: updateError } = await supabase.auth.updateUser({ email: trimmed });
+
+    if (hasEmail) {
+      const supabase = createClient();
+      const { error: updateError } = await supabase.auth.updateUser(
+        { email: trimmed },
+        { emailRedirectTo: `${window.location.origin}/api/v2/auth/callback` }
+      );
+      setPending(false);
+      if (updateError) {
+        setError(updateError.message);
+        return;
+      }
+      setSent(true);
+      return;
+    }
+
+    const res = await fetch("/api/v2/users/me/email", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email: trimmed }),
+    });
+    const data = await res.json().catch(() => ({}));
     setPending(false);
-    if (updateError) {
-      setError(updateError.message);
+    if (!res.ok) {
+      setError(data.error ?? "Could not send that.");
       return;
     }
     setSent(true);
@@ -29,7 +59,9 @@ export function EmailChangePanel() {
   if (sent) {
     return (
       <p className="text-[13px] text-muted">
-        Check {email} to confirm — your current email stays active until you do.
+        {hasEmail
+          ? `Check ${email} to confirm — your current email stays active until you do.`
+          : `Check ${email} for a confirmation link to finish adding it.`}
       </p>
     );
   }
@@ -41,7 +73,7 @@ export function EmailChangePanel() {
         onClick={() => setChanging(true)}
         className="rounded-full border border-input-border bg-card px-4 py-1.5 text-[13.5px] text-ink hover:border-ink"
       >
-        Change
+        {hasEmail ? "Change" : "Add"}
       </button>
     );
   }
