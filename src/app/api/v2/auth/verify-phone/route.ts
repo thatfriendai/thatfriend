@@ -57,13 +57,15 @@ export async function POST(request: Request) {
 
   const { data: existing } = await admin
     .from("planner_users")
-    .select("id, name")
+    .select("id, name, username")
     .eq("phone", phone)
     .maybeSingle();
 
   let plannerUserId: string;
+  let needsProfile: boolean;
   if (existing) {
     plannerUserId = existing.id;
+    needsProfile = !existing.username;
     if (codeRow.name && !existing.name) {
       await admin.from("planner_users").update({ name: codeRow.name }).eq("id", existing.id);
     }
@@ -80,6 +82,7 @@ export async function POST(request: Request) {
       );
     }
     plannerUserId = created.id;
+    needsProfile = true;
   }
 
   const session = await createSessionForPhone(admin, phone);
@@ -121,5 +124,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ redirect: "/planner/home" });
+  return NextResponse.json({ redirect: needsProfile ? "/planner/profile?welcome=1" : "/planner/home" });
 }

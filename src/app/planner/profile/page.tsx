@@ -3,9 +3,16 @@ import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { SettingsForm } from "./SettingsForm";
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ welcome?: string }>;
+}) {
   const user = await getPlannerUser();
   if (!user) redirect("/planner/login");
+
+  const { welcome } = await searchParams;
+  const isWelcome = welcome === "1";
 
   return (
     <div className="min-h-screen">
@@ -18,10 +25,14 @@ export default async function ProfilePage() {
           >
             ←
           </Link>
-          <h1 className="text-[38px] leading-[1.08] font-display tracking-tight text-ink">Settings</h1>
+          <h1 className="text-[38px] leading-[1.08] font-display tracking-tight text-ink">
+            {isWelcome ? "Set up your profile" : "Settings"}
+          </h1>
         </div>
         <p className="mb-10 text-[15px] text-muted">
-          How you show up on trips, and how That Friend reaches you.
+          {isWelcome
+            ? "Pick a username so people can find your profile and trips. Everything here is editable later — nothing's locked in."
+            : "How you show up on trips, and how That Friend reaches you."}
         </p>
 
         <SettingsForm user={user} />

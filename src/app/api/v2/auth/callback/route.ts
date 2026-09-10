@@ -84,5 +84,7 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(`${origin}/planner/trips`);
+  return NextResponse.redirect(
+    `${origin}${plannerUser.username ? "/planner/home" : "/planner/profile?welcome=1"}`
+  );
 }
