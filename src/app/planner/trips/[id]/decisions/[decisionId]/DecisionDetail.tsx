@@ -8,6 +8,7 @@ import type {
   PlannerDecisionOption,
 } from "@/lib/supabase/planner-types";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
+import { celebrateDecisionClosed } from "@/lib/planner/confetti";
 
 const AVATAR_COLORS = DAY_COLORS;
 
@@ -116,6 +117,7 @@ export function DecisionDetail({
     if (!res.ok) return;
     const data = await res.json();
     setDecision(data.decision);
+    celebrateDecisionClosed();
   }
 
   async function addNote(e: React.FormEvent) {

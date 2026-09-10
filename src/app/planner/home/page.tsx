@@ -153,7 +153,7 @@ export default async function HomePage() {
 
       <div className="mx-auto max-w-[1180px] px-8 py-12 pb-24">
         <div className="mb-9.5">
-          <h1 className="mb-2 text-[46px] leading-[1.05] font-display tracking-tight text-ink">Morning, {firstName}.</h1>
+          <h1 className="mb-2 text-[46px] leading-[1.05] font-display tracking-tight text-ink">Hi, {firstName}.</h1>
           <p className="text-[16.5px] text-body">
             {attention.length === 0
               ? "Nothing is waiting on you."

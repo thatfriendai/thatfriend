@@ -243,7 +243,7 @@ export default async function PlannerTripsPage() {
   const yoursContent = (
     <>
       <h1 className="mb-2 text-[42px] leading-[1.06] font-display tracking-tight text-ink">
-        Morning, {firstName}.
+        Hi, {firstName}.
       </h1>
       <p className="mb-13 text-base text-body">
         {rows.length === 0
