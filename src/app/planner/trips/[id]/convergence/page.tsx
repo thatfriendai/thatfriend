@@ -157,7 +157,7 @@ export default async function ConvergencePage({
           {trip.name}
         </p>
         <h1 className="mb-3.5 text-[46px] leading-[1.06] font-display tracking-tight text-ink">
-          Here&rsquo;s where everyone landed.
+          {rows.length >= (total ?? 0) && rows.length > 0 ? "Here’s what everyone landed on." : "Here’s where we landed so far."}
         </h1>
         <p className="mb-12 max-w-xl text-lg leading-relaxed text-body">
           {isPrivate

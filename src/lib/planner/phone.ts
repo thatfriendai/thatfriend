@@ -16,6 +16,20 @@ export function toE164(phone: string): string {
 }
 
 /**
+ * Only US numbers can text with That Friend right now — Twilio bills
+ * international SMS at materially higher per-message rates, and by
+ * default a Twilio account's geographic permissions allow sending to most
+ * countries, so nothing on Twilio's side stops an international number
+ * from going through and being charged for. Gate it here instead: a
+ * 10-digit local number is always assumed US (same assumption toE164
+ * already makes), and an explicit "+" country code must be +1.
+ */
+export function isUSPhone(phone: string): boolean {
+  const e164 = toE164(phone);
+  return /^\+1\d{10}$/.test(e164);
+}
+
+/**
  * Human-readable form of a stored E.164 number, e.g. "+14155550100" ->
  * "+1 (415) 555-0100". Only US/Canada gets special-cased formatting, same
  * as toE164's own assumption — any other country code is shown as-is
