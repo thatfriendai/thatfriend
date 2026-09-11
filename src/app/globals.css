@@ -120,3 +120,28 @@ body {
     color: var(--color-faint);
   }
 }
+
+/* Used by the marketing hero demo (HeroDemo.tsx) for its step transitions and the confetti burst on locking dates. */
+@keyframes tfRise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes tfFall {
+  0% {
+    opacity: 0;
+    transform: translateY(-16px) rotate(0deg);
+  }
+  12% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(58px) rotate(240deg);
+  }
+}
