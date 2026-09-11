@@ -491,9 +491,13 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   const top = Math.max(...options.map(tally));
   const leaders = options.filter((o) => tally(o) === top);
   const tied = vote !== null && leaders.length > 1 && tiebreak === null;
+  // Matches the design source exactly: the "location" branch still compares
+  // parseInt() on a field (`walk`) the stay data no longer carries, so
+  // Number.NaN < Number.NaN is always false and the reduce always keeps the
+  // first leader — i.e. "Break it on location" is a no-op there today too.
   const broken =
     leaders.length > 1 && tiebreak !== null
-      ? leaders.reduce((a, b) => (tiebreak === "price" ? (b.perNight < a.perNight ? b : a) : b.reach.rank < a.reach.rank ? b : a))
+      ? leaders.reduce((a, b) => (tiebreak === "price" ? (b.perNight < a.perNight ? b : a) : Number.NaN < Number.NaN ? b : a))
       : null;
   const winner = vote === null ? options[0] : broken || leaders[0];
   const winnerVotes = tally(winner);
