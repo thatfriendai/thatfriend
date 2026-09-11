@@ -8,15 +8,6 @@ export function SiteNav() {
           &ldquo;that friend&rdquo;
         </span>
         <div className="hidden items-center gap-8.5 text-[14.5px] text-body md:flex">
-          <a href="#how" className="hover:text-accent">
-            How it works
-          </a>
-          <a href="#workspace" className="hover:text-accent">
-            The workspace
-          </a>
-          <a href="#nudge" className="hover:text-accent">
-            Nudging
-          </a>
           <a href="#for" className="hover:text-accent">
             Who it&rsquo;s for
           </a>

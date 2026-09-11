@@ -3,47 +3,6 @@ import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { SiteNav } from "@/components/SiteNav";
 import { HeroDemo } from "@/components/marketing/HeroDemo";
-import { WorkspacePreviewCard } from "@/components/WorkspacePreviewCard";
-
-const steps = [
-  {
-    n: "01",
-    title: "Everyone answers once",
-    body: "What they can spend on flights, a bed, and food. The pace they want, and the one thing they'd rather not compromise on.",
-  },
-  {
-    n: "02",
-    title: "The plan gets proposed",
-    body: 'Instead of another "thoughts?", you get a decision card: two real options, what each costs, who it suits.',
-  },
-  {
-    n: "03",
-    title: "It all lands on the map",
-    body: "Notes, links, restaurant recs, and saved spots live in one place, so you can see the flow of the trip at a glance.",
-  },
-];
-
-const whatsappExample = {
-  incoming:
-    "“someone told me to go to o frade in lisbon, small place, book ahead”",
-  reply:
-    "Added O Frade to Day 2, evening. It takes reservations 30 days out. Want me to put it to the group?",
-};
-
-const nudgeCards = [
-  {
-    label: "Sent to the group · Tuesday",
-    body: "Flights to Lisbon are up $60 since Friday. Four of you have booked. Jonah and Priya, this is the last week the group is on the same flight.",
-  },
-  {
-    label: "Nudged privately",
-    body: "Sam, you owe Maya $140 for the villa deposit. Want me to send her your half now?",
-  },
-  {
-    label: "Decision closed",
-    body: "Five of six picked the split week. Lagos nights are on the map, and I moved Sunday dinner to the coast.",
-  },
-];
 
 const forGroups = [
   {
@@ -98,121 +57,6 @@ export default async function Home() {
         <HeroDemo />
       </section>
 
-      <section id="how" className="border-t border-border px-6 py-20 sm:px-10">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 gap-12 sm:grid-cols-3 sm:gap-14">
-          {steps.map((step) => (
-            <div key={step.n} className="flex flex-col gap-3.5">
-              <p className="font-mono text-[11px] tracking-[0.14em] text-accent">
-                {step.n}
-              </p>
-              <h3 className="text-3xl leading-tight font-display text-ink">
-                {step.title}
-              </h3>
-              <p className="text-base leading-relaxed text-body text-pretty">
-                {step.body}
-              </p>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      <section id="workspace" className="bg-dark px-6 py-24 text-cream sm:px-10">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-[1fr_1.15fr]">
-          <div>
-            <p className="mb-6 font-mono text-[11.5px] tracking-[0.14em] text-muted uppercase">
-              The workspace
-            </p>
-            <h2 className="mb-5 text-5xl leading-[1.06] font-display tracking-tight text-cream">
-              No more asking your friend to send that list again.
-            </h2>
-            <p className="mb-8 max-w-md text-lg leading-relaxed text-dark-body text-pretty">
-              Recommendations, links, and saved places all live in the same
-              trip plan, so That Friend can build the itinerary out of them
-              instead of you scrolling back through six months of messages.
-            </p>
-            <div className="flex max-w-md flex-col gap-6.5">
-              <div>
-                <p className="mb-2 text-2xl leading-tight font-display text-cream">
-                  Everything in one place.
-                </p>
-                <p className="text-base leading-relaxed text-dark-body text-pretty">
-                  Your saved recommendations live everywhere: notes, texts,
-                  old Google Docs. Add them here instead, and see every spot
-                  on a live map right next to the plan.
-                </p>
-              </div>
-              <div>
-                <p className="mb-2 text-2xl leading-tight font-display text-cream">
-                  A plan that makes sense.
-                </p>
-                <p className="text-base leading-relaxed text-dark-body text-pretty">
-                  That Friend turns your saved spots into day-by-day
-                  itineraries, grouped by neighborhood so you&rsquo;re not
-                  crossing the city twice in one day. Edit anything, anytime.
-                  It&rsquo;s your plan, just organized.
-                </p>
-              </div>
-            </div>
-          </div>
-          <WorkspacePreviewCard />
-        </div>
-      </section>
-
-      <section id="nudge" className="border-t border-border px-6 py-24 sm:px-10">
-        <div className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 lg:grid-cols-2">
-          <div>
-            <p className="mb-6 font-mono text-[11.5px] tracking-[0.14em] text-muted uppercase">
-              The reminders send themselves
-            </p>
-            <h2 className="mb-5 text-5xl leading-[1.06] font-display tracking-tight text-ink text-balance">
-              That Friend sends the reminders, so you don&rsquo;t have to.
-            </h2>
-            <p className="mb-5 max-w-lg text-lg leading-relaxed text-body text-pretty">
-              Someone always ends up asking three times about dates,
-              deposits, and who still owes for the car. That Friend sends
-              the reminders, tracks who&rsquo;s answered, and closes the
-              loop once everyone has.
-            </p>
-            <p className="mb-5 max-w-lg text-lg leading-relaxed text-body text-pretty">
-              You stay the friend who&rsquo;s excited about the trip.
-            </p>
-            <p className="max-w-lg text-lg leading-relaxed text-body text-pretty">
-              It works over WhatsApp too. Forward a recommendation you get
-              from a friend, and it&rsquo;s added to the trip automatically.
-            </p>
-          </div>
-          <div className="flex flex-col gap-3">
-            <div className="rounded-2xl border border-[#DCE6E3] bg-[#F2F7F5] p-5">
-              <div className="mb-2.5 flex items-center gap-2.5">
-                <span className="h-[18px] w-[18px] rounded-full bg-[#4F7A6B]" />
-                <p className="font-mono text-[10.5px] tracking-[0.12em] text-[#6B7F78] uppercase">
-                  WhatsApp &middot; you &rarr; that friend
-                </p>
-              </div>
-              <p className="mb-3 text-[15.5px] leading-relaxed text-ink-body">
-                {whatsappExample.incoming}
-              </p>
-              <p className="border-t border-dashed border-[#CBD9D4] pt-2.5 text-[14.5px] leading-relaxed text-body">
-                {whatsappExample.reply}
-              </p>
-            </div>
-            {nudgeCards.map((card) => (
-              <div
-                key={card.label}
-                className="rounded-2xl border border-warm-border bg-warm-bg p-5"
-              >
-                <p className="mb-2.5 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
-                  {card.label}
-                </p>
-                <p className="text-[15.5px] leading-relaxed text-ink-body">
-                  {card.body}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       <section id="for" className="border-t border-border px-6 py-24 sm:px-10">
         <div className="mx-auto w-full max-w-6xl">
           <div className="mb-14 grid grid-cols-1 items-start gap-16 lg:grid-cols-[1fr_1.35fr]">
@@ -263,14 +107,8 @@ export default async function Home() {
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 text-[13.5px] text-muted sm:flex-row">
           <span className="text-lg font-display text-ink">&ldquo;that friend&rdquo;</span>
           <div className="flex gap-6">
-            <Link href="#how" className="hover:text-accent">
-              How it works
-            </Link>
-            <Link href="#workspace" className="hover:text-accent">
-              Workspace
-            </Link>
             <Link href="#for" className="hover:text-accent">
-              About
+              Who it&rsquo;s for
             </Link>
             <Link href="/privacy" className="hover:text-accent">
               Privacy
