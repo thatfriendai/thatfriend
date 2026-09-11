@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { SiteNav } from "@/components/SiteNav";
-import { TripPreviewCard } from "@/components/TripPreviewCard";
+import { HeroDemo } from "@/components/marketing/HeroDemo";
 import { WorkspacePreviewCard } from "@/components/WorkspacePreviewCard";
 
 const steps = [
@@ -81,46 +81,21 @@ export default async function Home() {
     <div className="flex flex-1 flex-col bg-canvas">
       <SiteNav />
 
-      <section className="mx-auto grid w-full max-w-6xl grid-cols-1 items-center gap-16 px-6 py-16 sm:px-10 lg:grid-cols-[1.05fr_1fr] lg:py-24">
+      <section className="mx-auto flex w-full max-w-[900px] flex-col gap-7.5 px-6 py-13.5 pb-19 sm:px-8">
         <div>
-          <p className="mb-7 font-mono text-[11px] tracking-[0.14em] text-muted uppercase">
-            For the trip that&rsquo;s been &ldquo;a maybe&rdquo; since March.
+          <p className="mb-3.5 text-[14.5px] text-muted">
+            For the trip that&rsquo;s been &ldquo;a maybe&rdquo; since forever.
           </p>
-          <h1 className="mb-6 text-6xl leading-[1.02] font-display tracking-tight text-ink text-balance sm:text-7xl">
-            Six people, one trip that <em className="text-accent not-italic italic">actually</em> happens.
+          <h1 className="mb-5 text-[40px] leading-[1.02] font-display tracking-tight text-ink text-balance sm:text-[60px]">
+            The group trip that makes it out of the chat.
           </h1>
-          <p className="mb-9 max-w-lg text-lg leading-relaxed text-body text-pretty">
-            Everyone drops their budget, dates, and non-negotiables. That
-            Friend reads the room, proposes the decision, and keeps the plan,
-            notes, and map in one place, so your group trip planning
-            doesn&rsquo;t live in 200 unread texts.
-          </p>
-
-          <form
-            action="/planner/trips/new"
-            className="mb-5 flex max-w-md flex-col items-stretch gap-3 sm:flex-row sm:items-center"
-          >
-            <input
-              type="text"
-              name="name"
-              placeholder="Name your trip: &ldquo;Lisbon&rdquo;"
-              className="min-w-0 flex-1 rounded-full border border-input-border bg-card px-5 py-3.5 text-[15px] text-ink outline-none focus:border-ink sm:max-w-[340px]"
-            />
-            <button
-              type="submit"
-              className="rounded-full bg-accent px-7 py-4 text-[15px] whitespace-nowrap text-card hover:bg-ink"
-            >
-              Start planning
-            </button>
-          </form>
-          <p className="text-[13px] text-muted">
-            Free for groups up to 6. No app to download.
+          <p className="max-w-[30em] text-[18.5px] leading-relaxed text-body text-pretty">
+            Everyone&rsquo;s dates, budget, and one must-do go in. A real plan
+            comes out. No 200-message group chat.
           </p>
         </div>
 
-        <div className="flex justify-center lg:justify-end">
-          <TripPreviewCard />
-        </div>
+        <HeroDemo />
       </section>
 
       <section id="how" className="border-t border-border px-6 py-20 sm:px-10">
