@@ -713,3 +713,10 @@ create table if not exists planner_email_links (
 
 alter table planner_email_links enable row level security;
 grant all on planner_email_links to anon, authenticated, service_role;
+
+-- planner_trips.availability_reminder_sent_at/preferences_reminder_sent_at
+-- — set once by the daily cron (src/app/api/v2/cron/stalled-reminders)
+-- the first time a stage is down to exactly one holdout, so that trip
+-- only ever gets the automatic text once per stage instead of once a day.
+alter table planner_trips add column if not exists availability_reminder_sent_at timestamptz;
+alter table planner_trips add column if not exists preferences_reminder_sent_at timestamptz;

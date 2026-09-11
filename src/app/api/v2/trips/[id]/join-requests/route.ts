@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
+import { notifyUser } from "@/lib/planner/notify";
 
 /**
  * "Ask to join" on someone's public upcoming trip. Owner-side accept/
@@ -19,7 +20,7 @@ export async function POST(
 
   const { data: trip } = await admin
     .from("planner_trips")
-    .select("id, is_public")
+    .select("id, name, is_public, created_by")
     .eq("id", tripId)
     .maybeSingle();
   if (!trip) return NextResponse.json({ error: "Trip not found." }, { status: 404 });
@@ -40,6 +41,11 @@ export async function POST(
       { onConflict: "trip_id,user_id" }
     );
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  if (trip.created_by) {
+    const firstName = (user.name || "Someone").split(/\s+/)[0];
+    await notifyUser(admin, trip.created_by, `${firstName} wants to join "${trip.name}".`);
+  }
 
   return NextResponse.json({ ok: true });
 }

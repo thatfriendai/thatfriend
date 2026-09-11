@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
+import { notifyTrip } from "@/lib/planner/notify";
 
 export async function POST(
   _request: Request,
@@ -24,7 +25,7 @@ export async function POST(
 
   const { data: decision } = await admin
     .from("planner_decisions")
-    .select("id, status")
+    .select("id, status, title")
     .eq("id", decisionId)
     .eq("trip_id", tripId)
     .maybeSingle();
@@ -70,5 +71,17 @@ export async function POST(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  const [{ data: trip }, { data: winningOption }] = await Promise.all([
+    admin.from("planner_trips").select("id, name, twilio_conversation_sid").eq("id", tripId).maybeSingle(),
+    decidedOptionId
+      ? admin.from("planner_decision_options").select("label").eq("id", decidedOptionId).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ]);
+  if (trip) {
+    const what = winningOption?.label ? `${decision.title}: ${winningOption.label}` : decision.title;
+    await notifyTrip(admin, trip, `The group decided on ${what}.`);
+  }
+
   return NextResponse.json({ decision: updated });
 }
