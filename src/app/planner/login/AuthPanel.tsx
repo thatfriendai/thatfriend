@@ -225,16 +225,33 @@ export function AuthPanel({ token }: { token?: string }) {
       <label className="mb-2 block text-sm text-body">
         {mode === "email" ? "Email" : "Phone number"}
       </label>
-      <input
-        value={cred}
-        onChange={(e) => setCred(e.target.value)}
-        onKeyDown={(e) => {
-          if (e.key === "Enter" && !step) handleLookup(e);
-        }}
-        disabled={step !== null}
-        placeholder={mode === "email" ? "you@email.com" : "+1 415 555 0100"}
-        className="mb-3 w-full rounded-full border border-input-border bg-card px-5 py-3.5 text-[15.5px] text-ink outline-none focus:border-ink disabled:opacity-70"
-      />
+      {mode === "phone" ? (
+        <div className="mb-1 flex items-center gap-1.5 rounded-full border border-input-border bg-card px-5 py-3.5 focus-within:border-ink">
+          <span className="flex-none text-[15.5px] text-muted">+1</span>
+          <input
+            value={cred}
+            onChange={(e) => setCred(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !step) handleLookup(e);
+            }}
+            disabled={step !== null}
+            placeholder="415 555 0100"
+            className="w-full min-w-0 bg-transparent text-[15.5px] text-ink outline-none disabled:opacity-70"
+          />
+        </div>
+      ) : (
+        <input
+          value={cred}
+          onChange={(e) => setCred(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !step) handleLookup(e);
+          }}
+          disabled={step !== null}
+          placeholder="you@email.com"
+          className="mb-3 w-full rounded-full border border-input-border bg-card px-5 py-3.5 text-[15.5px] text-ink outline-none focus:border-ink disabled:opacity-70"
+        />
+      )}
+      {mode === "phone" && <p className="mb-3 text-[12.5px] text-muted">US numbers only, for now.</p>}
 
       {error && <p className="mb-3 text-sm text-red-700">{error}</p>}
 

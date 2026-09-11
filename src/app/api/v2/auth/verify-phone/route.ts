@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createSessionForPhone } from "@/lib/planner/phoneSession";
 import { addParticipantToConversation } from "@/lib/twilio/conversations";
-import { toE164 } from "@/lib/planner/phone";
+import { toE164, isUSPhone } from "@/lib/planner/phone";
 import { getPlannerUser } from "@/lib/planner/session";
 import { mergePlannerUsers } from "@/lib/planner/plannerUser";
 import { autoFriendTripMembers } from "@/lib/planner/follows";
@@ -15,6 +15,12 @@ export async function POST(request: Request) {
 
   if (!phone || !code) {
     return NextResponse.json({ error: "Phone and code are required." }, { status: 400 });
+  }
+  if (!isUSPhone(phone)) {
+    return NextResponse.json(
+      { error: "That Friend can only text US phone numbers right now." },
+      { status: 400 }
+    );
   }
 
   const admin = createAdminClient();

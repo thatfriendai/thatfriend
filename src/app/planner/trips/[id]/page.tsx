@@ -44,41 +44,46 @@ export default async function PlannerTripPage({
 
   const admin = createAdminClient();
 
-  const { data: membership } = await admin
-    .from("planner_memberships")
-    .select("role")
-    .eq("trip_id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // Every query here reads by trip_id/user_id alone — none depends on
+  // another's result — so they run as one round-trip instead of nine
+  // sequential ones, which was the single biggest contributor to how slow
+  // this page felt to load.
+  const [
+    { data: membership },
+    { data: trip },
+    { data: members },
+    { data: joinInvite },
+    { data: myPref },
+    { data: resourceRows },
+    { data: placeRows },
+    { data: decisionRows },
+    attention,
+  ] = await Promise.all([
+    admin.from("planner_memberships").select("role").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_trips").select("*").eq("id", id).maybeSingle(),
+    admin.from("planner_memberships").select("role, planner_users(name, email, phone)").eq("trip_id", id),
+    admin.from("planner_invites").select("token").eq("trip_id", id).eq("channel", "link").limit(1).maybeSingle(),
+    admin.from("planner_preferences").select("trip_id").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_resources").select("*, planner_users(name, email)").eq("trip_id", id).order("created_at", { ascending: true }),
+    admin.from("planner_places").select("*, planner_users(name, email)").eq("trip_id", id).order("created_at", { ascending: true }),
+    admin
+      .from("planner_decisions")
+      // Explicit FK name: planner_decisions has two relationships to
+      // planner_decision_options (the options belonging to it, and
+      // decided_option_id pointing back at one of them) — PostgREST can't
+      // pick one on its own once decided_option_id is set, and silently
+      // fails the whole query instead of erroring loudly.
+      .select(
+        "*, planner_decision_options!planner_decision_options_decision_id_fkey(id, label), planner_decision_votes(option_id, user_id), planner_decision_notes(id)"
+      )
+      .eq("trip_id", id)
+      .order("created_at", { ascending: false }),
+    computeAttention(admin, id, user.id),
+  ]);
   if (!membership) notFound();
-
-  const { data: trip } = await admin
-    .from("planner_trips")
-    .select("*")
-    .eq("id", id)
-    .maybeSingle();
   if (!trip) notFound();
 
-  const { data: members } = await admin
-    .from("planner_memberships")
-    .select("role, planner_users(name, email, phone)")
-    .eq("trip_id", id);
-
-  const { data: joinInvite } = await admin
-    .from("planner_invites")
-    .select("token")
-    .eq("trip_id", id)
-    .eq("channel", "link")
-    .limit(1)
-    .maybeSingle();
-
-  const { data: myPref } = await admin
-    .from("planner_preferences")
-    .select("trip_id")
-    .eq("trip_id", id)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
+  // These two depend on trip/days resolving above, so they stay sequential.
   const days = await ensureDays(admin, trip);
   const dayIds = days.map((d) => d.id);
 
@@ -95,21 +100,9 @@ export default async function PlannerTripPage({
     items: (items ?? []).filter((i) => i.day_id === d.id),
   }));
 
-  const { data: resourceRows } = await admin
-    .from("planner_resources")
-    .select("*, planner_users(name, email)")
-    .eq("trip_id", id)
-    .order("created_at", { ascending: true });
-
   const resourceLabelById = new Map(
     (resourceRows ?? []).map((r) => [r.id as string, r.label as string])
   );
-
-  const { data: placeRows } = await admin
-    .from("planner_places")
-    .select("*, planner_users(name, email)")
-    .eq("trip_id", id)
-    .order("created_at", { ascending: true });
 
   const places = (placeRows ?? []).map((p) => {
     const person = p.planner_users as unknown as {
@@ -130,19 +123,6 @@ export default async function PlannerTripPage({
     const placeNames = places.filter((p) => p.resource_id === r.id).map((p) => p.name);
     return { ...r, who, placeNames };
   });
-
-  const { data: decisionRows } = await admin
-    .from("planner_decisions")
-    // Explicit FK name: planner_decisions has two relationships to
-    // planner_decision_options (the options belonging to it, and
-    // decided_option_id pointing back at one of them) — PostgREST can't
-    // pick one on its own once decided_option_id is set, and silently
-    // fails the whole query instead of erroring loudly.
-    .select(
-      "*, planner_decision_options!planner_decision_options_decision_id_fkey(id, label), planner_decision_votes(option_id, user_id), planner_decision_notes(id)"
-    )
-    .eq("trip_id", id)
-    .order("created_at", { ascending: false });
 
   const decisions = (decisionRows ?? []).map((d) => {
     const options = (d.planner_decision_options ?? []) as { id: string; label: string }[];
@@ -168,8 +148,6 @@ export default async function PlannerTripPage({
       d.status === "open" &&
       !d.planner_decision_votes?.some((v: { user_id: string }) => v.user_id === user.id)
   );
-
-  const attention = await computeAttention(admin, id, user.id);
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const roster = (members ?? []).map((m) => {

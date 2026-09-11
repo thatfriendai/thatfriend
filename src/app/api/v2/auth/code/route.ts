@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendSmsText } from "@/lib/twilio/send";
-import { toE164 } from "@/lib/planner/phone";
+import { toE164, isUSPhone } from "@/lib/planner/phone";
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 
@@ -17,6 +17,13 @@ export async function POST(request: Request) {
   const waOptIn = body.whatsapp_opt_in === true;
 
   if (phone && !email) {
+    if (!isUSPhone(phone)) {
+      return NextResponse.json(
+        { error: "That Friend can only text US phone numbers right now." },
+        { status: 400 }
+      );
+    }
+
     const admin = createAdminClient();
     const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
     const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();

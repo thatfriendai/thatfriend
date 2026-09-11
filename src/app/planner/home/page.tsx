@@ -46,10 +46,20 @@ export default async function HomePage() {
 
   const admin = createAdminClient();
 
-  const { data: membershipRows } = await admin
-    .from("planner_memberships")
-    .select("role, planner_trips(id, name, destination, start_date, end_date, dates_locked_at)")
-    .eq("user_id", user.id);
+  // None of these five depend on each other — one round-trip instead of
+  // five sequential ones.
+  const [{ data: membershipRows }, attention, { data: followRows }, { count: savedPlacesCount }, { count: savedTripsCount }] =
+    await Promise.all([
+      admin
+        .from("planner_memberships")
+        .select("role, planner_trips(id, name, destination, start_date, end_date, dates_locked_at)")
+        .eq("user_id", user.id),
+      computeHomeAttention(admin, user.id),
+      admin.from("planner_follows").select("followee_id").eq("follower_id", user.id),
+      admin.from("planner_saved_places").select("id", { count: "exact", head: true }).eq("user_id", user.id),
+      admin.from("planner_trip_saves").select("trip_id", { count: "exact", head: true }).eq("user_id", user.id),
+    ]);
+  const savedCount = (savedPlacesCount ?? 0) + (savedTripsCount ?? 0);
 
   const memberships = (membershipRows ?? [])
     .map((m) => ({
@@ -71,13 +81,27 @@ export default async function HomePage() {
   const planningTripIds = memberships
     .filter((m) => !m.trip.dates_locked_at && (!m.trip.end_date || m.trip.end_date >= today))
     .map((m) => m.trip.id);
-  const [{ data: memberCountRows }, { data: markRows }] =
+  const followeeIds = (followRows ?? []).map((r) => r.followee_id as string);
+  const fourteenDaysAgo = new Date(new Date().getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Two more independent chains, each keyed off data from the first batch —
+  // they don't depend on each other, so they run together too.
+  const [[{ data: memberCountRows }, { data: markRows }], { count: exploreCount }] = await Promise.all([
     planningTripIds.length > 0
-      ? await Promise.all([
+      ? Promise.all([
           admin.from("planner_memberships").select("trip_id").in("trip_id", planningTripIds),
           admin.from("planner_availability_marks").select("trip_id, user_id").in("trip_id", planningTripIds),
         ])
-      : [{ data: [] }, { data: [] }];
+      : Promise.resolve([{ data: [] }, { data: [] }] as const),
+    followeeIds.length > 0
+      ? admin
+          .from("planner_trips")
+          .select("id", { count: "exact", head: true })
+          .in("created_by", followeeIds)
+          .eq("is_public", true)
+          .gte("created_at", fourteenDaysAgo)
+      : Promise.resolve({ count: 0 }),
+  ]);
   const totalByTrip = new Map<string, number>();
   for (const r of memberCountRows ?? []) totalByTrip.set(r.trip_id, (totalByTrip.get(r.trip_id) ?? 0) + 1);
   const answeredSetByTrip = new Map<string, Set<string>>();
@@ -111,31 +135,6 @@ export default async function HomePage() {
       };
     });
 
-  const attention = await computeHomeAttention(admin, user.id);
-
-  const { data: followRows } = await admin.from("planner_follows").select("followee_id").eq("follower_id", user.id);
-  const followeeIds = (followRows ?? []).map((r) => r.followee_id as string);
-  const fourteenDaysAgo = new Date(new Date().getTime() - 14 * 24 * 60 * 60 * 1000).toISOString();
-  const { count: exploreCount } =
-    followeeIds.length > 0
-      ? await admin
-          .from("planner_trips")
-          .select("id", { count: "exact", head: true })
-          .in("created_by", followeeIds)
-          .eq("is_public", true)
-          .gte("created_at", fourteenDaysAgo)
-      : { count: 0 };
-
-  const { count: savedPlacesCount } = await admin
-    .from("planner_saved_places")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-  const { count: savedTripsCount } = await admin
-    .from("planner_trip_saves")
-    .select("trip_id", { count: "exact", head: true })
-    .eq("user_id", user.id);
-  const savedCount = (savedPlacesCount ?? 0) + (savedTripsCount ?? 0);
-
   const smsNumber = process.env.TWILIO_SMS_NUMBER ?? null;
 
   const firstName = (user.name || user.email || "there").split(/[\s@]/)[0];
@@ -155,9 +154,11 @@ export default async function HomePage() {
         <div className="mb-9.5">
           <h1 className="mb-2 text-[46px] leading-[1.05] font-display tracking-tight text-ink">Hi, {firstName}.</h1>
           <p className="text-[16.5px] text-body">
-            {attention.length === 0
-              ? "Nothing is waiting on you."
-              : `${attention.length} thing${attention.length === 1 ? "" : "s"} ${attention.length === 1 ? "is" : "are"} waiting on you.`}
+            {attention.length > 0
+              ? `${attention.length} thing${attention.length === 1 ? "" : "s"} need${attention.length === 1 ? "s" : ""} you.`
+              : tripIds.length === 0
+                ? "No plans yet — add a trip."
+                : "Nothing needs you right now."}
           </p>
         </div>
 

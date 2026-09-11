@@ -150,28 +150,34 @@ export function PhoneLinkPanel({
   }
 
   return (
-    <form onSubmit={sendCode} className="flex flex-wrap items-center gap-2.5">
-      <input
-        value={phone}
-        onChange={(e) => setPhone(e.target.value)}
-        placeholder="+1 415 555 0100"
-        autoFocus
-        className="rounded-full border border-input-border bg-card px-4 py-2 text-[15px] text-ink outline-none focus:border-ink"
-      />
-      <button
-        type="submit"
-        disabled={pending}
-        className="rounded-full bg-ink px-4 py-2 text-[13.5px] text-cream hover:bg-accent disabled:opacity-50"
-      >
-        {pending ? "Sending…" : "Send code"}
-      </button>
-      <button
-        type="button"
-        onClick={() => setChanging(false)}
-        className="text-[13.5px] text-muted hover:text-ink"
-      >
-        Cancel
-      </button>
+    <form onSubmit={sendCode} className="flex flex-col gap-2">
+      <div className="flex flex-wrap items-center gap-2.5">
+        <div className="flex items-center gap-1.5 rounded-full border border-input-border bg-card px-4 py-2 focus-within:border-ink">
+          <span className="flex-none text-[15px] text-muted">+1</span>
+          <input
+            value={phone}
+            onChange={(e) => setPhone(e.target.value)}
+            placeholder="415 555 0100"
+            autoFocus
+            className="min-w-0 bg-transparent text-[15px] text-ink outline-none"
+          />
+        </div>
+        <button
+          type="submit"
+          disabled={pending}
+          className="rounded-full bg-ink px-4 py-2 text-[13.5px] text-cream hover:bg-accent disabled:opacity-50"
+        >
+          {pending ? "Sending…" : "Send code"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setChanging(false)}
+          className="text-[13.5px] text-muted hover:text-ink"
+        >
+          Cancel
+        </button>
+      </div>
+      <p className="text-[12.5px] text-muted">US numbers only, for now.</p>
       {error && <span className="text-[13px] text-red-700">{error}</span>}
     </form>
   );
