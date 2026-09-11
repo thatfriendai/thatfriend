@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { kindColor } from "@/lib/planner/itinerary";
+import { TripCover } from "@/components/planner/TripCover";
+import { tintFor } from "@/lib/planner/cover";
 import type { FollowPersonRow } from "@/lib/planner/followingLists";
 import { FollowButton } from "./FollowButton";
 import { CopyTripButton } from "./CopyTripButton";
@@ -535,22 +537,18 @@ export function ProfileView({
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {trips.map((t) => (
                 <div key={t.id} className="overflow-hidden rounded-2xl border border-border bg-card">
-                  <div
-                    className="relative flex h-24 items-end p-2.5"
-                    style={{
-                      backgroundImage:
-                        "repeating-linear-gradient(45deg, var(--color-line) 0, var(--color-line) 1px, transparent 1px, transparent 10px)",
-                      backgroundColor: "var(--color-surface-sunk)",
-                    }}
-                  >
+                  <div className="relative h-24">
+                    <TripCover
+                      place={(t.destination || t.name).split(",")[0].trim()}
+                      tint={tintFor(t.id)}
+                      placeCount={`${t.placeCount} place${t.placeCount === 1 ? "" : "s"}`}
+                      size="card"
+                    />
                     {effectiveSelf && (
                       <span className="absolute top-2.5 right-2.5 rounded-full bg-ink px-2 py-0.5 font-mono text-[9px] tracking-[0.08em] text-cream uppercase">
                         Public
                       </span>
                     )}
-                    <span className="font-mono text-[9.5px] tracking-[0.06em] text-muted uppercase">
-                      Photo · {(t.destination || "no photo yet").toUpperCase()}
-                    </span>
                   </div>
                   <div className="p-4">
                     <p className="text-[15px] text-ink">{t.name}</p>

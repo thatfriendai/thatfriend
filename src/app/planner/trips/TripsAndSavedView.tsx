@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useSearchParams } from "next/navigation";
 import { kindColor } from "@/lib/planner/itinerary";
+import { TripCover } from "@/components/planner/TripCover";
+import { tintFor } from "@/lib/planner/cover";
 import { CopyTripButton } from "@/app/planner/u/[username]/CopyTripButton";
 import { AddToItineraryButton } from "./AddToItineraryButton";
 
@@ -36,17 +38,11 @@ export interface OwnTripForPicker {
   days: { id: string; label: string }[];
 }
 
-function StripePhoto({ label }: { label: string }) {
+function StripePhoto({ id, place }: { id: string; place: string }) {
   return (
-    <div
-      className="flex h-16 w-16 flex-none items-center justify-center rounded-xl"
-      style={{
-        backgroundImage:
-          "repeating-linear-gradient(45deg, var(--color-line) 0, var(--color-line) 1px, transparent 1px, transparent 8px)",
-        backgroundColor: "var(--color-surface-sunk)",
-      }}
-      title={label}
-    />
+    <div className="relative h-16 w-16 flex-none" title={place}>
+      <TripCover place={place} tint={tintFor(id)} size="thumb" />
+    </div>
   );
 }
 
@@ -194,7 +190,7 @@ export function TripsAndSavedView({
                   key={t.id}
                   className={`flex flex-wrap items-center gap-4 px-5 py-4 ${i > 0 ? "border-t border-border-soft" : ""}`}
                 >
-                  <StripePhoto label={t.destination ?? t.name} />
+                  <StripePhoto id={t.id} place={(t.destination ?? t.name).split(",")[0].trim()} />
                   <div className="min-w-0 flex-1">
                     <p className="text-[16px] text-ink">{t.name}</p>
                     <p className="mt-0.5 font-mono text-[11px] text-muted uppercase">
