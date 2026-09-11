@@ -50,11 +50,11 @@ interface Stay {
   shares: string;
   sharesNote: string;
   hood: string;
-  walk: string;
-  walkNote: string;
+  lat: number;
+  lng: number;
+  inCity: boolean;
   amenities: string;
   amenitiesNote: string;
-  best: string[];
   votes: string[];
   mine?: boolean;
 }
@@ -70,11 +70,11 @@ const STAYS: Stay[] = [
     shares: "3 bedrooms, 2 baths",
     sharesNote: "Everyone in a real bed",
     hood: "Alfama",
-    walk: "6 min",
-    walkNote: "to 7 saved places",
+    lat: 38.7128,
+    lng: -9.13,
+    inCity: true,
     amenities: "Kitchen, AC",
     amenitiesNote: "Washer, no pool",
-    best: ["walk"],
     votes: ["priya", "maya"],
   },
   {
@@ -86,12 +86,12 @@ const STAYS: Stay[] = [
     perNight: 64,
     shares: "4 bedrooms, 2 baths",
     sharesNote: "Pool, but a car each way",
-    hood: "Praia da Luz",
-    walk: "40 min",
-    walkNote: "drive to anything",
+    hood: "Praia da Luz, Algarve",
+    lat: 37.087,
+    lng: -8.73,
+    inCity: false,
     amenities: "Pool, kitchen",
     amenitiesNote: "No AC, no washer",
-    best: ["price"],
     votes: ["jonah"],
   },
   {
@@ -104,11 +104,11 @@ const STAYS: Stay[] = [
     shares: "4 private rooms",
     sharesNote: "No kitchen, breakfast in",
     hood: "Baixa",
-    walk: "12 min",
-    walkNote: "to 5 saved places",
+    lat: 38.71,
+    lng: -9.139,
+    inCity: true,
     amenities: "AC, breakfast",
     amenitiesNote: "No kitchen, daily clean",
-    best: [],
     votes: [],
   },
 ];
@@ -123,16 +123,16 @@ const EXTRA_STAY: Stay = {
   shares: "3 bedrooms, 2 baths",
   sharesNote: "Terrace, steep walk home",
   hood: "Graça",
-  walk: "9 min",
-  walkNote: "to 6 saved places",
+  lat: 38.7185,
+  lng: -9.129,
+  inCity: true,
   amenities: "Kitchen, AC",
   amenitiesNote: "Terrace, no washer",
-  best: [],
   votes: [],
   mine: true,
 };
 
-const STAY_AT = { lat: 38.7128, lng: -9.13 };
+const CITY_BASE = { lat: 38.7128, lng: -9.13 };
 
 interface GeoPlace {
   name: string;
@@ -376,7 +376,40 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
     days.push({ key: i, label: String(d), disabled: past, d, style: css(style) });
   }
 
-  const options: Stay[] = extraStay ? STAYS.concat(EXTRA_STAY) : STAYS.slice();
+  // What's actually saved so far — the stay comparison ranks options by
+  // real distance to these, not a static "best" tag, so it stays honest as
+  // places get added in step 3.
+  const savedPlaces: GeoPlace[] = PLACES.concat(
+    places.map((n, i) => {
+      const c = MY_COORDS[i % MY_COORDS.length];
+      return { name: n, source: "You", lat: c.lat, lng: c.lng, mine: true };
+    })
+  );
+  const WALKABLE_KM = 1.3; // about 15 minutes on foot
+  function reachFrom(st: Stay): { label: string; note: string; prose: string; rank: number } {
+    if (!st.inCity) {
+      const km = Math.round(Math.min(...savedPlaces.map((p) => kmBetween(st, p))));
+      return { label: `${km} km away`, note: "car or train to the city", prose: "", rank: 999 };
+    }
+    const near = savedPlaces.filter((p) => kmBetween(st, p) <= WALKABLE_KM);
+    const mins = (km: number) => Math.max(4, Math.round(km * 13));
+    const longest = near.length ? mins(Math.max(...near.map((p) => kmBetween(st, p)))) : null;
+    return {
+      label: `${near.length} of ${savedPlaces.length} on foot`,
+      note: longest ? `longest is ${longest} min` : "metro to all of them",
+      prose:
+        near.length === savedPlaces.length
+          ? `all ${savedPlaces.length} of your places within a ${longest} minute walk`
+          : near.length
+            ? `${near.length} of your ${savedPlaces.length} places within a ${longest} minute walk`
+            : "nothing you saved within walking distance",
+      // rank on the walk you would actually resent, not the count
+      rank: near.length ? longest! + (savedPlaces.length - near.length) * 30 : 999,
+    };
+  }
+
+  const options = (extraStay ? STAYS.concat(EXTRA_STAY) : STAYS.slice()).map((o) => ({ ...o, reach: reachFrom(o) }));
+  const bestReach = Math.min(...options.map((o) => o.reach.rank));
   const tally = (o: Stay) => o.votes.length + (vote === o.id ? 1 : 0);
   const cheapest = Math.min(...options.map((o) => o.perNight));
 
@@ -423,7 +456,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   const labelStyle = css(
     "box-sizing:border-box;width:112px;flex:none;background:#FCFAF5;border-bottom:1px solid #EDE8DD;border-right:1px solid #EDE8DD;padding:12px;font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:#8C8478;line-height:1.5;"
   );
-  const cellsFor = (main: (o: Stay) => string, sub: (o: Stay) => string, isBest: (o: Stay) => boolean) =>
+  const cellsFor = (main: (o: (typeof options)[number]) => string, sub: (o: (typeof options)[number]) => string, isBest: (o: (typeof options)[number]) => boolean) =>
     options.map((o, i) => ({
       key: o.id,
       main: main(o),
@@ -445,8 +478,12 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
     { key: "shares", label: "Who shares", cells: cellsFor((o) => o.shares, (o) => o.sharesNote, () => false) },
     {
       key: "hood",
-      label: "Neighborhood",
-      cells: cellsFor((o) => o.hood, (o) => o.walk + " " + o.walkNote, (o) => o.best.indexOf("walk") > -1),
+      label: `Near your ${savedPlaces.length} places`,
+      cells: cellsFor(
+        (o) => o.hood,
+        (o) => o.reach.label + " " + o.reach.note,
+        (o) => o.inCity && o.reach.rank === bestReach && bestReach < 999
+      ),
     },
     { key: "amen", label: "Amenities", cells: cellsFor((o) => o.amenities, (o) => o.amenitiesNote, () => false) },
   ];
@@ -456,26 +493,26 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   const tied = vote !== null && leaders.length > 1 && tiebreak === null;
   const broken =
     leaders.length > 1 && tiebreak !== null
-      ? leaders.reduce((a, b) =>
-          tiebreak === "price" ? (b.perNight < a.perNight ? b : a) : (parseInt(b.walk, 10) < parseInt(a.walk, 10) ? b : a)
-        )
+      ? leaders.reduce((a, b) => (tiebreak === "price" ? (b.perNight < a.perNight ? b : a) : b.reach.rank < a.reach.rank ? b : a))
       : null;
   const winner = vote === null ? options[0] : broken || leaders[0];
   const winnerVotes = tally(winner);
   const perPerson = (winner.perNight * r.nights + 430).toLocaleString("en-US");
 
-  const myPlaces: GeoPlace[] = places.map((n, i) => {
-    const c = MY_COORDS[i % MY_COORDS.length];
-    return { name: n, source: "You", lat: c.lat, lng: c.lng, mine: true };
-  });
+  // The map (and everything timed from it) centers on the winning stay only
+  // when it's actually in Lisbon — the Quinta is a real ~280km away in the
+  // Algarve, so a stay like that keeps the saved places timed from the city
+  // instead of pretending they're next door.
+  const stayAt = winner.inCity ? { lat: winner.lat, lng: winner.lng } : CITY_BASE;
+  const mapOriginName = winner.inCity ? winner.name : "Lisbon nights";
   const TINTS = ["#A9709A", "#8FA37A", "#C9A86A", "#8A9BB0", "#C08E7A"];
-  const allPlaces = PLACES.concat(myPlaces).map((p, i) => {
-    const km = kmBetween(STAY_AT, p);
+  const allPlaces = savedPlaces.map((p, i) => {
+    const km = kmBetween(stayAt, p);
     return { ...p, km, walk: travelLabel(km), tint: p.mine ? "#8A5A7A" : TINTS[i % TINTS.length] };
   });
 
   // fit every pin, however far out, into the same frame
-  const pts: { lat: number; lng: number }[] = allPlaces.map((p) => ({ lat: p.lat, lng: p.lng })).concat([STAY_AT]);
+  const pts: { lat: number; lng: number }[] = allPlaces.map((p) => ({ lat: p.lat, lng: p.lng })).concat([stayAt]);
   const lats = pts.map((p) => p.lat);
   const lngs = pts.map((p) => p.lng);
   const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
@@ -509,8 +546,10 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
 
   const rowBase = "display:flex;gap:12px;padding:12px 20px;border-bottom:1px solid #EDE8DD;align-items:baseline;";
   const transfer = Math.max(r.start + 2, r.start + r.nights - 2);
+  const cityStay = winner.inCity ? winner.name : "the Lisbon base";
+  const nearestWalk = Math.max(4, Math.round(Math.min(...allPlaces.map((p) => p.km)) * 13));
   const itinerary = [
-    { key: 0, day: dayName(r.start), title: "Land in Lisbon, drop bags at " + winner.name, note: "Everyone is in by 6pm", style: css(rowBase), skip: false },
+    { key: 0, day: dayName(r.start), title: "Land in Lisbon, drop bags at " + cityStay, note: "Everyone is in by 6pm", style: css(rowBase), skip: false },
     {
       key: 1,
       day: dayName(r.start + 1),
@@ -523,11 +562,18 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
       key: 2,
       day: dayName(r.start + 2),
       title: "O Frade, then whatever is open",
-      note: "Seven minutes from the door, so nobody books a taxi",
+      note: nearestWalk + " minutes from the door, so nobody books a taxi",
       style: css(rowBase),
       skip: r.start + 2 >= transfer,
     },
-    { key: 3, day: dayName(transfer), title: "Train to Lagos, two nights on the coast", note: "Jonah gets his surf lesson", style: css(rowBase), skip: false },
+    {
+      key: 3,
+      day: dayName(transfer),
+      title: winner.inCity ? "Train to Lagos, two nights on the coast" : "Train to Lagos, check in at " + winner.name,
+      note: winner.inCity ? "Jonah gets his surf lesson" : "The pool everyone voted for, and Jonah gets his surf lesson",
+      style: css(rowBase),
+      skip: false,
+    },
   ].filter((i) => !i.skip);
 
   // one shared label layer: first claim wins, later labels that collide are dropped
@@ -652,7 +698,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
       }))
     : [];
 
-  const pins = [{ name: winner.name, lat: STAY_AT.lat, lng: STAY_AT.lng, stay: true, tint: "" }]
+  const pins = [{ name: mapOriginName, lat: stayAt.lat, lng: stayAt.lng, stay: true, tint: "" }]
     .concat(allPlaces.map((p) => ({ ...p, stay: false })))
     .map((p, i) => {
       const xy = project(p);
@@ -1060,9 +1106,9 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                   <div style={{ fontSize: 13, lineHeight: 1.5, color: "#2B2825" }}>
                     {tiebreak
                       ? `${winner.name} takes it on ${tiebreak === "price" ? "cost" : "location"}. The tie is logged, so nobody relitigates it on Thursday.`
-                      : winner.id === "casa"
-                        ? "Casa Alfama is $14 a night more than the Quinta, and it is the only one where nobody needs a car to get to dinner."
-                        : `${winner.name} wins on the axis your group argued about. The rest of the table is one tap away.`}
+                      : winner.inCity
+                        ? `${winner.name} puts ${winner.reach.prose}, so nobody needs a car to get to dinner.`
+                        : `${winner.name} is the cheapest bed, but it is ${winner.reach.label} from the places you saved, so your Lisbon nights get planned separately.`}
                   </div>
                 </div>
                 <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
@@ -1143,14 +1189,15 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             <svg viewBox="0 0 100 100" preserveAspectRatio="none" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", shapeRendering: "geometricPrecision" }}>
               <polygon points={["0," + bankMidY.toFixed(2), "100," + bankMidY.toFixed(2), "100,200", "0,200"].join(" ")} fill="#D5E1DE" />
               {PARKS.map((k, ki) => {
-                const xy = k.pts.map((p) => project({ lat: p[0], lng: p[1] }));
+                const xy = k.pts.map((p) => project({ lat: p[0], lng: p[1] })).map((p) => ({ x: p.x, y: Math.min(p.y, bankMidY) })); // never spill into the water
                 const inFrame =
                   Math.min(...xy.map((p) => p.x)) < 100 &&
                   Math.max(...xy.map((p) => p.x)) > 0 &&
                   Math.min(...xy.map((p) => p.y)) < 100 &&
                   Math.max(...xy.map((p) => p.y)) > 0 &&
                   Math.min(...xy.map((p) => p.x)) > -14 &&
-                  Math.min(...xy.map((p) => p.y)) > -14;
+                  Math.min(...xy.map((p) => p.y)) > -14 &&
+                  Math.max(...xy.map((p) => p.y)) - Math.min(...xy.map((p) => p.y)) > 1.5;
                 if (!inFrame) return null;
                 return <polygon key={ki} points={xy.map((p) => p.x.toFixed(2) + "," + p.y.toFixed(2)).join(" ")} fill="#DCE4CE" />;
               })}
@@ -1261,7 +1308,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
               >
                 ⌂
               </div>
-              <span style={{ fontSize: 11, color: "#4A453E", whiteSpace: "nowrap" }}>{winner.name}</span>
+              <span style={{ fontSize: 11, color: "#4A453E", whiteSpace: "nowrap" }}>{mapOriginName}</span>
             </div>
             <div style={scaleBarStyle}>
               <div style={{ height: 3, background: "rgba(255,253,249,0.7)", border: "1px solid #B6AE9C", borderRadius: 2 }} />
@@ -1322,7 +1369,9 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
               Put them on the plan
             </button>
             <span style={{ fontSize: 13, color: "#8C8478" }}>
-              {allPlaces.length} places, timed from {winner.name}
+              {winner.inCity
+                ? `${allPlaces.length} places, timed from ${winner.name}`
+                : `${allPlaces.length} places on the Lisbon nights. Your coast nights at ${winner.name} are planned separately.`}
             </span>
           </div>
         </div>
