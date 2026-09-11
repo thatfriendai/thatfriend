@@ -3,6 +3,10 @@
     {
       "path": "/api/v2/cron/rating-prompts",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/v2/cron/stalled-reminders",
+      "schedule": "0 16 * * *"
     }
   ]
 }

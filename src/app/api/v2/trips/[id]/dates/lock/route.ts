@@ -1,8 +1,16 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
+import { notifyTrip } from "@/lib/planner/notify";
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+function shortDates(start: string, end: string) {
+  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
+  const s = new Date(start + "T00:00:00").toLocaleDateString(undefined, opts);
+  const e = new Date(end + "T00:00:00").toLocaleDateString(undefined, opts);
+  return `${s}–${e}`;
+}
 
 export async function POST(
   request: Request,
@@ -68,6 +76,8 @@ export async function POST(
     .single();
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await notifyTrip(admin, trip, `"${trip.name}" dates are set: ${shortDates(startDate, endDate)}.`);
 
   return NextResponse.json({ trip, warning });
 }
