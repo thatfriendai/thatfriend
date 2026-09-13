@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { computeHomeAttention } from "@/lib/planner/homeAttention";
 import { HomeNav } from "@/components/planner/HomeNav";
 import { signOut } from "../actions";
+import { CopySmsNumberCard } from "./CopySmsNumberCard";
 
 function formatDates(start: string | null, end: string | null) {
   if (!start) return "No dates yet";
@@ -46,20 +47,16 @@ export default async function HomePage() {
 
   const admin = createAdminClient();
 
-  // None of these five depend on each other — one round-trip instead of
-  // five sequential ones.
-  const [{ data: membershipRows }, attention, { data: followRows }, { count: savedPlacesCount }, { count: savedTripsCount }] =
-    await Promise.all([
-      admin
-        .from("planner_memberships")
-        .select("role, planner_trips(id, name, destination, start_date, end_date, dates_locked_at)")
-        .eq("user_id", user.id),
-      computeHomeAttention(admin, user.id),
-      admin.from("planner_follows").select("followee_id").eq("follower_id", user.id),
-      admin.from("planner_saved_places").select("id", { count: "exact", head: true }).eq("user_id", user.id),
-      admin.from("planner_trip_saves").select("trip_id", { count: "exact", head: true }).eq("user_id", user.id),
-    ]);
-  const savedCount = (savedPlacesCount ?? 0) + (savedTripsCount ?? 0);
+  // None of these three depend on each other — one round-trip instead of
+  // three sequential ones.
+  const [{ data: membershipRows }, attention, { data: followRows }] = await Promise.all([
+    admin
+      .from("planner_memberships")
+      .select("role, planner_trips(id, name, destination, start_date, end_date, dates_locked_at)")
+      .eq("user_id", user.id),
+    computeHomeAttention(admin, user.id),
+    admin.from("planner_follows").select("followee_id").eq("follower_id", user.id),
+  ]);
 
   const memberships = (membershipRows ?? [])
     .map((m) => ({
@@ -142,13 +139,7 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen">
-      <HomeNav
-        initial={initialsOf(label)}
-        username={user.username}
-        tripsCount={tripIds.length}
-        savedCount={savedCount}
-        signOutAction={signOut}
-      />
+      <HomeNav initial={initialsOf(label)} username={user.username} tripsCount={tripIds.length} signOutAction={signOut} />
 
       <div className="mx-auto max-w-[1180px] px-8 py-12 pb-24">
         <div className="mb-9.5">
@@ -237,7 +228,7 @@ export default async function HomePage() {
 
         <div>
           <p className="mb-3.5 font-mono text-[11px] tracking-[0.14em] text-muted uppercase">Where to next</p>
-          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-3">
+          <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2">
             <Link href="/planner/explore" className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-5.5">
               <span className="font-mono text-[10px] tracking-[0.12em] text-accent uppercase">Explore</span>
               <span className="font-display text-[25px] leading-[1.15] text-ink">See where friends went</span>
@@ -247,26 +238,7 @@ export default async function HomePage() {
                   : "Trips from people you follow, with the places they rated."}
               </span>
             </Link>
-            <Link href="/planner/trips?tab=saved" className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-5.5">
-              <span className="font-mono text-[10px] tracking-[0.12em] text-accent uppercase">Saved</span>
-              <span className="font-display text-[25px] leading-[1.15] text-ink">
-                {savedPlacesCount && savedPlacesCount > 0
-                  ? `${savedPlacesCount} place${savedPlacesCount === 1 ? "" : "s"}, no trip yet`
-                  : "Nothing saved yet"}
-              </span>
-              <span className="text-[14.5px] leading-relaxed text-muted">
-                Spots you kept from other people&rsquo;s trips. Drop one onto a day.
-              </span>
-            </Link>
-            <div className="flex flex-col gap-1.5 rounded-2xl border border-border bg-card p-5.5">
-              <span className="font-mono text-[10px] tracking-[0.12em] text-accent uppercase">Text it in</span>
-              <span className="font-display text-[25px] leading-[1.15] text-ink">Forward a link, any time</span>
-              <span className="text-[14.5px] leading-relaxed text-muted">
-                {smsNumber
-                  ? `Send a recommendation to ${smsNumber} and it lands on the right trip.`
-                  : "Forward a recommendation and it lands on the right trip."}
-              </span>
-            </div>
+            <CopySmsNumberCard smsNumber={smsNumber} />
           </div>
         </div>
       </div>

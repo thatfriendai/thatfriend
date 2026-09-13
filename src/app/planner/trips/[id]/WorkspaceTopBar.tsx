@@ -243,9 +243,6 @@ export function WorkspaceTopBar({
           Decisions
           <NavCount n={navCounts.decisions} accent={navCounts.decisionsNeedVote} />
         </NavLink>
-        <span className="flex items-center px-3 py-2 text-[13.5px] text-faint" title="Coming soon">
-          Notes
-        </span>
 
         <div className="ml-auto flex flex-none items-center gap-3 pl-3">
           <Link
@@ -254,18 +251,6 @@ export function WorkspaceTopBar({
           >
             Where we landed
           </Link>
-          <div className="h-4 w-px bg-border" />
-          <span title="Splitwise (coming soon)" className="text-muted">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M8 12h8M8 9h5M11 15h5" />
-            </svg>
-          </span>
-          <span title="iCloud calendar (coming soon)" className="text-muted">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17.5 19a4.5 4.5 0 0 0 0-9 6 6 0 0 0-11.3-2A5 5 0 0 0 6.5 19h11Z" />
-            </svg>
-          </span>
         </div>
       </div>
     </header>

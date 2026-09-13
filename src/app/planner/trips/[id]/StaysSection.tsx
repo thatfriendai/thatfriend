@@ -152,7 +152,7 @@ export function StaysSection({
   return (
     <div id="stays" className="mb-14">
       <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-        <span className="font-mono text-[11px] text-faint">05</span>
+        <span className="font-mono text-[11px] text-faint">04</span>
         <span className="text-[25px] font-display text-ink">Where we stay</span>
         {decision && decision.status === "open" && (
           <span className="ml-auto text-[13.5px] text-muted">

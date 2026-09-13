@@ -20,28 +20,27 @@ export function HomeNav({
   initial,
   username,
   tripsCount,
-  savedCount,
   signOutAction,
 }: {
   initial: string;
   username: string | null;
   tripsCount: number;
-  savedCount: number;
   signOutAction: () => Promise<void>;
 }) {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useClickOutside(() => setMenuOpen(false));
 
+  // "Saved" isn't its own top-level destination — it's the Saved tab on
+  // Trips (/planner/trips?tab=saved), so a separate nav pill for it was
+  // just a second path to the same page.
   const items: { id: string; label: string; href: string; count?: number }[] = [
     { id: "home", label: "Home", href: "/planner/home" },
     { id: "trips", label: "Trips", href: "/planner/trips", count: tripsCount },
     { id: "explore", label: "Explore", href: "/planner/explore" },
-    { id: "saved", label: "Saved", href: "/planner/trips?tab=saved", count: savedCount },
   ];
 
   function isActive(item: (typeof items)[number]) {
-    if (item.id === "saved") return false;
     return pathname === item.href || pathname.startsWith(item.href + "/");
   }
 
@@ -101,9 +100,6 @@ export function HomeNav({
                   className="block rounded-xl px-3.5 py-2.5 text-[14.5px] text-ink-body hover:bg-surface-sunk"
                 >
                   Your profile
-                </Link>
-                <Link href="/planner/friends" className="block rounded-xl px-3.5 py-2.5 text-[14.5px] text-ink-body hover:bg-surface-sunk">
-                  Following
                 </Link>
                 <Link href="/planner/profile" className="block rounded-xl px-3.5 py-2.5 text-[14.5px] text-ink-body hover:bg-surface-sunk">
                   Settings

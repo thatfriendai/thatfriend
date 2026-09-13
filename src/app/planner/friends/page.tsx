@@ -23,7 +23,7 @@ export default async function FollowingPage() {
 
   const admin = createAdminClient();
 
-  const [{ startedFollowingYou, following, travelledWith, followerCount }, { tripsCount, savedCount }] = await Promise.all([
+  const [{ startedFollowingYou, following, travelledWith, followerCount }, { tripsCount }] = await Promise.all([
     buildFollowingLists(admin, viewer.id),
     getNavCounts(admin, viewer.id),
   ]);
@@ -37,7 +37,6 @@ export default async function FollowingPage() {
       viewerUsername={viewer.username}
       navInitial={initialsOf(viewer.name || viewer.email || "?")}
       navTripsCount={tripsCount}
-      navSavedCount={savedCount}
       signOutAction={signOut}
     />
   );

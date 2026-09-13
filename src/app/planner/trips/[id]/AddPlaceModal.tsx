@@ -488,7 +488,7 @@ export function AddPlaceModal({
                   disabled={confirming || candidates.every((c) => !c.include)}
                   className="rounded-full bg-ink px-6.5 py-3 text-[15px] text-cream hover:bg-accent disabled:opacity-50"
                 >
-                  {confirming ? "Saving…" : "Add to the workspace"}
+                  {confirming ? "Saving…" : "Add to the trip"}
                 </button>
               ) : (
                 <button
@@ -622,7 +622,7 @@ export function AddPlaceModal({
                 }
                 className="rounded-full bg-ink px-6.5 py-3 text-[15px] text-cream hover:bg-accent disabled:opacity-50"
               >
-                {pending ? "Saving…" : "Add to the workspace"}
+                {pending ? "Saving…" : "Add to the trip"}
               </button>
               <button type="button" onClick={() => setStep("source")} className="text-sm text-muted hover:text-ink">
                 Back

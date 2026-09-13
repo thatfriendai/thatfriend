@@ -122,7 +122,7 @@ export default async function ExplorePage() {
   }
 
   const [friendsTrips, fofTrips] = await Promise.all([fetchTripCards(friendIds), fetchTripCards(fofIds)]);
-  const { tripsCount, savedCount } = await getNavCounts(admin, viewer.id);
+  const { tripsCount } = await getNavCounts(admin, viewer.id);
 
   return (
     <ExploreView
@@ -133,7 +133,6 @@ export default async function ExplorePage() {
       navInitial={initialsOf(viewer.name || viewer.email || "?")}
       navUsername={viewer.username}
       navTripsCount={tripsCount}
-      navSavedCount={savedCount}
       signOutAction={signOut}
     />
   );

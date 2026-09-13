@@ -243,7 +243,7 @@ export default async function ConvergencePage({
             href={`/planner/trips/${tripId}`}
             className="rounded-full bg-ink px-7.5 py-3.5 text-[15.5px] text-cream hover:bg-accent"
           >
-            Open the workspace
+            Go to trip details
           </Link>
           <Link
             href={`/planner/trips/${tripId}/preferences`}
