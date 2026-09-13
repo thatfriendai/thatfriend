@@ -111,7 +111,7 @@ async function persistCandidates(
 
   const { data: trip } = await admin
     .from("planner_trips")
-    .select("destination")
+    .select("name, destination")
     .eq("id", tripId)
     .maybeSingle();
   const destination = trip?.destination ?? null;
@@ -128,7 +128,15 @@ async function persistCandidates(
   // more than one "Versailles Restaurant") to the one near the trip when
   // there is one, but a genuinely unique name with no local match still
   // resolves to its one real, possibly-far-away location.
-  const destGeo = destination ? await geocodePlace(destination, { wantPhoto: false }) : null;
+  // A trip's own name often names its city informally ("Thanksgiving
+  // Miami") even when the dedicated destination field was never filled
+  // in — worth a second attempt before giving up on the far-away check
+  // entirely, since a null destGeo silently disables it below.
+  const destGeo = destination
+    ? await geocodePlace(destination, { wantPhoto: false })
+    : trip?.name
+      ? await geocodePlace(trip.name, { wantPhoto: false })
+      : null;
   const bias = destGeo ? { lat: destGeo.lat, lng: destGeo.lng } : undefined;
   const geocodedCandidates = await Promise.all(
     newCandidates.map((c) => geocodePlace(c.name, { wantPhoto, bias }))
