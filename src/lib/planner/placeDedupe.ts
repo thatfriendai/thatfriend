@@ -21,7 +21,13 @@ export async function loadExistingPlaces(
   return data ?? [];
 }
 
-/** A confirmed Google place id match is unambiguous; otherwise fall back to a case-insensitive name match. */
+/**
+ * A confirmed Google place id match is unambiguous. Otherwise, fall back to
+ * a name match — exact first, then "one name starts with the other" (e.g.
+ * "Joe's Pizza" vs. "Joe's Pizza (West Village)"), since re-extracting the
+ * same forwarded text twice doesn't always produce byte-identical names,
+ * and without a working geocode to fall back on, name is all there is.
+ */
 export function findDuplicatePlace(
   existing: ExistingPlace[],
   name: string,
@@ -32,5 +38,11 @@ export function findDuplicatePlace(
     if (byPlaceId) return byPlaceId;
   }
   const normalized = normalizeName(name);
-  return existing.find((p) => normalizeName(p.name) === normalized);
+  const exact = existing.find((p) => normalizeName(p.name) === normalized);
+  if (exact) return exact;
+  if (normalized.length < 4) return undefined;
+  return existing.find((p) => {
+    const other = normalizeName(p.name);
+    return other.length >= 4 && (normalized.startsWith(other) || other.startsWith(normalized));
+  });
 }

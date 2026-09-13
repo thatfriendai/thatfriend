@@ -13,14 +13,14 @@ import { NudgeButton } from "./NudgeButton";
 import { StartGroupText } from "./StartGroupText";
 import { PreferencesSkipControl } from "./PreferencesSkipControl";
 import { JoinRequests } from "./JoinRequests";
-import { ResourceTile } from "@/components/planner/ResourceIcon";
+import { SourcesSection } from "./SourcesSection";
 import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { TripVisibilityToggle } from "./TripVisibilityToggle";
 import { ensureDays } from "@/lib/planner/days";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 import { formatPhoneDisplay } from "@/lib/planner/phone";
 import { computeAttention } from "@/lib/planner/attention";
-import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
+import type { PlannerItineraryItem, ResourceType } from "@/lib/supabase/planner-types";
 
 const AVATAR_COLORS = DAY_COLORS;
 
@@ -114,15 +114,41 @@ export default async function PlannerTripPage({
     return { ...p, who, sourceLabel };
   });
 
-  const resources = (resourceRows ?? []).map((r) => {
-    const person = r.planner_users as unknown as {
-      name: string | null;
-      email: string | null;
-    } | null;
+  // Hides any resource with nothing attached to it — a leftover dud from
+  // before resources were only created once something was actually kept,
+  // or a rare orphan from a places insert that failed after the fact.
+  // Identical forwards (the same link, or the same pasted text) collapse
+  // into one row with a "forwarded N×" count instead of listing each
+  // attempt separately, so a long back-and-forth doesn't turn this into a
+  // wall of near-duplicate entries.
+  const resourceGroups = new Map<
+    string,
+    { id: string; type: ResourceType; who: string; source_url: string | null; placeNames: string[]; count: number; created_at: string }
+  >();
+  for (const r of resourceRows ?? []) {
+    const person = r.planner_users as unknown as { name: string | null; email: string | null } | null;
     const who = person?.name || person?.email?.split("@")[0] || "Someone";
     const placeNames = places.filter((p) => p.resource_id === r.id).map((p) => p.name);
-    return { ...r, who, placeNames };
-  });
+    if (placeNames.length === 0) continue;
+
+    const key = r.source_url ? `link:${r.source_url}` : `${r.type}:${r.label}`;
+    const existing = resourceGroups.get(key);
+    if (existing) {
+      existing.placeNames = [...new Set([...existing.placeNames, ...placeNames])];
+      existing.count += 1;
+    } else {
+      resourceGroups.set(key, {
+        id: r.id as string,
+        type: r.type as ResourceType,
+        who,
+        source_url: r.source_url as string | null,
+        placeNames,
+        count: 1,
+        created_at: r.created_at as string,
+      });
+    }
+  }
+  const resources = [...resourceGroups.values()].sort((a, b) => b.created_at.localeCompare(a.created_at));
 
   const decisions = (decisionRows ?? []).map((d) => {
     const options = (d.planner_decision_options ?? []) as { id: string; label: string }[];
@@ -368,37 +394,7 @@ export default async function PlannerTripPage({
 
         <DecisionsSection tripId={id} decisions={decisions} totalMembers={roster.length} />
 
-        {resources.length > 0 && (
-          <div id="resources" className="mb-14 max-w-[760px]">
-            <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-              <span className="font-mono text-[11px] text-faint">06</span>
-              <span className="text-[25px] font-display text-ink">Where these came from</span>
-              <span className="ml-auto text-[13.5px] text-muted">
-                Links, text, and screenshots
-              </span>
-            </div>
-            <div className="flex flex-col gap-2">
-              {resources.map((r) => (
-                <div
-                  key={r.id}
-                  className="flex items-center gap-3.5 rounded-xl border border-border bg-card px-3.5 py-3"
-                >
-                  <ResourceTile type={r.type} sourceUrl={r.source_url} />
-                  <div className="min-w-0">
-                    <div className="text-[14.5px] text-[#2B2825]">{r.label}</div>
-                    <div className="mt-0.5 text-[12.5px] text-muted">
-                      {r.placeNames.length > 0 ? r.placeNames.join(", ") : "Didn't turn into a saved place"} &middot;
-                      {" "}added by {r.who}
-                    </div>
-                  </div>
-                  <div className="ml-auto rounded-full border border-border font-mono text-[10px] tracking-[0.08em] text-muted uppercase whitespace-nowrap px-2.5 py-1">
-                    {r.type}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+        <SourcesSection resources={resources} />
       </div>
     </div>
   );
