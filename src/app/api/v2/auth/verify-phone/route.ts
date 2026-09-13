@@ -58,6 +58,23 @@ export async function POST(request: Request) {
       .update({ phone })
       .eq("id", currentUser.id);
 
+    // Linking a phone after already being on a trip whose group text
+    // exists — sweep into every one of them, same as joining fresh does.
+    const { data: memberships } = await admin
+      .from("planner_memberships")
+      .select("planner_trips(twilio_conversation_sid)")
+      .eq("user_id", currentUser.id);
+    const conversationSids = (memberships ?? [])
+      .map((m) => (m.planner_trips as unknown as { twilio_conversation_sid: string | null } | null)?.twilio_conversation_sid)
+      .filter((sid): sid is string => Boolean(sid));
+    await Promise.all(
+      conversationSids.map((sid) =>
+        addParticipantToConversation(sid, phone).catch(() => {
+          // Best-effort — they can still be synced into the group thread later.
+        })
+      )
+    );
+
     return NextResponse.json({ ok: true });
   }
 

@@ -43,11 +43,11 @@ export default async function ProfilePage({
         </div>
         <p className="mb-10 text-[15px] text-muted">
           {isWelcome
-            ? "Pick a username so people can find your profile and trips. Everything here is editable later — nothing's locked in."
+            ? "Pick a username and add your phone number so people can find your profile and That Friend can text you. Everything here is editable later — nothing's locked in."
             : "How you show up on trips, and how That Friend reaches you."}
         </p>
 
-        <SettingsForm user={user} />
+        <SettingsForm user={user} isWelcome={isWelcome} />
       </div>
     </div>
   );
