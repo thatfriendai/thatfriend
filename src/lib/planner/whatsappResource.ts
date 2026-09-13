@@ -85,15 +85,12 @@ async function persistCandidates(
   sourceUrl: string | null,
   candidates: ExtractedPlace[]
 ): Promise<AddResult | { error: string }> {
-  const { data: resource, error: resourceError } = await admin
-    .from("planner_resources")
-    .insert({ trip_id: tripId, type, label, source_url: sourceUrl, added_by: userId })
-    .select("id")
-    .single();
-  if (resourceError || !resource) {
-    return { error: resourceError?.message ?? "Could not save that." };
-  }
-
+  // A text/link/screenshot only becomes a trip-visible "resource" (shown,
+  // attributed, in Sources) once it's actually produced something to show
+  // — creating the row up front meant every private DM that didn't pan
+  // out (or wasn't even about the trip) still left the sender's name and
+  // a snippet of what they wrote visible to the whole group. Nothing is
+  // persisted until we know there's a real place to attach it to.
   if (candidates.length === 0) {
     return { places: [], resourceLabel: label, duplicates: [], farAway: [] };
   }
@@ -161,6 +158,18 @@ async function persistCandidates(
 
   if (kept.length === 0) {
     return { places: [], resourceLabel: label, duplicates, farAway };
+  }
+
+  // Now that we know this message is actually becoming a place, create the
+  // resource row that makes it visible ("added by X") in the trip's Sources
+  // section — same attribution a place added through the app already gets.
+  const { data: resource, error: resourceError } = await admin
+    .from("planner_resources")
+    .insert({ trip_id: tripId, type, label, source_url: sourceUrl, added_by: userId })
+    .select("id")
+    .single();
+  if (resourceError || !resource) {
+    return { error: resourceError?.message ?? "Could not save that." };
   }
 
   const rows = kept.map(({ candidate: c, geo }) => {
