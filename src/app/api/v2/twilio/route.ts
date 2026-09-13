@@ -8,6 +8,11 @@ import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib
 import { classifyIntent } from "@/lib/planner/inboundIntent";
 import { answerTripQuestion } from "@/lib/planner/tripQA";
 import { sendNudge } from "@/lib/planner/nudge";
+import { createTripFromText, joinTripByCode } from "@/lib/planner/smsTripStart";
+
+// "hello LISBON4K", "hi LISBON4K", "join LISBON4K" — deterministic, not
+// LLM-classified, since it's an exact code the app itself generated.
+const JOIN_CODE_PATTERN = /^(?:hello|hi|join)\s+([a-z0-9]{4,20})$/i;
 
 /**
  * Plain SMS/MMS webhook — handles anyone who isn't (yet) part of a trip's
@@ -84,19 +89,41 @@ export async function POST(request: Request) {
     .limit(1)
     .maybeSingle();
 
-  if (!membership) {
-    return reply("You're signed in, but you're not part of any trips yet.");
-  }
-
-  const trip = membership.planner_trips as unknown as {
-    id: string;
-    name: string;
-    twilio_conversation_sid: string | null;
-  } | null;
+  const trip = membership
+    ? (membership.planner_trips as unknown as { id: string; name: string; twilio_conversation_sid: string | null } | null)
+    : null;
   const tripName = trip?.name ?? "your trip";
 
+  // These two — joining by code, and starting a brand-new trip — are the
+  // only things that make sense with zero existing memberships, so they're
+  // checked before the "not part of any trips yet" dead end below.
   if (body && !(numMedia > 0)) {
+    const joinMatch = body.match(JOIN_CODE_PATTERN);
+    if (joinMatch) {
+      const joined = await joinTripByCode(admin, user, joinMatch[1]);
+      if (joined.outcome === "joined") return reply(`You're in — welcome to "${joined.tripName}". Forward a link or place anytime.`);
+      if (joined.outcome === "already_member") return reply(`You're already in "${joined.tripName}".`);
+      if (joined.outcome === "not_found") {
+        return reply("That code doesn't match any trip. Double-check it, or ask whoever sent it to resend it.");
+      }
+      return reply(`Hmm, ${joined.error}`);
+    }
+
     const intent = await classifyIntent(body);
+
+    if (intent.kind === "start_trip") {
+      const started = await createTripFromText(admin, user, intent.destination);
+      if ("error" in started) return reply(`Hmm, ${started.error}`);
+      return reply(
+        `Started "${started.tripName}"! Have your friends text "HELLO ${started.joinCode}" to this number to join — or open the app to add dates, invite by link, and more.`
+      );
+    }
+
+    if (!membership) {
+      return reply(
+        'You\'re signed in, but you\'re not part of any trips yet. Text something like "start a trip to Lisbon" to begin one, or ask a friend for their join code and text "HELLO <code>".'
+      );
+    }
 
     if (intent.kind === "question") {
       const answer = await answerTripQuestion(admin, membership.trip_id, intent.topic, intent.dayRef);
@@ -116,6 +143,12 @@ export async function POST(request: Request) {
     if (intent.kind === "close_decision") {
       return reply("Closing a poll by text is coming soon — head to the app to close this one.");
     }
+  }
+
+  if (!membership) {
+    return reply(
+      'You\'re signed in, but you\'re not part of any trips yet. Text something like "start a trip to Lisbon" to begin one, or ask a friend for their join code and text "HELLO <code>".'
+    );
   }
 
   let result: Awaited<ReturnType<typeof addResourceFromWhatsAppText>> | null = null;

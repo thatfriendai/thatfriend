@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { autoFriendTripMembers } from "@/lib/planner/follows";
+import { addParticipantToConversation } from "@/lib/twilio/conversations";
+import { toE164 } from "@/lib/planner/phone";
 
 /** Owner accepts or declines a join request. Accepting creates the membership directly — no separate invite/accept round-trip needed since the request itself was already an explicit ask. */
 export async function PATCH(
@@ -49,6 +51,20 @@ export async function PATCH(
         { onConflict: "trip_id,user_id", ignoreDuplicates: true }
       );
     await autoFriendTripMembers(admin, tripId, joinRequest.user_id);
+
+    // If the trip's group text already exists, sweep the newly-accepted
+    // member into it too — same as the invite-link join paths already do.
+    // Without this, anyone who joins by request (rather than a link) never
+    // gets added to an in-progress group thread.
+    const [{ data: trip }, { data: newMember }] = await Promise.all([
+      admin.from("planner_trips").select("twilio_conversation_sid").eq("id", tripId).maybeSingle(),
+      admin.from("planner_users").select("phone").eq("id", joinRequest.user_id).maybeSingle(),
+    ]);
+    if (trip?.twilio_conversation_sid && newMember?.phone) {
+      await addParticipantToConversation(trip.twilio_conversation_sid, toE164(newMember.phone)).catch(() => {
+        // Best-effort — they can still be synced into the group thread later.
+      });
+    }
   }
 
   return NextResponse.json({ ok: true });

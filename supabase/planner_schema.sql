@@ -720,3 +720,9 @@ grant all on planner_email_links to anon, authenticated, service_role;
 -- only ever gets the automatic text once per stage instead of once a day.
 alter table planner_trips add column if not exists availability_reminder_sent_at timestamptz;
 alter table planner_trips add column if not exists preferences_reminder_sent_at timestamptz;
+
+-- planner_trips.join_code — a short, textable code (e.g. "LISBON4K") a
+-- friend can send in to join without ever opening the app or a link,
+-- alongside the existing token-based invite link. Every trip gets one at
+-- creation, generated in code (src/lib/planner/tokens.ts).
+alter table planner_trips add column if not exists join_code text unique;

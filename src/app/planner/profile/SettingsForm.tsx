@@ -51,7 +51,7 @@ function previewCopy(f: Fields) {
   return `Four of six have picked dates for Lisbon — you'd get this by ${channels.join(" and ")}, ${timing}.`;
 }
 
-export function SettingsForm({ user }: { user: PlannerUser }) {
+export function SettingsForm({ user, isWelcome }: { user: PlannerUser; isWelcome?: boolean }) {
   const [saved, setSaved] = useState(fieldsOf(user));
   const [fields, setFields] = useState(saved);
   const [saving, setSaving] = useState(false);
@@ -92,6 +92,10 @@ export function SettingsForm({ user }: { user: PlannerUser }) {
     }
     if (usernameAvailable === false) {
       setError("That username is taken.");
+      return;
+    }
+    if (isWelcome && !user.phone) {
+      setError("Add a phone number to finish setting up — that's how That Friend texts nudges and takes forwarded recs.");
       return;
     }
     if (fields.tagline.length > 160) {
@@ -235,7 +239,12 @@ export function SettingsForm({ user }: { user: PlannerUser }) {
               </div>
 
               <div className="border-t border-border-soft pt-5">
-                <p className="mb-1.5 font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Phone</p>
+                <div className="mb-1.5 flex items-center gap-2">
+                  <p className="font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Phone</p>
+                  {isWelcome && !user.phone && (
+                    <span className="font-mono text-[9.5px] tracking-[0.08em] text-caution uppercase">Required</span>
+                  )}
+                </div>
                 <PhoneLinkPanel currentPhone={user.phone} initialWhatsAppOptIn={user.whatsapp_opt_in} />
                 <p className="mt-2 text-[13px] leading-relaxed text-muted">
                   Texting runs on this number. Forward a link or photo to That Friend and it lands on your
