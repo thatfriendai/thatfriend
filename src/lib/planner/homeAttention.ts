@@ -13,10 +13,11 @@ export interface HomeAttentionItem {
 
 /**
  * Cross-trip "Needs you" list for the Home page. Priority order, highest
- * first: a trip you organize with no dates, an open decision closing
- * inside 48h you haven't voted on, then unrated places from a trip that
- * ended a few days ago. Capped at 3 total, collected in that order so the
- * most pressing items survive the cut.
+ * first: a trip you organize with no dates, then an open decision closing
+ * inside 48h you haven't voted on. Capped at 3 total, collected in that
+ * order so the most pressing items survive the cut. Unrated places from a
+ * wrapped trip used to be a third, lowest-priority item in this same list
+ * — see computeTripsToRate below for why that moved to its own section.
  *
  * "Money owed by you" is in the original design spec too, but this app
  * has no expense-tracking system (the workspace top bar's Splitwise icon
@@ -43,7 +44,6 @@ export async function computeHomeAttention(admin: SupabaseClient, userId: string
     .filter((m): m is { role: string; trip: NonNullable<typeof m.trip> } => Boolean(m.trip));
 
   const tripIds = memberships.map((m) => m.trip.id);
-  const today = new Date().toISOString().slice(0, 10);
 
   const noDatesItems: HomeAttentionItem[] = [];
   const noDatesTripIds = memberships
@@ -106,28 +106,50 @@ export async function computeHomeAttention(admin: SupabaseClient, userId: string
     }
   }
 
+  return [...noDatesItems, ...decisionItems].slice(0, 3);
+}
+
+/**
+ * Trips that wrapped a few days ago with places you haven't rated yet —
+ * its own guaranteed section on Home ("Rate your trips"), not folded into
+ * computeHomeAttention's capped list. Unrated places are real but never
+ * urgent, so they used to lose out to dates/decisions whenever three of
+ * those existed and get silently dropped — this way they always show.
+ */
+export async function computeTripsToRate(admin: SupabaseClient, userId: string): Promise<HomeAttentionItem[]> {
+  const { data: membershipRows } = await admin
+    .from("planner_memberships")
+    .select("planner_trips(id, name, end_date)")
+    .eq("user_id", userId);
+
+  const trips = (membershipRows ?? [])
+    .map((m) => m.planner_trips as unknown as { id: string; name: string; end_date: string | null } | null)
+    .filter((t): t is { id: string; name: string; end_date: string | null } => Boolean(t));
+
+  const today = new Date().toISOString().slice(0, 10);
+  const endedTrips = trips.filter((t) => t.end_date && t.end_date < today);
+
   const unratedItems: HomeAttentionItem[] = [];
-  const endedTrips = memberships.filter((m) => m.trip.end_date && m.trip.end_date < today);
-  for (const m of endedTrips) {
-    const daysSince = Math.floor((Date.parse(today) - Date.parse(m.trip.end_date as string)) / 86400000);
+  for (const trip of endedTrips) {
+    const daysSince = Math.floor((Date.parse(today) - Date.parse(trip.end_date as string)) / 86400000);
     if (daysSince < 3) continue;
     const [visits, { data: myRatings }] = await Promise.all([
-      listVisits(admin, m.trip.id),
-      admin.from("planner_place_ratings").select("place_id").eq("trip_id", m.trip.id).eq("user_id", userId),
+      listVisits(admin, trip.id),
+      admin.from("planner_place_ratings").select("place_id").eq("trip_id", trip.id).eq("user_id", userId),
     ]);
     const ratedIds = new Set((myRatings ?? []).map((r) => r.place_id as string));
     const unrated = visits.filter((v) => !ratedIds.has(v.id));
     if (unrated.length > 0) {
       unratedItems.push({
-        id: `rate-${m.trip.id}`,
-        title: `Rate ${unrated.length} place${unrated.length === 1 ? "" : "s"} from ${m.trip.name}`,
+        id: `rate-${trip.id}`,
+        title: `Rate ${unrated.length} place${unrated.length === 1 ? "" : "s"} from ${trip.name}`,
         meta: `Trip ended ${daysSince} day${daysSince === 1 ? "" : "s"} ago`,
         action: "Rate them",
-        href: `/planner/trips/${m.trip.id}/reviews`,
+        href: `/planner/trips/${trip.id}/reviews`,
         urgent: false,
       });
     }
   }
 
-  return [...noDatesItems, ...decisionItems, ...unratedItems].slice(0, 3);
+  return unratedItems;
 }

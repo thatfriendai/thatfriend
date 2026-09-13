@@ -15,6 +15,7 @@ import { StartGroupText } from "./StartGroupText";
 import { PreferencesSkipControl } from "./PreferencesSkipControl";
 import { JoinRequests } from "./JoinRequests";
 import { SourcesSection } from "./SourcesSection";
+import { PreferencesModal } from "./PreferencesModal";
 import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { TripVisibilityToggle } from "./TripVisibilityToggle";
 import { ensureDays } from "@/lib/planner/days";
@@ -55,6 +56,7 @@ export default async function PlannerTripPage({
     { data: members },
     { data: joinInvite },
     { data: myPref },
+    { data: myAvailability },
     { data: resourceRows },
     { data: placeRows },
     { data: decisionRows },
@@ -64,7 +66,8 @@ export default async function PlannerTripPage({
     admin.from("planner_trips").select("*").eq("id", id).maybeSingle(),
     admin.from("planner_memberships").select("role, planner_users(name, email, phone)").eq("trip_id", id),
     admin.from("planner_invites").select("token").eq("trip_id", id).eq("channel", "link").limit(1).maybeSingle(),
-    admin.from("planner_preferences").select("trip_id").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_preferences").select("*").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_availability_marks").select("date").eq("trip_id", id).eq("user_id", user.id),
     admin.from("planner_resources").select("*, planner_users(name, email)").eq("trip_id", id).order("created_at", { ascending: true }),
     admin.from("planner_places").select("*, planner_users(name, email)").eq("trip_id", id).order("created_at", { ascending: true }),
     admin
@@ -223,6 +226,8 @@ export default async function PlannerTripPage({
     });
   }
 
+  const today = new Date().toISOString().slice(0, 10);
+
   const dateRange =
     trip.start_date && trip.end_date
       ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase()}–${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" }).toUpperCase()}`
@@ -269,12 +274,28 @@ export default async function PlannerTripPage({
               {dateRange ?? "Not set"}
             </Link>
             <TripVisibilityToggle tripId={id} initialIsPublic={trip.is_public} readOnly={membership.role !== "owner"} />
+            <PreferencesModal
+              tripId={id}
+              tripName={trip.name}
+              initial={myPref}
+              isPrivate={trip.privacy === "private"}
+              datesLocked={Boolean(trip.dates_locked_at)}
+              initialAvailableDates={(myAvailability ?? []).map((d) => d.date as string)}
+            />
             <Link
               href={`/planner/trips/${id}/convergence`}
               className="rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink hover:border-ink"
             >
               Where we landed
             </Link>
+            {trip.end_date && trip.end_date < today && (
+              <Link
+                href={`/planner/trips/${id}/reviews`}
+                className="rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink hover:border-ink"
+              >
+                Reviews
+              </Link>
+            )}
           </div>
 
           {attention.items.length > 0 && (
