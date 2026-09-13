@@ -3,9 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import type { AttentionItem } from "@/lib/planner/attention";
+import { TripNameField } from "./TripNameField";
 
-const SECTION_IDS = ["places", "stays", "decisions", "resources", "itinerary"];
+const SECTION_IDS = ["trip101", "places", "stays", "decisions", "resources", "itinerary"];
 
 function useActiveSection() {
   const [active, setActive] = useState<string | null>(null);
@@ -79,6 +79,10 @@ function NavLink({
   );
 }
 
+function initialsOf(name: string) {
+  return name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+}
+
 export function WorkspaceTopBar({
   tripId,
   tripName,
@@ -86,8 +90,9 @@ export function WorkspaceTopBar({
   travellerCount,
   roster,
   avatarColors,
-  datesLabel,
-  primary,
+  navInitial,
+  navUsername,
+  signOutAction,
   navCounts,
 }: {
   tripId: string;
@@ -96,8 +101,9 @@ export function WorkspaceTopBar({
   travellerCount: number;
   roster: { label: string }[];
   avatarColors: readonly string[];
-  datesLabel: string;
-  primary: AttentionItem | null;
+  navInitial: string;
+  navUsername: string | null;
+  signOutAction: () => Promise<void>;
   navCounts: {
     places: number;
     stays: number;
@@ -109,13 +115,9 @@ export function WorkspaceTopBar({
   const router = useRouter();
   const active = useActiveSection();
   const [addOpen, setAddOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const addRef = useClickOutside(() => setAddOpen(false));
-  const moreRef = useClickOutside(() => setMoreOpen(false));
-
-  function initialsOf(name: string) {
-    return name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
-  }
+  const menuRef = useClickOutside(() => setMenuOpen(false));
 
   function openAdd(kind: "place" | "link" | "decision" | "day") {
     setAddOpen(false);
@@ -126,20 +128,19 @@ export function WorkspaceTopBar({
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-card">
       <div className="flex flex-wrap items-center gap-y-2 px-5 py-3 sm:px-7">
-        <Link href="/planner/home" className="text-xl font-display text-ink">
+        <Link href="/planner/home" className="flex-none text-xl font-display text-ink">
           &ldquo;that friend&rdquo;
         </Link>
         <div className="mx-4 hidden h-5 w-px bg-border sm:block" />
-        <div className="min-w-0">
-          <p className="truncate text-[15px] font-medium text-ink">{tripName}</p>
-          <p className="mt-0.5 font-mono text-[11px] text-muted">
-            {dateRange ?? "Dates not set"} &middot; {travellerCount}{" "}
-            {travellerCount === 1 ? "traveller" : "travellers"}
-          </p>
-        </div>
-
-        <div className="ml-auto flex items-center gap-3">
-          <div className="flex">
+        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+          <div className="min-w-0 flex-1">
+            <TripNameField tripId={tripId} initialName={tripName} />
+            <p className="mt-0.5 font-mono text-[11px] text-muted">
+              {dateRange ?? "Dates not set"} &middot; {travellerCount}{" "}
+              {travellerCount === 1 ? "traveller" : "travellers"}
+            </p>
+          </div>
+          <div className="flex flex-none">
             {roster.slice(0, 5).map((m, i) => (
               <div
                 key={i}
@@ -151,34 +152,24 @@ export function WorkspaceTopBar({
               </div>
             ))}
           </div>
+        </div>
 
-          {primary && (
-            <Link
-              href={primary.href}
-              className="whitespace-nowrap rounded-full bg-accent px-4 py-2 text-[13.5px] text-on-accent hover:opacity-90"
-            >
-              {primary.cta}
-            </Link>
-          )}
-
+        {/* Fixed at exactly two objects, regardless of trip state — Add and the profile menu. */}
+        <div className="ml-auto flex flex-none items-center gap-3">
           <div ref={addRef} className="relative">
             <button
               onClick={() => setAddOpen((v) => !v)}
-              className={
-                primary
-                  ? "flex items-center gap-1 whitespace-nowrap rounded-full border border-input-border bg-card px-4 py-2 text-[13.5px] text-ink hover:border-ink"
-                  : "flex items-center gap-1 whitespace-nowrap rounded-full bg-accent px-4 py-2 text-[13.5px] text-on-accent hover:opacity-90"
-              }
+              className="flex items-center gap-1 whitespace-nowrap rounded-full bg-accent px-4 py-2 text-[13.5px] text-on-accent hover:opacity-90"
             >
               + Add <span className="text-[10px]">&#9662;</span>
             </button>
             {addOpen && (
               <div className="absolute right-0 z-30 mt-1.5 w-40 rounded-xl border border-border bg-card py-1.5 shadow-md">
                 {[
-                  { key: "place" as const, label: "Place" },
-                  { key: "link" as const, label: "Link" },
-                  { key: "decision" as const, label: "Decision" },
-                  { key: "day" as const, label: "Day" },
+                  { key: "place" as const, label: "A place" },
+                  { key: "link" as const, label: "A link" },
+                  { key: "decision" as const, label: "A decision" },
+                  { key: "day" as const, label: "A day" },
                 ].map((item) => (
                   <button
                     key={item.key}
@@ -192,34 +183,37 @@ export function WorkspaceTopBar({
             )}
           </div>
 
-          <div ref={moreRef} className="relative">
+          <div ref={menuRef} className="relative">
             <button
-              onClick={() => setMoreOpen((v) => !v)}
-              className="rounded-full px-2.5 py-2 text-[15px] text-muted hover:bg-border-soft hover:text-ink"
-              aria-label="More"
+              type="button"
+              onClick={() => setMenuOpen((v) => !v)}
+              className="flex h-9 w-9 items-center justify-center rounded-full text-[14px] text-on-accent"
+              style={{ background: "var(--color-accent)" }}
             >
-              &middot;&middot;&middot;
+              {navInitial}
             </button>
-            {moreOpen && (
-              <div className="absolute right-0 z-30 mt-1.5 w-48 rounded-xl border border-border bg-card py-1.5 shadow-md">
+            {menuOpen && (
+              <div className="absolute right-0 top-11 z-30 w-48 rounded-2xl border border-border bg-card p-1.5 shadow-md">
                 <Link
-                  href={`/planner/trips/${tripId}/dates`}
-                  className="block px-4 py-2 text-[13.5px] text-ink-body hover:bg-border-soft"
+                  href={navUsername ? `/planner/u/${navUsername}` : "/planner/profile"}
+                  className="block rounded-xl px-3.5 py-2.5 text-[14.5px] text-ink-body hover:bg-surface-sunk"
                 >
-                  {datesLabel}
+                  Profile
                 </Link>
-                <Link
-                  href={`/planner/trips/${tripId}/preferences`}
-                  className="block px-4 py-2 text-[13.5px] text-ink-body hover:bg-border-soft"
+                <Link href="/planner/profile" className="block rounded-xl px-3.5 py-2.5 text-[14.5px] text-ink-body hover:bg-surface-sunk">
+                  Settings
+                </Link>
+                <div className="my-1.5 h-px bg-border-soft" />
+                <button
+                  type="button"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    signOutAction();
+                  }}
+                  className="block w-full rounded-xl px-3.5 py-2.5 text-left text-[14.5px] text-muted hover:bg-surface-sunk"
                 >
-                  Your preferences
-                </Link>
-                <Link
-                  href={`/planner/trips/${tripId}/reviews`}
-                  className="block px-4 py-2 text-[13.5px] text-ink-body hover:bg-border-soft"
-                >
-                  Reviews
-                </Link>
+                  Sign out
+                </button>
               </div>
             )}
           </div>
@@ -227,6 +221,9 @@ export function WorkspaceTopBar({
       </div>
 
       <div className="flex items-center overflow-x-auto px-5 sm:px-7">
+        <NavLink href="#trip101" active={active === "trip101" || active === null}>
+          Trip 101
+        </NavLink>
         <NavLink href="#places" active={active === "places"}>
           Places
           <NavCount n={navCounts.places} />
@@ -243,15 +240,6 @@ export function WorkspaceTopBar({
           Decisions
           <NavCount n={navCounts.decisions} accent={navCounts.decisionsNeedVote} />
         </NavLink>
-
-        <div className="ml-auto flex flex-none items-center gap-3 pl-3">
-          <Link
-            href={`/planner/trips/${tripId}/convergence`}
-            className="whitespace-nowrap py-2 text-[13px] text-muted hover:text-ink"
-          >
-            Where we landed
-          </Link>
-        </div>
       </div>
     </header>
   );

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { signOut } from "@/app/planner/actions";
 import { CopyInviteLink } from "./CopyInviteLink";
 import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
@@ -227,6 +228,8 @@ export default async function PlannerTripPage({
       ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase()}–${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" }).toUpperCase()}`
       : null;
 
+  const navLabel = user.name || user.email || "?";
+
   return (
     <div className="min-h-screen">
       <WorkspaceTopBar
@@ -236,8 +239,9 @@ export default async function PlannerTripPage({
         travellerCount={roster.length}
         roster={roster}
         avatarColors={AVATAR_COLORS}
-        datesLabel={trip.dates_locked_at ? "Dates" : "Pick dates"}
-        primary={attention.primary}
+        navInitial={initialsOf(navLabel)}
+        navUsername={user.username}
+        signOutAction={signOut}
         navCounts={{
           places: places.length,
           stays: stayCount,
@@ -248,41 +252,61 @@ export default async function PlannerTripPage({
       />
 
       <div className="mx-auto max-w-[1080px] px-6 py-9.5 pb-28">
-        <div className="mb-10 flex items-end justify-between gap-6">
-          <div>
-            <h1 className="text-[38px] leading-[1.08] font-display tracking-tight text-ink">
-              {trip.name}
-            </h1>
-            {trip.destination && (
-              <p className="mt-1.5 text-sm text-muted">{trip.destination}</p>
-            )}
-          </div>
-          <div className="flex items-center gap-2.5">
-            <p className="font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
-              {trip.privacy === "private" ? "Private trip" : "Open trip"}
-            </p>
-            {membership.role === "owner" && (
-              <TripVisibilityToggle tripId={id} initialIsPublic={trip.is_public} />
-            )}
-          </div>
-        </div>
+        <div id="trip101" className="mb-12">
+          <h1 className="text-[38px] leading-[1.08] font-display tracking-tight text-ink">
+            {trip.name}
+          </h1>
+          {trip.destination && (
+            <p className="mt-1.5 mb-4 text-sm text-muted">{trip.destination}</p>
+          )}
 
-        {attention.items.length > 0 && (
-          <div className="mb-10 flex flex-col gap-1.5">
-            {attention.items.map((item, i) => (
-              <a
-                key={item.kind}
-                href={item.href}
-                className="flex items-center gap-2.5 text-[14px] text-body hover:text-accent"
-              >
-                <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">
-                  {i === 0 ? "First" : "Then"}
-                </span>
-                {item.label}
-              </a>
-            ))}
+          <div className="mb-8 flex flex-wrap items-center gap-2.5">
+            <Link
+              href={`/planner/trips/${id}/dates`}
+              className="flex items-center gap-1.5 rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink hover:border-ink"
+            >
+              <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">Dates</span>
+              {dateRange ?? "Not set"}
+            </Link>
+            <TripVisibilityToggle tripId={id} initialIsPublic={trip.is_public} readOnly={membership.role !== "owner"} />
+            <Link
+              href={`/planner/trips/${id}/convergence`}
+              className="rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink hover:border-ink"
+            >
+              Where we landed
+            </Link>
           </div>
-        )}
+
+          {attention.items.length > 0 && (
+            <div className="overflow-hidden rounded-2xl border border-warm-border bg-warm-bg">
+              {attention.items.map((item, i) => (
+                <div
+                  key={item.kind}
+                  className={`flex flex-wrap items-center justify-between gap-3.5 px-5.5 py-4 ${
+                    i > 0 ? "border-t border-warm-border" : ""
+                  }`}
+                >
+                  <div className="flex items-baseline gap-2.5">
+                    <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">
+                      {i === 0 ? "First" : "Then"}
+                    </span>
+                    <span className="text-[14.5px] text-ink-body">{item.label}</span>
+                  </div>
+                  <Link
+                    href={item.href}
+                    className={
+                      i === 0
+                        ? "flex-none rounded-full bg-accent px-4 py-2 text-[13.5px] text-on-accent hover:opacity-90"
+                        : "flex-none rounded-full border border-input-border bg-card px-4 py-2 text-[13.5px] text-ink hover:border-ink"
+                    }
+                  >
+                    {item.cta}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
 
         <div className="mb-12">
           <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">

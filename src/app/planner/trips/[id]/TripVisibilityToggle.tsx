@@ -2,7 +2,15 @@
 
 import { useState } from "react";
 
-export function TripVisibilityToggle({ tripId, initialIsPublic }: { tripId: string; initialIsPublic: boolean }) {
+export function TripVisibilityToggle({
+  tripId,
+  initialIsPublic,
+  readOnly,
+}: {
+  tripId: string;
+  initialIsPublic: boolean;
+  readOnly?: boolean;
+}) {
   const [isPublic, setIsPublic] = useState(initialIsPublic);
   const [pending, setPending] = useState(false);
 
@@ -19,17 +27,27 @@ export function TripVisibilityToggle({ tripId, initialIsPublic }: { tripId: stri
     if (!res.ok) setIsPublic(!next);
   }
 
+  const content = (
+    <>
+      <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">Privacy</span>
+      {isPublic ? "Public" : "Private"}
+    </>
+  );
+  const className = "flex items-center gap-1.5 rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink";
+
+  if (readOnly) {
+    return <span className={className}>{content}</span>;
+  }
+
   return (
     <button
       type="button"
       onClick={toggle}
       disabled={pending}
       title="Public trips show on your profile for friends to browse and copy"
-      className={`rounded-full px-3 py-1 font-mono text-[10.5px] tracking-[0.08em] uppercase disabled:opacity-50 ${
-        isPublic ? "bg-ink text-cream" : "border border-input-border bg-card text-muted"
-      }`}
+      className={`${className} hover:border-ink disabled:opacity-50`}
     >
-      {isPublic ? "Public" : "Private"}
+      {content}
     </button>
   );
 }
