@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { computeHomeAttention } from "@/lib/planner/homeAttention";
+import { computeHomeAttention, computeTripsToRate } from "@/lib/planner/homeAttention";
 import { HomeNav } from "@/components/planner/HomeNav";
 import { signOut } from "../actions";
 import { CopySmsNumberCard } from "./CopySmsNumberCard";
@@ -47,14 +47,15 @@ export default async function HomePage() {
 
   const admin = createAdminClient();
 
-  // None of these three depend on each other — one round-trip instead of
-  // three sequential ones.
-  const [{ data: membershipRows }, attention, { data: followRows }] = await Promise.all([
+  // None of these four depend on each other — one round-trip instead of
+  // four sequential ones.
+  const [{ data: membershipRows }, attention, tripsToRate, { data: followRows }] = await Promise.all([
     admin
       .from("planner_memberships")
       .select("role, planner_trips(id, name, destination, start_date, end_date, dates_locked_at)")
       .eq("user_id", user.id),
     computeHomeAttention(admin, user.id),
+    computeTripsToRate(admin, user.id),
     admin.from("planner_follows").select("followee_id").eq("follower_id", user.id),
   ]);
 
@@ -185,6 +186,31 @@ export default async function HomePage() {
             </div>
           )}
         </div>
+
+        {tripsToRate.length > 0 && (
+          <div className="mb-11">
+            <p className="mb-3.5 font-mono text-[11px] tracking-[0.14em] text-muted uppercase">Rate your trips</p>
+            <div className="flex flex-col gap-3">
+              {tripsToRate.map((item) => (
+                <div
+                  key={item.id}
+                  className="flex flex-wrap items-center gap-4.5 rounded-2xl border border-border bg-card px-5 py-4.5"
+                >
+                  <div className="min-w-[220px] flex-1">
+                    <div className="mb-0.5 text-[16.5px] text-ink">{item.title}</div>
+                    <div className="text-[14px] text-muted">{item.meta}</div>
+                  </div>
+                  <Link
+                    href={item.href}
+                    className="flex-none rounded-full border border-input-border bg-card px-5 py-2.5 text-[14px] text-ink hover:border-ink"
+                  >
+                    {item.action}
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="mb-11">
           <div className="mb-3.5 flex items-baseline justify-between gap-4">
