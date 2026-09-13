@@ -105,7 +105,7 @@ export async function computeAttention(
   if (emptyResourceCount >= 2) {
     items.push({
       kind: "review_links",
-      label: `${emptyResourceCount} links didn't keep a place`,
+      label: `${emptyResourceCount} links didn't turn into a saved place`,
       cta: `Review ${emptyResourceCount} links`,
       href: `/planner/trips/${tripId}#resources`,
       severity: "normal",

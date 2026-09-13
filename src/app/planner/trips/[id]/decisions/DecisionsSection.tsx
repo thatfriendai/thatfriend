@@ -34,7 +34,7 @@ export function DecisionsSection({
   return (
     <div id="decisions" className="mb-14">
       <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-        <span className="font-mono text-[11px] text-faint">07</span>
+        <span className="font-mono text-[11px] text-faint">05</span>
         <span className="text-[25px] font-display text-ink">Decisions</span>
         <button
           onClick={() => setOpen(true)}

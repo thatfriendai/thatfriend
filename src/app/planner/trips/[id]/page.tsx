@@ -258,19 +258,9 @@ export default async function PlannerTripPage({
           </div>
         )}
 
-        {membership.role === "owner" && joinInvite && (
-          <div className="mb-12">
-            <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-              <span className="font-mono text-[11px] text-faint">01</span>
-              <span className="text-[25px] font-display text-ink">Invite the group</span>
-            </div>
-            <CopyInviteLink url={`${siteUrl}/planner/join/${joinInvite.token}`} />
-          </div>
-        )}
-
         <div className="mb-12">
           <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-            <span className="font-mono text-[11px] text-faint">02</span>
+            <span className="font-mono text-[11px] text-faint">01</span>
             <span className="text-[25px] font-display text-ink">Who&rsquo;s in</span>
           </div>
           {membership.role === "owner" && (
@@ -295,9 +285,24 @@ export default async function PlannerTripPage({
               </div>
             ))}
           </div>
+          {/* Alone: the only useful action is getting people in, so that's
+              the only button. Once someone else has joined, swap to the
+              richer nudge/group-text tools — showing both at once was just
+              clutter for a trip of one. */}
           <div className="mt-4 flex flex-col gap-3">
-            <StartGroupText tripId={id} started={Boolean(trip.twilio_conversation_sid)} />
-            <NudgeButton tripId={id} />
+            {roster.length <= 1 ? (
+              joinInvite && (
+                <div>
+                  <p className="mb-2 text-[14px] text-body">Send this link to bring your travelers in.</p>
+                  <CopyInviteLink url={`${siteUrl}/planner/join/${joinInvite.token}`} />
+                </div>
+              )
+            ) : (
+              <>
+                <StartGroupText tripId={id} started={Boolean(trip.twilio_conversation_sid)} />
+                <NudgeButton tripId={id} />
+              </>
+            )}
           </div>
         </div>
 
@@ -328,7 +333,7 @@ export default async function PlannerTripPage({
 
         <div id="itinerary" className="mb-14">
           <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-            <span className="font-mono text-[11px] text-faint">03</span>
+            <span className="font-mono text-[11px] text-faint">02</span>
             <span className="text-[25px] font-display text-ink">The plan so far</span>
             {daysWithItems.length > 0 && (
               <span className="ml-auto text-[13.5px] text-muted">
@@ -361,6 +366,8 @@ export default async function PlannerTripPage({
 
         <StaysSection tripId={id} stayDecision={stayDecision} myUserId={user.id} totalMembers={roster.length} />
 
+        <DecisionsSection tripId={id} decisions={decisions} totalMembers={roster.length} />
+
         {resources.length > 0 && (
           <div id="resources" className="mb-14 max-w-[760px]">
             <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
@@ -380,7 +387,7 @@ export default async function PlannerTripPage({
                   <div className="min-w-0">
                     <div className="text-[14.5px] text-[#2B2825]">{r.label}</div>
                     <div className="mt-0.5 text-[12.5px] text-muted">
-                      {r.placeNames.length > 0 ? r.placeNames.join(", ") : "Nothing kept"} &middot;
+                      {r.placeNames.length > 0 ? r.placeNames.join(", ") : "Didn't turn into a saved place"} &middot;
                       {" "}added by {r.who}
                     </div>
                   </div>
@@ -392,8 +399,6 @@ export default async function PlannerTripPage({
             </div>
           </div>
         )}
-
-        <DecisionsSection tripId={id} decisions={decisions} totalMembers={roster.length} />
       </div>
     </div>
   );

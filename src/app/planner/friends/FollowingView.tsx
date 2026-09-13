@@ -142,7 +142,6 @@ export function FollowingView({
   viewerUsername,
   navInitial,
   navTripsCount,
-  navSavedCount,
   signOutAction,
 }: {
   startedFollowingYou: PersonRow[];
@@ -152,7 +151,6 @@ export function FollowingView({
   viewerUsername: string | null;
   navInitial: string;
   navTripsCount: number;
-  navSavedCount: number;
   signOutAction: () => Promise<void>;
 }) {
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -174,13 +172,7 @@ export function FollowingView({
 
   return (
     <div className="min-h-screen">
-      <HomeNav
-        initial={navInitial}
-        username={viewerUsername}
-        tripsCount={navTripsCount}
-        savedCount={navSavedCount}
-        signOutAction={signOutAction}
-      />
+      <HomeNav initial={navInitial} username={viewerUsername} tripsCount={navTripsCount} signOutAction={signOutAction} />
 
       <div className="mx-auto max-w-[760px] px-6 py-10 pb-28 sm:px-10">
         <h1 className="mb-2 text-[42px] leading-[1.06] font-display tracking-tight text-ink">Following</h1>

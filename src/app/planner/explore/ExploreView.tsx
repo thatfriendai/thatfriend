@@ -153,7 +153,6 @@ export function ExploreView({
   navInitial,
   navUsername,
   navTripsCount,
-  navSavedCount,
   signOutAction,
 }: {
   friendChips: FriendChip[];
@@ -163,7 +162,6 @@ export function ExploreView({
   navInitial: string;
   navUsername: string | null;
   navTripsCount: number;
-  navSavedCount: number;
   signOutAction: () => Promise<void>;
 }) {
   const [filter, setFilter] = useState<FilterChoice>("Set-jetting");
@@ -197,13 +195,7 @@ export function ExploreView({
 
   return (
     <div className="min-h-screen">
-      <HomeNav
-        initial={navInitial}
-        username={navUsername}
-        tripsCount={navTripsCount}
-        savedCount={navSavedCount}
-        signOutAction={signOutAction}
-      />
+      <HomeNav initial={navInitial} username={navUsername} tripsCount={navTripsCount} signOutAction={signOutAction} />
 
       <div className="mx-auto max-w-[1180px] px-6 py-10 pb-28 sm:px-10">
         {openGuide ? (

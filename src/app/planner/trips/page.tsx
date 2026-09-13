@@ -4,7 +4,6 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signOut } from "@/app/planner/actions";
 import { HomeNav } from "@/components/planner/HomeNav";
-import { getNavCounts } from "@/lib/planner/navCounts";
 import { TripsAndSavedView } from "./TripsAndSavedView";
 
 function formatDates(start: string | null, end: string | null) {
@@ -145,7 +144,6 @@ export default async function PlannerTripsPage() {
     .join("")
     .slice(0, 2)
     .toUpperCase();
-  const { savedCount } = await getNavCounts(admin, user.id);
   const needsSomething = grouped.just_back.length + grouped.in_planning.length;
 
   const sections: { key: TripStatus; label: string }[] = [
@@ -331,7 +329,7 @@ export default async function PlannerTripsPage() {
 
   return (
     <div className="min-h-screen">
-      <HomeNav initial={initial} username={user.username} tripsCount={rows.length} savedCount={savedCount} signOutAction={signOut} />
+      <HomeNav initial={initial} username={user.username} tripsCount={rows.length} signOutAction={signOut} />
 
       <div className="mx-auto max-w-[1000px] px-6 py-15 pb-28">
         <TripsAndSavedView
