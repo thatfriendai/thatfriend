@@ -31,6 +31,15 @@ export function TripVisibilityToggle({
     <>
       <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">Privacy</span>
       {isPublic ? "Public" : "Private"}
+      <span
+        className="relative ml-1 h-4.5 w-8 flex-none rounded-full transition-colors"
+        style={{ background: isPublic ? "var(--color-accent)" : "var(--color-input-border)" }}
+      >
+        <span
+          className="absolute top-0.5 h-3.5 w-3.5 rounded-full bg-card transition-transform"
+          style={{ transform: isPublic ? "translateX(15px)" : "translateX(2px)" }}
+        />
+      </span>
     </>
   );
   const className = "flex items-center gap-1.5 rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink";

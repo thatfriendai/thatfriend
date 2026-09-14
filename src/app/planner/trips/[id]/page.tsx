@@ -17,6 +17,7 @@ import { JoinRequests } from "./JoinRequests";
 import { SourcesSection } from "./SourcesSection";
 import { PreferencesModal } from "./PreferencesModal";
 import { DatesModal } from "./DatesModal";
+import { ConvergenceModal } from "./ConvergenceModal";
 import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { TripVisibilityToggle } from "./TripVisibilityToggle";
 import { ensureDays } from "@/lib/planner/days";
@@ -114,35 +115,34 @@ export default async function PlannerTripPage({
     return { ...p, who };
   });
 
-  // Hides any resource with nothing attached to it — a leftover dud from
-  // before resources were only created once something was actually kept,
-  // or a rare orphan from a places insert that failed after the fact.
-  // Identical forwards (the same link, or the same pasted text) collapse
-  // into one row with a "forwarded N×" count instead of listing each
-  // attempt separately, so a long back-and-forth doesn't turn this into a
-  // wall of near-duplicate entries.
+  // A resource whose forward turned into a place already lives there — its
+  // own card, with its own "added by X" line — so listing it again here
+  // would just be the same information twice. What's left, and all this
+  // section shows now, is resources with no place attached at all: a link
+  // or note someone added on purpose to keep around, not to extract from.
+  // Identical adds (the same link, more than once) collapse into one row
+  // with a "forwarded N×" count instead of listing each one separately.
   const resourceGroups = new Map<
     string,
-    { id: string; type: ResourceType; who: string; source_url: string | null; placeNames: string[]; count: number; created_at: string }
+    { id: string; type: ResourceType; label: string; who: string; source_url: string | null; count: number; created_at: string }
   >();
   for (const r of resourceRows ?? []) {
+    const hasPlace = places.some((p) => p.resource_id === r.id);
+    if (hasPlace) continue;
+
     const person = r.planner_users as unknown as { name: string | null; email: string | null } | null;
     const who = person?.name || person?.email?.split("@")[0] || "Someone";
-    const placeNames = places.filter((p) => p.resource_id === r.id).map((p) => p.name);
-    if (placeNames.length === 0) continue;
-
     const key = r.source_url ? `link:${r.source_url}` : `${r.type}:${r.label}`;
     const existing = resourceGroups.get(key);
     if (existing) {
-      existing.placeNames = [...new Set([...existing.placeNames, ...placeNames])];
       existing.count += 1;
     } else {
       resourceGroups.set(key, {
         id: r.id as string,
         type: r.type as ResourceType,
+        label: r.label as string,
         who,
         source_url: r.source_url as string | null,
-        placeNames,
         count: 1,
         created_at: r.created_at as string,
       });
@@ -272,12 +272,7 @@ export default async function PlannerTripPage({
               datesLocked={Boolean(trip.dates_locked_at)}
               initialAvailableDates={(myAvailability ?? []).map((d) => d.date as string)}
             />
-            <Link
-              href={`/planner/trips/${id}/convergence`}
-              className="rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink hover:border-ink"
-            >
-              Where we landed
-            </Link>
+            <ConvergenceModal tripId={id} tripName={trip.name} hasAnsweredPreferences={Boolean(myPref)} />
             {trip.end_date && trip.end_date < today && (
               <Link
                 href={`/planner/trips/${id}/reviews`}
@@ -429,7 +424,7 @@ export default async function PlannerTripPage({
 
         <DecisionsSection tripId={id} decisions={decisions} totalMembers={roster.length} />
 
-        <SourcesSection resources={resources} />
+        <SourcesSection tripId={id} resources={resources} />
       </div>
     </div>
   );

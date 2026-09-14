@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { PreferencesForm } from "./preferences/PreferencesForm";
 import type { PlannerPreference } from "@/lib/supabase/planner-types";
 
@@ -20,6 +20,16 @@ export function PreferencesModal({
   initialAvailableDates: string[];
 }) {
   const [open, setOpen] = useState(false);
+
+  // The Convergence pop-out hands off here when someone tries to view
+  // "where we landed" before they've answered themselves — a plain DOM
+  // event keeps these two sibling modals decoupled instead of lifting
+  // their open state up into the trip page.
+  useEffect(() => {
+    const handler = () => setOpen(true);
+    window.addEventListener("open-preferences-modal", handler);
+    return () => window.removeEventListener("open-preferences-modal", handler);
+  }, []);
 
   return (
     <>
