@@ -29,6 +29,7 @@ interface AddResult {
   resourceLabel: string;
   duplicates: string[];
   farAway: { name: string; address: string | null }[];
+  alreadyAdded?: boolean;
 }
 
 /**
@@ -53,6 +54,30 @@ export async function addResourceFromWhatsAppText(
 
   if (asLink) {
     sourceUrl = trimmed;
+
+    // Same as the web app: re-forwarding a link that never produced a
+    // place shouldn't re-fetch/re-extract and create another empty
+    // resource — just say it's already saved. A link that DID produce a
+    // place falls through to the normal pipeline, which already reports
+    // the specific duplicate place by name.
+    const { data: existingResource } = await admin
+      .from("planner_resources")
+      .select("id")
+      .eq("trip_id", tripId)
+      .eq("source_url", trimmed)
+      .maybeSingle();
+    if (existingResource) {
+      const { data: existingPlace } = await admin
+        .from("planner_places")
+        .select("id")
+        .eq("resource_id", existingResource.id)
+        .limit(1)
+        .maybeSingle();
+      if (!existingPlace) {
+        return { places: [], resourceLabel: label, duplicates: [], farAway: [], alreadyAdded: true };
+      }
+    }
+
     const page = await fetchPageText(trimmed);
     // A link we can't read (paywalled, bot-blocked) has nothing to extract
     // a place from, but — same as the web app — it's still worth keeping

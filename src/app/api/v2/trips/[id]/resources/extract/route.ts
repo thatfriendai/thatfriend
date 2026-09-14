@@ -41,6 +41,30 @@ export async function POST(
     const url = typeof body.url === "string" ? body.url.trim() : "";
     if (!url) return NextResponse.json({ error: "A link is required." }, { status: 400 });
     sourceUrl = url;
+
+    // Re-adding the same link that never produced a place shouldn't
+    // re-fetch/re-extract and pile up another empty resource row — just
+    // say it's already saved. A link that DID produce a place is left to
+    // run the normal pipeline below, which already reports the specific
+    // duplicate place by name (more useful than a generic "already saved").
+    const { data: existingResource } = await admin
+      .from("planner_resources")
+      .select("id")
+      .eq("trip_id", tripId)
+      .eq("source_url", url)
+      .maybeSingle();
+    if (existingResource) {
+      const { data: existingPlace } = await admin
+        .from("planner_places")
+        .select("id")
+        .eq("resource_id", existingResource.id)
+        .limit(1)
+        .maybeSingle();
+      if (!existingPlace) {
+        return NextResponse.json({ alreadyAdded: true, candidates: [] });
+      }
+    }
+
     const page = await fetchPageText(url);
 
     // A link we can't read (paywalled, bot-blocked — Forbes-style sites do

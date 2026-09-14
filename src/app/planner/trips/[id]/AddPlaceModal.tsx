@@ -104,6 +104,7 @@ export function AddPlaceModal({
   );
   const [extracting, setExtracting] = useState(false);
   const [resourceId, setResourceId] = useState<string | null>(null);
+  const [alreadyAdded, setAlreadyAdded] = useState(false);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [confirming, setConfirming] = useState(false);
 
@@ -120,6 +121,7 @@ export function AddPlaceModal({
     setPastedText("");
     setImage(null);
     setResourceId(null);
+    setAlreadyAdded(false);
     setCandidates([]);
     setSelectedPlace(null);
     setManualFallback(false);
@@ -193,6 +195,7 @@ export function AddPlaceModal({
     }
 
     setResourceId(data.resource?.id ?? null);
+    setAlreadyAdded(Boolean(data.alreadyAdded));
     const newCandidates = (data.candidates ?? []).map((c: { name: string; kind: PlaceKind; note: string }) => ({
       ...c,
       include: !findDuplicate(existingPlaces, c.name),
@@ -201,10 +204,10 @@ export function AddPlaceModal({
     setCandidates(newCandidates);
     setStep("review");
     // Zero candidates means nothing more happens server-side from here —
-    // if a resource was saved, it's already saved, so refresh now instead
-    // of waiting for the modal to close, so Resources is current by the
-    // time it does.
-    if (newCandidates.length === 0 && data.resource) router.refresh();
+    // if a new resource was saved, it's already saved, so refresh now
+    // instead of waiting for the modal to close, so Resources is current
+    // by the time it does. Nothing changed for an already-added link.
+    if (newCandidates.length === 0 && data.resource && !data.alreadyAdded) router.refresh();
   }
 
   function onFileChosen(file: File) {
@@ -438,7 +441,43 @@ export function AddPlaceModal({
           </div>
         )}
 
-        {step === "review" && (
+        {step === "review" && entryMode === "resource" && candidates.length === 0 && (
+          <div className="px-6.5 py-6">
+            <div className="mb-1 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
+              {alreadyAdded ? "Already saved" : "Saved to Resources"}
+            </div>
+            <p className="mt-3 text-sm text-body">
+              {alreadyAdded
+                ? "This link is already in Resources — nothing new to add."
+                : "No specific places in that one, so it's saved under Resources instead."}
+            </p>
+            {error && <p className="mt-4 text-sm text-red-700">{error}</p>}
+            <div className="mt-5.5 flex items-center gap-4 border-t border-border pt-5">
+              <button
+                type="button"
+                onClick={handleClose}
+                className="rounded-full bg-ink px-6.5 py-3 text-[15px] text-cream hover:bg-accent"
+              >
+                Done
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setLinkUrl("");
+                  setResourceId(null);
+                  setAlreadyAdded(false);
+                  setCandidates([]);
+                  setStep("link");
+                }}
+                className="text-sm text-muted hover:text-ink"
+              >
+                Add another resource
+              </button>
+            </div>
+          </div>
+        )}
+
+        {step === "review" && !(entryMode === "resource" && candidates.length === 0) && (
           <div className="px-6.5 py-6">
             <div className="mb-1 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
               {candidates.length > 0
