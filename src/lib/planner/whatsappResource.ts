@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { KIND_OPTIONS, hashPercent } from "./itinerary";
 import { extractPlacesFromText, extractPlacesFromImage, type ExtractedPlace } from "./extract";
-import { fetchPageText } from "./fetchPage";
+import { fetchPageText, deriveLabelFromUrl } from "./fetchPage";
 import { loadExistingPlaces, findDuplicatePlace } from "./placeDedupe";
 import { geocodePlace } from "./geocode";
 import { isGoogleMapsUrl } from "./mapsLink";
@@ -56,14 +56,14 @@ export async function addResourceFromWhatsAppText(
     const page = await fetchPageText(trimmed);
     // A link we can't read (paywalled, bot-blocked) has nothing to extract
     // a place from, but — same as the web app — it's still worth keeping
-    // as a resource, so this falls through with zero candidates and the
-    // raw URL as the label instead of erroring out.
+    // as a resource, so this falls through with zero candidates and a
+    // label de-slugified from the URL instead of erroring out.
     if (page) {
       extractText = page.text;
       label = page.label;
       candidates = await extractPlacesFromText(extractText);
     } else {
-      label = trimmed;
+      label = deriveLabelFromUrl(trimmed);
     }
   } else {
     candidates = await extractPlacesFromText(extractText);
