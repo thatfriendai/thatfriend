@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
 import { ResourceTile } from "@/components/planner/ResourceIcon";
-import { AddResourceModal } from "./AddResourceModal";
 import type { ResourceType } from "@/lib/supabase/planner-types";
 
 export interface SourceRow {
@@ -17,18 +15,8 @@ export interface SourceRow {
 
 const COLLAPSED_COUNT = 6;
 
-export function SourcesSection({ tripId, resources }: { tripId: string; resources: SourceRow[] }) {
-  const router = useRouter();
+export function SourcesSection({ resources }: { resources: SourceRow[] }) {
   const [showAll, setShowAll] = useState(false);
-
-  const searchParams = useSearchParams();
-  const openAddParam = searchParams.get("openAdd");
-  const [handledOpenAdd, setHandledOpenAdd] = useState<string | null>(null);
-  const [addOpen, setAddOpen] = useState(false);
-  if (openAddParam && openAddParam !== handledOpenAdd) {
-    setHandledOpenAdd(openAddParam);
-    if (openAddParam === "resource") setAddOpen(true);
-  }
 
   const visible = showAll ? resources : resources.slice(0, COLLAPSED_COUNT);
   const hiddenCount = resources.length - visible.length;
@@ -43,7 +31,8 @@ export function SourcesSection({ tripId, resources }: { tripId: string; resource
 
       {resources.length === 0 ? (
         <p className="text-[14.5px] text-muted">
-          Nothing saved yet — add a YouTube link, an article, or a note from the +Add menu.
+          Nothing here yet — paste a YouTube link or article from +Add → A link. If it doesn&rsquo;t name a
+          specific place, it lands here automatically.
         </p>
       ) : (
         <div className="flex flex-col gap-2">
@@ -90,13 +79,6 @@ export function SourcesSection({ tripId, resources }: { tripId: string; resource
           Show fewer
         </button>
       )}
-
-      <AddResourceModal
-        tripId={tripId}
-        open={addOpen}
-        onClose={() => setAddOpen(false)}
-        onCreated={() => router.refresh()}
-      />
     </div>
   );
 }

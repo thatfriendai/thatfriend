@@ -30,19 +30,19 @@ export function TripVisibilityToggle({
   const content = (
     <>
       <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">Privacy</span>
-      {isPublic ? "Public" : "Private"}
+      <span>{isPublic ? "Public" : "Private"}</span>
       <span
-        className="relative ml-1 h-4.5 w-8 flex-none rounded-full transition-colors"
+        className="relative h-[18px] w-[34px] flex-none rounded-full transition-colors"
         style={{ background: isPublic ? "var(--color-accent)" : "var(--color-input-border)" }}
       >
         <span
-          className="absolute top-0.5 h-3.5 w-3.5 rounded-full bg-card transition-transform"
-          style={{ transform: isPublic ? "translateX(15px)" : "translateX(2px)" }}
+          className="absolute top-0.5 h-[14px] w-[14px] rounded-full bg-card shadow-sm transition-[left]"
+          style={{ left: isPublic ? 18 : 2 }}
         />
       </span>
     </>
   );
-  const className = "flex items-center gap-1.5 rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink";
+  const className = "flex items-center gap-2 rounded-full border border-input-border bg-card py-1.5 pr-2.5 pl-3.5 text-[13px] text-ink";
 
   if (readOnly) {
     return <span className={className}>{content}</span>;

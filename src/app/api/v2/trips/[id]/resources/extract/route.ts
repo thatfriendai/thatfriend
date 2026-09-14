@@ -40,36 +40,40 @@ export async function POST(
   if (type === "link") {
     const url = typeof body.url === "string" ? body.url.trim() : "";
     if (!url) return NextResponse.json({ error: "A link is required." }, { status: 400 });
-    const page = await fetchPageText(url);
-    if (!page) {
-      return NextResponse.json(
-        { error: "Couldn't read that link. Try pasting the text instead." },
-        { status: 422 }
-      );
-    }
     sourceUrl = url;
-    label = page.label;
-    candidates = await extractPlacesFromText(page.text);
+    const page = await fetchPageText(url);
 
-    // A Google Maps link names one real, already-identified place — pull
-    // its real category and coordinates now rather than letting the LLM
-    // guess the kind from almost no text, and reuse them at confirm time
-    // instead of geocoding the same place twice.
-    if (page.mapsPlaceName) {
-      const { data: trip } = await admin.from("planner_trips").select("destination").eq("id", tripId).maybeSingle();
-      const query = trip?.destination ? `${page.mapsPlaceName}, ${trip.destination}` : page.mapsPlaceName;
-      // Only kind/lat/lng/address are used here — the confirm step re-geocodes
-      // for the real photo, so skip the extra Photo billing on this call.
-      const geo = await geocodePlace(query, { wantPhoto: false });
-      if (geo) {
-        const kind = kindFromGoogleTypes(geo.types);
-        candidates = candidates.map((c) => ({
-          ...c,
-          ...(kind ? { kind } : {}),
-          lat: geo.lat,
-          lng: geo.lng,
-          address: geo.address,
-        }));
+    // A link we can't read (paywalled, bot-blocked — Forbes-style sites do
+    // this a lot) has nothing to extract a place from, but it's still worth
+    // keeping around — falls through with zero candidates and the label
+    // as the raw URL, same as any other link that turns up no places.
+    if (!page) {
+      label = url;
+      candidates = [];
+    } else {
+      label = page.label;
+      candidates = await extractPlacesFromText(page.text);
+
+      // A Google Maps link names one real, already-identified place — pull
+      // its real category and coordinates now rather than letting the LLM
+      // guess the kind from almost no text, and reuse them at confirm time
+      // instead of geocoding the same place twice.
+      if (page.mapsPlaceName) {
+        const { data: trip } = await admin.from("planner_trips").select("destination").eq("id", tripId).maybeSingle();
+        const query = trip?.destination ? `${page.mapsPlaceName}, ${trip.destination}` : page.mapsPlaceName;
+        // Only kind/lat/lng/address are used here — the confirm step re-geocodes
+        // for the real photo, so skip the extra Photo billing on this call.
+        const geo = await geocodePlace(query, { wantPhoto: false });
+        if (geo) {
+          const kind = kindFromGoogleTypes(geo.types);
+          candidates = candidates.map((c) => ({
+            ...c,
+            ...(kind ? { kind } : {}),
+            lat: geo.lat,
+            lng: geo.lng,
+            address: geo.address,
+          }));
+        }
       }
     }
   } else if (type === "text") {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { KIND_OPTIONS, formatDayLabel, kindFromGoogleTypes } from "@/lib/planner/itinerary";
 import { PlaceSearch, type SelectedPlace } from "@/components/PlaceSearch";
 import type { PlaceKind, PlannerDay, PlannerPlace } from "@/lib/supabase/planner-types";
@@ -64,8 +65,9 @@ export function AddPlaceModal({
   existingPlaces: PlannerPlace[];
   open: boolean;
   onClose: () => void;
-  onCreated: (place: PlannerPlace & { sourceLabel: string | null }) => void;
+  onCreated: (place: PlannerPlace) => void;
 }) {
+  const router = useRouter();
   const [step, setStep] = useState<Step>("source");
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -88,7 +90,6 @@ export function AddPlaceModal({
   );
   const [extracting, setExtracting] = useState(false);
   const [resourceId, setResourceId] = useState<string | null>(null);
-  const [resourceLabel, setResourceLabel] = useState<string | null>(null);
   const [candidates, setCandidates] = useState<Candidate[]>([]);
   const [confirming, setConfirming] = useState(false);
 
@@ -105,7 +106,6 @@ export function AddPlaceModal({
     setPastedText("");
     setImage(null);
     setResourceId(null);
-    setResourceLabel(null);
     setCandidates([]);
     setSelectedPlace(null);
     setManualFallback(false);
@@ -150,7 +150,7 @@ export function AddPlaceModal({
       return;
     }
 
-    onCreated({ ...data.place, sourceLabel: null });
+    onCreated(data.place);
     handleClose();
   }
 
@@ -179,15 +179,17 @@ export function AddPlaceModal({
     }
 
     setResourceId(data.resource.id);
-    setResourceLabel(data.resource.label);
-    setCandidates(
-      (data.candidates ?? []).map((c: { name: string; kind: PlaceKind; note: string }) => ({
-        ...c,
-        include: !findDuplicate(existingPlaces, c.name),
-        day_id: "",
-      }))
-    );
+    const newCandidates = (data.candidates ?? []).map((c: { name: string; kind: PlaceKind; note: string }) => ({
+      ...c,
+      include: !findDuplicate(existingPlaces, c.name),
+      day_id: "",
+    }));
+    setCandidates(newCandidates);
     setStep("review");
+    // Zero candidates means nothing more happens server-side from here —
+    // the resource is already saved, so refresh now instead of waiting for
+    // the modal to close, so Resources is current by the time it does.
+    if (newCandidates.length === 0) router.refresh();
   }
 
   function onFileChosen(file: File) {
@@ -238,7 +240,7 @@ export function AddPlaceModal({
       return;
     }
 
-    (data.places ?? []).forEach((p: PlannerPlace) => onCreated({ ...p, sourceLabel: resourceLabel }));
+    (data.places ?? []).forEach((p: PlannerPlace) => onCreated(p));
     handleClose();
   }
 
@@ -416,12 +418,12 @@ export function AddPlaceModal({
             <div className="mb-1 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
               {candidates.length > 0
                 ? `Found ${candidates.length} place${candidates.length === 1 ? "" : "s"}`
-                : "Nothing found"}
+                : "Saved to Resources"}
             </div>
             {candidates.length === 0 && (
               <p className="mt-3 text-sm text-body">
-                Couldn&rsquo;t pull any named places out of that. Try a different source, or type it
-                in.
+                No specific places in that one, so there&rsquo;s nothing to add to the map — but it&rsquo;s
+                saved under Resources so it&rsquo;s not lost. You can also type a place in directly.
               </p>
             )}
             <div className="mt-4 flex flex-col gap-2.5">
@@ -493,9 +495,14 @@ export function AddPlaceModal({
               ) : (
                 <button
                   type="button"
-                  onClick={() => setStep("manual")}
+                  onClick={handleClose}
                   className="rounded-full bg-ink px-6.5 py-3 text-[15px] text-cream hover:bg-accent"
                 >
+                  Done
+                </button>
+              )}
+              {candidates.length === 0 && (
+                <button type="button" onClick={() => setStep("manual")} className="text-sm text-muted hover:text-ink">
                   Type it in instead
                 </button>
               )}
