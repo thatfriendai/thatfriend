@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
-import { fetchPageText } from "@/lib/planner/fetchPage";
+import { fetchPageText, deriveLabelFromUrl } from "@/lib/planner/fetchPage";
 import { extractPlacesFromText, extractPlacesFromImage, type ExtractedPlace } from "@/lib/planner/extract";
 import { geocodePlace } from "@/lib/planner/geocode";
 import { kindFromGoogleTypes } from "@/lib/planner/itinerary";
@@ -45,10 +45,11 @@ export async function POST(
 
     // A link we can't read (paywalled, bot-blocked — Forbes-style sites do
     // this a lot) has nothing to extract a place from, but it's still worth
-    // keeping around — falls through with zero candidates and the label
-    // as the raw URL, same as any other link that turns up no places.
+    // keeping around — falls through with zero candidates and a label
+    // de-slugified from the URL itself, same as any other link that turns
+    // up no places.
     if (!page) {
-      label = url;
+      label = deriveLabelFromUrl(url);
       candidates = [];
     } else {
       label = page.label;

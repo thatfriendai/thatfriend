@@ -36,6 +36,56 @@ function extractMapsPlaceName(resolvedUrl: string): string | null {
   return null;
 }
 
+function isYouTubeUrl(url: URL): boolean {
+  return /(^|\.)youtube\.com$/i.test(url.hostname) || /(^|\.)youtu\.be$/i.test(url.hostname);
+}
+
+/**
+ * YouTube's own server-rendered HTML is unreliable for a plain fetch — no
+ * cookies means it can come back as a bare region/consent shell titled
+ * just "YouTube", with none of the real video info anywhere in the markup.
+ * The public oEmbed endpoint sidesteps all of that: no API key, no
+ * scraping, and it reliably returns the real title for any public video.
+ */
+async function fetchYouTubeOEmbed(url: string): Promise<{ title: string; imageUrl?: string } | null> {
+  try {
+    const res = await fetch(`https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (typeof data.title !== "string" || !data.title.trim()) return null;
+    return { title: data.title.trim(), imageUrl: typeof data.thumbnail_url === "string" ? data.thumbnail_url : undefined };
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * When a link can't be read at all (bot-blocked — Forbes and plenty of
+ * other news/blog sites do this to a plain server fetch), the raw URL is
+ * an ugly, unreadable label. Most article URLs embed the actual headline
+ * in their last path segment ("...right-now" style slugs) — good enough to
+ * de-slugify into something readable instead of showing the full URL.
+ */
+export function deriveLabelFromUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    const segments = parsed.pathname.split("/").filter(Boolean);
+    const last = segments[segments.length - 1] ?? "";
+    const cleaned = decodeURIComponent(last)
+      .replace(/\.\w{2,5}$/, "")
+      .replace(/[-_]+/g, " ")
+      .trim();
+    if (cleaned.length > 3 && !/^\d+$/.test(cleaned)) {
+      return cleaned.replace(/\b\w/g, (c) => c.toUpperCase());
+    }
+  } catch {
+    // fall through
+  }
+  return url;
+}
+
 /** HTML attribute values are entity-encoded in the source (e.g. "&amp;" for a literal "&") — a real browser's HTML parser decodes this automatically, but a plain regex extraction like this one doesn't, so it's done by hand here. */
 function decodeHtmlEntities(s: string): string {
   return s
@@ -100,6 +150,15 @@ export async function fetchPageText(
     return null;
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+
+  if (isYouTubeUrl(parsed)) {
+    const oembed = await fetchYouTubeOEmbed(parsed.toString());
+    if (oembed) {
+      return { text: `Video: ${oembed.title}`, label: oembed.title.slice(0, 120), imageUrl: oembed.imageUrl };
+    }
+    // Falls through to the generic scrape below if oEmbed itself fails —
+    // still better than nothing for an unlisted/embed-disabled video.
+  }
 
   try {
     const res = await fetch(parsed.toString(), {
