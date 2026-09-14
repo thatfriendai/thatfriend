@@ -5,7 +5,6 @@ export type AttentionKind =
   | "vote_deadline"
   | "vote_pick"
   | "vote_needed"
-  | "review_links"
   | "locate_place"
   | "draft_day"
   | "nudge_prefs";
@@ -90,9 +89,8 @@ export async function computeAttention(
     });
   }
 
-  const [{ data: resourceRows }, { data: placeRows }, { data: dayRows }, { data: memberRows }, { data: prefRows }] =
+  const [{ data: placeRows }, { data: dayRows }, { data: memberRows }, { data: prefRows }] =
     await Promise.all([
-      admin.from("planner_resources").select("id").eq("trip_id", tripId),
       admin.from("planner_places").select("id, name, lat, lng, resource_id").eq("trip_id", tripId),
       admin.from("planner_days").select("id, date").eq("trip_id", tripId).order("date", { ascending: true }),
       admin.from("planner_memberships").select("planner_users(id, phone)").eq("trip_id", tripId),
@@ -100,17 +98,6 @@ export async function computeAttention(
     ]);
 
   const places = placeRows ?? [];
-  const keptResourceIds = new Set(places.filter((p) => p.resource_id).map((p) => p.resource_id as string));
-  const emptyResourceCount = (resourceRows ?? []).filter((r) => !keptResourceIds.has(r.id)).length;
-  if (emptyResourceCount >= 2) {
-    items.push({
-      kind: "review_links",
-      label: `${emptyResourceCount} links didn't turn into a saved place`,
-      cta: `Review ${emptyResourceCount} links`,
-      href: `/planner/trips/${tripId}#resources`,
-      severity: "normal",
-    });
-  }
 
   const unlocated = places.find((p) => p.lat == null || p.lng == null);
   if (unlocated) {

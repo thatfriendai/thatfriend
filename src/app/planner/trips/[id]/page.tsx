@@ -16,6 +16,7 @@ import { PreferencesSkipControl } from "./PreferencesSkipControl";
 import { JoinRequests } from "./JoinRequests";
 import { SourcesSection } from "./SourcesSection";
 import { PreferencesModal } from "./PreferencesModal";
+import { DatesModal } from "./DatesModal";
 import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { TripVisibilityToggle } from "./TripVisibilityToggle";
 import { ensureDays } from "@/lib/planner/days";
@@ -266,13 +267,7 @@ export default async function PlannerTripPage({
           )}
 
           <div className="mb-8 flex flex-wrap items-center gap-2.5">
-            <Link
-              href={`/planner/trips/${id}/dates`}
-              className="flex items-center gap-1.5 rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink hover:border-ink"
-            >
-              <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">Dates</span>
-              {dateRange ?? "Not set"}
-            </Link>
+            <DatesModal tripId={id} dateRangeLabel={dateRange ?? "Not set"} />
             <TripVisibilityToggle tripId={id} initialIsPublic={trip.is_public} readOnly={membership.role !== "owner"} />
             <PreferencesModal
               tripId={id}

@@ -34,8 +34,7 @@ export function SourcesSection({ resources }: { resources: SourceRow[] }) {
           <div key={r.id} className="flex items-center gap-3.5 rounded-xl border border-border bg-card px-3.5 py-3">
             <ResourceTile type={r.type} sourceUrl={r.source_url} />
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[14.5px] text-[#2B2825]">{r.placeNames.join(", ")}</div>
-              <div className="mt-0.5 truncate text-[12.5px] text-muted">
+              <div className="truncate text-[14.5px] text-[#2B2825]">
                 From {r.who}
                 {r.count > 1 ? ` · forwarded ${r.count}×` : ""}
               </div>

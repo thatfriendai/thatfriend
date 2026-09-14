@@ -726,3 +726,20 @@ alter table planner_trips add column if not exists preferences_reminder_sent_at 
 -- alongside the existing token-based invite link. Every trip gets one at
 -- creation, generated in code (src/lib/planner/tokens.ts).
 alter table planner_trips add column if not exists join_code text unique;
+
+-- Claims a Twilio MessageSid before doing any work in the two inbound SMS
+-- webhooks (src/app/api/v2/twilio/route.ts and .../twilio/conversation/route.ts).
+-- The place-extraction pipeline (Anthropic + Google geocoding, per candidate)
+-- can run past Twilio's response timeout, which makes Twilio retry the exact
+-- same message — without this, both the original request and the retry would
+-- independently pass the "not a duplicate yet" check and each insert a place,
+-- producing a real, silent duplicate even when nothing is wrong with the
+-- dedup logic itself. The insert's primary key does the exclusion atomically;
+-- a second insert of the same sid fails and that request bails out quietly.
+create table if not exists planner_processed_messages (
+  message_sid text primary key,
+  created_at timestamptz not null default now()
+);
+
+alter table planner_processed_messages enable row level security;
+grant all on planner_processed_messages to anon, authenticated, service_role;
