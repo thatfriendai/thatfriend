@@ -55,6 +55,16 @@ export async function POST(request: Request) {
 
   const admin = createAdminClient();
 
+  // Same retry guard as the 1:1 route — the extraction pipeline can outlast
+  // Twilio's timeout, and a retry of the same message would otherwise pass
+  // the dedup check twice and add the same place twice.
+  if (params.MessageSid) {
+    const { error: dupeError } = await admin
+      .from("planner_processed_messages")
+      .insert({ message_sid: params.MessageSid });
+    if (dupeError?.code === "23505") return NextResponse.json({ ok: true });
+  }
+
   let trip: { id: string; name: string } | null = null;
   let user: Awaited<ReturnType<typeof findPlannerUserByPhone>> = null;
   try {

@@ -76,7 +76,13 @@ export async function geocodePlace(
           : {}),
       }),
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      // Silent by design everywhere else this result is used — but a bad key
+      // (wrong project, HTTP-referrer restricted, API not enabled) fails every
+      // single call the same way, so it's worth one line in the server logs.
+      console.error(`geocodePlace: Places API returned ${res.status} for "${query}"`, await res.text().catch(() => ""));
+      return null;
+    }
 
     const data = await res.json();
     const place = data.places?.[0];

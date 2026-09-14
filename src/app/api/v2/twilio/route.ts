@@ -61,6 +61,18 @@ export async function POST(request: Request) {
   const numMedia = Number(params.NumMedia ?? "0");
 
   const admin = createAdminClient();
+
+  // The extraction pipeline below can run past Twilio's response timeout,
+  // which makes Twilio retry the same message — claim the sid first so a
+  // retry bails out here instead of re-running everything and, e.g., adding
+  // the same place twice.
+  if (params.MessageSid) {
+    const { error: dupeError } = await admin
+      .from("planner_processed_messages")
+      .insert({ message_sid: params.MessageSid });
+    if (dupeError?.code === "23505") return silent();
+  }
+
   let user: Awaited<ReturnType<typeof findPlannerUserByPhone>>;
   try {
     user = await findPlannerUserByPhone(admin, fromDigits);
