@@ -2,8 +2,42 @@
 
 import { useState } from "react";
 
-export function CopyJoinCode({ code, smsNumber }: { code: string; smsNumber: string | null }) {
+export function CopyJoinCode({
+  tripId,
+  code: initialCode,
+  smsNumber,
+}: {
+  tripId: string;
+  code: string | null;
+  smsNumber: string | null;
+}) {
+  const [code, setCode] = useState(initialCode);
+  const [generating, setGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
+
+  async function generate() {
+    setGenerating(true);
+    const res = await fetch(`/api/v2/trips/${tripId}/join-code`, { method: "POST" });
+    const data = await res.json().catch(() => ({}));
+    setGenerating(false);
+    if (res.ok && data.join_code) setCode(data.join_code);
+  }
+
+  if (!code) {
+    // Trips created before this feature existed have no join code yet —
+    // generated on demand instead of backfilling every row at once.
+    return (
+      <button
+        type="button"
+        onClick={generate}
+        disabled={generating}
+        className="rounded-full border border-input-border bg-card px-4 py-2.5 text-[14px] text-ink hover:border-ink disabled:opacity-50"
+      >
+        {generating ? "Generating…" : "Generate a join code"}
+      </button>
+    );
+  }
+
   const text = smsNumber ? `HELLO ${code}` : code;
 
   async function copy() {

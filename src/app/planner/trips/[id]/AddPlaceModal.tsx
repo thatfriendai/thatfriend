@@ -56,6 +56,7 @@ export function AddPlaceModal({
   googleMapsApiKey,
   existingPlaces,
   open,
+  entryMode = "place",
   onClose,
   onCreated,
 }: {
@@ -64,12 +65,25 @@ export function AddPlaceModal({
   googleMapsApiKey: string;
   existingPlaces: PlannerPlace[];
   open: boolean;
+  entryMode?: "place" | "resource";
   onClose: () => void;
   onCreated: (place: PlannerPlace) => void;
 }) {
   const router = useRouter();
   const [step, setStep] = useState<Step>("source");
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // "A resource" jumps straight to the link-paste screen instead of the
+  // generic 4-tile chooser — someone choosing it already knows they're
+  // giving a link. The modal stays mounted across opens/closes (its state
+  // isn't torn down), so the step needs resetting on every open — done
+  // during render (comparing against the last-seen `open`) rather than in
+  // an effect, same pattern used elsewhere in this app for the same reason.
+  const [prevOpen, setPrevOpen] = useState(open);
+  if (open !== prevOpen) {
+    setPrevOpen(open);
+    if (open) setStep(entryMode === "resource" ? "link" : "source");
+  }
 
   // manual entry
   const [name, setName] = useState("");
@@ -178,7 +192,7 @@ export function AddPlaceModal({
       return;
     }
 
-    setResourceId(data.resource.id);
+    setResourceId(data.resource?.id ?? null);
     const newCandidates = (data.candidates ?? []).map((c: { name: string; kind: PlaceKind; note: string }) => ({
       ...c,
       include: !findDuplicate(existingPlaces, c.name),
@@ -187,9 +201,10 @@ export function AddPlaceModal({
     setCandidates(newCandidates);
     setStep("review");
     // Zero candidates means nothing more happens server-side from here —
-    // the resource is already saved, so refresh now instead of waiting for
-    // the modal to close, so Resources is current by the time it does.
-    if (newCandidates.length === 0) router.refresh();
+    // if a resource was saved, it's already saved, so refresh now instead
+    // of waiting for the modal to close, so Resources is current by the
+    // time it does.
+    if (newCandidates.length === 0 && data.resource) router.refresh();
   }
 
   function onFileChosen(file: File) {
@@ -292,7 +307,9 @@ export function AddPlaceModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-6.5 py-5">
-          <div className="font-display text-[23px] text-ink">Add a place</div>
+          <div className="font-display text-[23px] text-ink">
+            {entryMode === "resource" ? "Add a resource" : "Add a place"}
+          </div>
           <button
             onClick={handleClose}
             className="text-xl leading-none text-muted hover:text-ink"
@@ -320,6 +337,12 @@ export function AddPlaceModal({
 
         {step === "link" && (
           <div className="flex flex-col gap-4.5 px-6.5 py-6">
+            {entryMode === "resource" && (
+              <p className="text-[13.5px] leading-relaxed text-muted">
+                An article, a YouTube video, anything worth keeping around. If it names a specific place, that
+                gets pulled out and added to the map too — otherwise it&rsquo;s saved here as a resource.
+              </p>
+            )}
             <input
               value={linkUrl}
               onChange={(e) => setLinkUrl(e.target.value)}
@@ -335,11 +358,13 @@ export function AddPlaceModal({
                 disabled={!linkUrl.trim() || extracting}
                 className="rounded-full bg-ink px-6.5 py-3 text-[15px] text-cream hover:bg-accent disabled:opacity-50"
               >
-                {extracting ? "Reading…" : "Find places"}
+                {extracting ? "Reading…" : entryMode === "resource" ? "Save it" : "Find places"}
               </button>
-              <button type="button" onClick={() => setStep("source")} className="text-sm text-muted hover:text-ink">
-                Back
-              </button>
+              {entryMode !== "resource" && (
+                <button type="button" onClick={() => setStep("source")} className="text-sm text-muted hover:text-ink">
+                  Back
+                </button>
+              )}
             </div>
           </div>
         )}
@@ -418,12 +443,15 @@ export function AddPlaceModal({
             <div className="mb-1 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
               {candidates.length > 0
                 ? `Found ${candidates.length} place${candidates.length === 1 ? "" : "s"}`
-                : "Saved to Resources"}
+                : resourceId
+                  ? "Saved to Resources"
+                  : "Nothing found"}
             </div>
             {candidates.length === 0 && (
               <p className="mt-3 text-sm text-body">
-                No specific places in that one, so there&rsquo;s nothing to add to the map — but it&rsquo;s
-                saved under Resources so it&rsquo;s not lost. You can also type a place in directly.
+                {resourceId
+                  ? "No specific places in that one, so there's nothing to add to the map — but it's saved under Resources so it's not lost. You can also type a place in directly."
+                  : "Couldn't pull any named places out of that. Try a different source, or type it in."}
               </p>
             )}
             <div className="mt-4 flex flex-col gap-2.5">

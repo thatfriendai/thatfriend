@@ -48,17 +48,27 @@ export async function addResourceFromWhatsAppText(
   let extractText = trimmed;
   let label = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");
   let sourceUrl: string | null = null;
+  let candidates: ExtractedPlace[] = [];
   const type = asLink ? "link" : "text";
 
   if (asLink) {
-    const page = await fetchPageText(trimmed);
-    if (!page) return { error: "Couldn't read that link." };
-    extractText = page.text;
-    label = page.label;
     sourceUrl = trimmed;
+    const page = await fetchPageText(trimmed);
+    // A link we can't read (paywalled, bot-blocked) has nothing to extract
+    // a place from, but — same as the web app — it's still worth keeping
+    // as a resource, so this falls through with zero candidates and the
+    // raw URL as the label instead of erroring out.
+    if (page) {
+      extractText = page.text;
+      label = page.label;
+      candidates = await extractPlacesFromText(extractText);
+    } else {
+      label = trimmed;
+    }
+  } else {
+    candidates = await extractPlacesFromText(extractText);
   }
 
-  const candidates = await extractPlacesFromText(extractText);
   return persistCandidates(admin, tripId, userId, type, label, sourceUrl, candidates);
 }
 
@@ -85,13 +95,21 @@ async function persistCandidates(
   sourceUrl: string | null,
   candidates: ExtractedPlace[]
 ): Promise<AddResult | { error: string }> {
-  // A text/link/screenshot only becomes a trip-visible "resource" (shown,
-  // attributed, in Sources) once it's actually produced something to show
-  // — creating the row up front meant every private DM that didn't pan
-  // out (or wasn't even about the trip) still left the sender's name and
-  // a snippet of what they wrote visible to the whole group. Nothing is
-  // persisted until we know there's a real place to attach it to.
+  // A forwarded text/screenshot only becomes a trip-visible "resource"
+  // (shown, attributed, in Sources) once it's actually produced a place —
+  // creating the row up front meant every private DM that didn't pan out
+  // (or wasn't even about the trip) still left the sender's name and a
+  // snippet of what they wrote visible to the whole group.
+  //
+  // A forwarded link is different: it's already a deliberate "here's
+  // something to look at" share, not an off-the-cuff aside, and Resources
+  // is specifically meant to hold articles/videos like this — so a link
+  // that names no place still gets kept, same as the web app's "+Add → A
+  // link" does for the same case.
   if (candidates.length === 0) {
+    if (type === "link" && sourceUrl) {
+      await admin.from("planner_resources").insert({ trip_id: tripId, type, label, source_url: sourceUrl, added_by: userId });
+    }
     return { places: [], resourceLabel: label, duplicates: [], farAway: [] };
   }
 

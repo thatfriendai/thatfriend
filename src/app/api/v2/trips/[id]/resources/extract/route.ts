@@ -93,6 +93,16 @@ export async function POST(
     return NextResponse.json({ error: "Unknown source type." }, { status: 400 });
   }
 
+  // Resources are for links — an article or a video worth keeping around.
+  // A link always gets saved, even one with nothing extractable in it (see
+  // above). Pasted text or a screenshot with zero places found has nothing
+  // worth keeping as a "resource" — it's not a link to anything, just a
+  // failed extraction attempt — so nothing gets persisted for those unless
+  // real places actually come out of it.
+  if (type !== "link" && candidates.length === 0) {
+    return NextResponse.json({ resource: null, candidates: [] });
+  }
+
   const { data: resource, error } = await admin
     .from("planner_resources")
     .insert({

@@ -31,8 +31,8 @@ export function SourcesSection({ resources }: { resources: SourceRow[] }) {
 
       {resources.length === 0 ? (
         <p className="text-[14.5px] text-muted">
-          Nothing here yet — paste a YouTube link or article from +Add → A link. If it doesn&rsquo;t name a
-          specific place, it lands here automatically.
+          Nothing here yet — paste a YouTube link or article from +Add → A resource. If it names a specific
+          place too, that gets added to the map as well.
         </p>
       ) : (
         <div className="flex flex-col gap-2">

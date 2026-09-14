@@ -346,27 +346,23 @@ export default async function PlannerTripPage({
               </div>
             ))}
           </div>
-          {/* Alone: the only useful action is getting people in, so that's
-              the only button. Once someone else has joined, swap to the
-              richer nudge/group-text tools — showing both at once was just
-              clutter for a trip of one. */}
           <div className="mt-4 flex flex-col gap-3">
-            {roster.length <= 1 ? (
-              <div className="flex flex-col gap-3">
-                {joinInvite && (
-                  <div>
-                    <p className="mb-2 text-[14px] text-body">Send this link to bring your travelers in.</p>
-                    <CopyInviteLink url={`${siteUrl}/planner/join/${joinInvite.token}`} />
-                  </div>
-                )}
-                {trip.join_code && (
-                  <div>
-                    <p className="mb-2 text-[14px] text-body">Or share this join code.</p>
-                    <CopyJoinCode code={trip.join_code} smsNumber={smsNumber} />
-                  </div>
-                )}
+            {roster.length <= 1 && joinInvite && (
+              <div>
+                <p className="mb-2 text-[14px] text-body">Send this link to bring your travelers in.</p>
+                <CopyInviteLink url={`${siteUrl}/planner/join/${joinInvite.token}`} />
               </div>
-            ) : (
+            )}
+            <div>
+              <p className="mb-2 text-[14px] text-body">
+                {roster.length <= 1 ? "Or share this join code." : "Anyone can join anytime with this code."}
+              </p>
+              <CopyJoinCode tripId={id} code={trip.join_code} smsNumber={smsNumber} />
+            </div>
+            {/* Alone: the only other useful action is getting people in via
+                the tools above. Once someone else has joined, swap to the
+                richer nudge/group-text tools too. */}
+            {roster.length > 1 && (
               <>
                 <StartGroupText tripId={id} started={Boolean(trip.twilio_conversation_sid)} />
                 <NudgeButton tripId={id} />

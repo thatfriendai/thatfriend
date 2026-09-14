@@ -122,10 +122,11 @@ export function WorkspaceTopBar({
   // data fetch (places, resources, decisions, the stay-comparison narrative
   // call) just to flip open a client-side modal, which is what made the
   // +Add menu feel like it hung for several seconds before anything opened.
-  function openAdd(kind: "place" | "link" | "decision" | "day") {
+  function openAdd(kind: "place" | "resource" | "decision" | "day") {
     setAddOpen(false);
     window.dispatchEvent(new CustomEvent("open-add-modal", { detail: { kind } }));
-    const anchor = kind === "decision" ? "decisions" : kind === "day" ? "itinerary" : "places";
+    const anchor =
+      kind === "decision" ? "decisions" : kind === "day" ? "itinerary" : kind === "resource" ? "resources" : "places";
     document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
@@ -173,7 +174,7 @@ export function WorkspaceTopBar({
               <div className="absolute right-0 z-30 mt-1.5 w-40 rounded-xl border border-border bg-card py-1.5 shadow-md">
                 {[
                   { key: "place" as const, label: "A place" },
-                  { key: "link" as const, label: "A link" },
+                  { key: "resource" as const, label: "A resource" },
                   { key: "decision" as const, label: "A decision" },
                   { key: "day" as const, label: "A day" },
                 ].map((item) => (
