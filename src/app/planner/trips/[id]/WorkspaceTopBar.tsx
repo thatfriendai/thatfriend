@@ -119,9 +119,10 @@ export function WorkspaceTopBar({
   const addRef = useClickOutside(() => setAddOpen(false));
   const menuRef = useClickOutside(() => setMenuOpen(false));
 
-  function openAdd(kind: "place" | "link" | "decision" | "day") {
+  function openAdd(kind: "place" | "link" | "decision" | "day" | "resource") {
     setAddOpen(false);
-    const anchor = kind === "decision" ? "decisions" : kind === "day" ? "itinerary" : "places";
+    const anchor =
+      kind === "decision" ? "decisions" : kind === "day" ? "itinerary" : kind === "resource" ? "resources" : "places";
     router.push(`/planner/trips/${tripId}?openAdd=${kind}#${anchor}`);
   }
 
@@ -170,6 +171,7 @@ export function WorkspaceTopBar({
                 {[
                   { key: "place" as const, label: "A place" },
                   { key: "link" as const, label: "A link" },
+                  { key: "resource" as const, label: "A resource" },
                   { key: "decision" as const, label: "A decision" },
                   { key: "day" as const, label: "A day" },
                 ].map((item) => (
@@ -235,7 +237,7 @@ export function WorkspaceTopBar({
           <NavCount n={navCounts.stays} />
         </NavLink>
         <NavLink href="#resources" active={active === "resources"}>
-          Sources
+          Resources
           <NavCount n={navCounts.sources} />
         </NavLink>
         <NavLink href="#decisions" active={active === "decisions"}>
