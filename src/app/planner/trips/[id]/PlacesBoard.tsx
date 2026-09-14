@@ -8,7 +8,7 @@ import { PlaceMapView } from "@/components/planner/PlaceMapView";
 import { PlaceKindTile } from "@/components/planner/PlaceKindIcon";
 import type { PlannerDay, PlannerPlace } from "@/lib/supabase/planner-types";
 
-type PlaceWithWho = PlannerPlace & { who: string; sourceLabel: string | null };
+type PlaceWithWho = PlannerPlace & { who: string };
 
 export function PlacesBoard({
   tripId,
@@ -125,16 +125,7 @@ export function PlacesBoard({
                               {p.note}
                             </div>
                           )}
-                          <div className="mt-1.5 flex items-baseline gap-2 font-mono text-[10.5px] text-muted">
-                            {p.sourceLabel && (
-                              <a
-                                href="#resources"
-                                onClick={(e) => e.stopPropagation()}
-                                className="text-faint hover:text-accent"
-                              >
-                                {p.sourceLabel}
-                              </a>
-                            )}
+                          <div className="mt-1.5 font-mono text-[10.5px] text-muted">
                             <span>added by {p.who}</span>
                           </div>
                         </div>

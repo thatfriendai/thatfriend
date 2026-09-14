@@ -53,7 +53,8 @@ async function answerDayQuestion(
     .order("date", { ascending: true });
 
   if (!days || days.length === 0) {
-    return "This trip doesn't have dates locked in yet, so there's no day-by-day plan to check.";
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    return `No dates locked in yet, so there's no day-by-day plan. Mark the days that work for you: ${siteUrl}/planner/trips/${tripId}/dates`;
   }
 
   const dayIndex = resolveDayIndex(dayRef, days as PlannerDay[]);
@@ -114,20 +115,56 @@ async function answerLodgingCostQuestion(admin: SupabaseClient, tripId: string):
   return `"${decision.title}" hasn't been decided yet — options so far: ${list}.`;
 }
 
+async function answerRosterQuestion(admin: SupabaseClient, tripId: string): Promise<string> {
+  const { data: trip } = await admin
+    .from("planner_trips")
+    .select("join_code")
+    .eq("id", tripId)
+    .maybeSingle();
+
+  const { data: memberRows } = await admin
+    .from("planner_memberships")
+    .select("user_id, planner_users(name)")
+    .eq("trip_id", tripId);
+  const members = (memberRows ?? []).map((m) => ({
+    id: m.user_id as string,
+    name: (m.planner_users as unknown as { name: string | null } | null)?.name ?? null,
+  }));
+
+  if (members.length <= 1) {
+    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+    const howToInvite = trip?.join_code
+      ? `Have them text "HELLO ${trip.join_code}" to this number to join.`
+      : `Invite them from the app: ${siteUrl}/planner/trips/${tripId}`;
+    return `Looks like it's just you on this trip so far. ${howToInvite}`;
+  }
+
+  const { data: prefRows } = await admin.from("planner_preferences").select("user_id").eq("trip_id", tripId);
+  const answeredIds = new Set((prefRows ?? []).map((p) => p.user_id as string));
+  const notAnswered = members.filter((m) => !answeredIds.has(m.id));
+
+  if (notAnswered.length === 0) {
+    return `Yep — all ${members.length} of you have answered preferences.`;
+  }
+  const names = notAnswered.map((m) => m.name?.split(" ")[0] || "someone").join(", ");
+  return `${members.length - notAnswered.length} of ${members.length} have answered preferences — still waiting on ${names}.`;
+}
+
 /**
- * Answers one of the two questions this can currently handle, always
- * grounded directly in real trip rows — never an LLM guessing at an
- * answer. "other" gets a plain, honest scope statement rather than an
- * attempt at a general answer, which would need much broader data
- * assembly (see the plan this shipped from).
+ * Answers one of the questions this can currently handle, always grounded
+ * directly in real trip rows — never an LLM guessing at an answer. "other"
+ * gets a plain, honest scope statement rather than an attempt at a general
+ * answer, which would need much broader data assembly (see the plan this
+ * shipped from).
  */
 export async function answerTripQuestion(
   admin: SupabaseClient,
   tripId: string,
-  topic: "day" | "lodging_cost" | "other",
+  topic: "day" | "lodging_cost" | "roster" | "other",
   dayRef: string | null
 ): Promise<string> {
   if (topic === "day") return answerDayQuestion(admin, tripId, dayRef);
   if (topic === "lodging_cost") return answerLodgingCostQuestion(admin, tripId);
-  return "I can tell you about the day-by-day plan or lodging cost right now — ask me one of those.";
+  if (topic === "roster") return answerRosterQuestion(admin, tripId);
+  return "I can tell you about the day-by-day plan, lodging cost, or who's confirmed — ask me one of those.";
 }

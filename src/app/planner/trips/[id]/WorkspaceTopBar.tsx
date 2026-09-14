@@ -140,18 +140,20 @@ export function WorkspaceTopBar({
               {travellerCount === 1 ? "traveller" : "travellers"}
             </p>
           </div>
-          <div className="flex flex-none">
-            {roster.slice(0, 5).map((m, i) => (
-              <div
-                key={i}
-                className="ml-[-5px] flex h-6.5 w-6.5 items-center justify-center rounded-full border-2 border-card text-[11px] text-cream"
-                style={{ background: avatarColors[i % avatarColors.length] }}
-                title={m.label}
-              >
-                {initialsOf(m.label)}
-              </div>
-            ))}
-          </div>
+          {roster.length > 1 && (
+            <div className="flex flex-none">
+              {roster.slice(0, 5).map((m, i) => (
+                <div
+                  key={i}
+                  className="ml-[-5px] flex h-6.5 w-6.5 items-center justify-center rounded-full border-2 border-card text-[11px] text-cream"
+                  style={{ background: avatarColors[i % avatarColors.length] }}
+                  title={m.label}
+                >
+                  {initialsOf(m.label)}
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Fixed at exactly two objects, regardless of trip state — Add and the profile menu. */}
