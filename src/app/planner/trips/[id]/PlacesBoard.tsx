@@ -1,7 +1,6 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { KIND_OPTIONS } from "@/lib/planner/itinerary";
 import { AddPlaceModal } from "./AddPlaceModal";
 import { PlaceMapView } from "@/components/planner/PlaceMapView";
@@ -15,28 +14,29 @@ export function PlacesBoard({
   days,
   places: initialPlaces,
   googleMapsApiKey,
+  myDisplayName,
 }: {
   tripId: string;
   days: PlannerDay[];
   places: PlaceWithWho[];
   googleMapsApiKey: string;
+  myDisplayName: string;
 }) {
   const [places, setPlaces] = useState(initialPlaces);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
-  // The top bar's "+ Add" dropdown jumps here with ?openAdd=place|link and
-  // this section opens its own modal in response, rather than the top bar
-  // owning a duplicate copy of this modal's state. Adjusting state during
-  // render (not in an effect) so this only fires once per actual param
-  // change — see https://react.dev/learn/you-might-not-need-an-effect.
-  const searchParams = useSearchParams();
-  const openAddParam = searchParams.get("openAdd");
-  const [handledOpenAdd, setHandledOpenAdd] = useState<string | null>(null);
-  if (openAddParam && openAddParam !== handledOpenAdd) {
-    setHandledOpenAdd(openAddParam);
-    if (openAddParam === "place" || openAddParam === "link") setAddOpen(true);
-  }
+
+  // The top bar's "+ Add" dropdown dispatches this instead of navigating,
+  // so opening the modal doesn't wait on a full page re-fetch.
+  useEffect(() => {
+    function handler(e: Event) {
+      const kind = (e as CustomEvent<{ kind: string }>).detail?.kind;
+      if (kind === "place" || kind === "link") setAddOpen(true);
+    }
+    window.addEventListener("open-add-modal", handler);
+    return () => window.removeEventListener("open-add-modal", handler);
+  }, []);
 
   async function removePlace(id: string) {
     setRemovingId(id);
@@ -186,9 +186,7 @@ export function PlacesBoard({
         existingPlaces={places}
         open={addOpen}
         onClose={() => setAddOpen(false)}
-        onCreated={(place) =>
-          setPlaces((list) => [...list, { ...place, who: "You" }])
-        }
+        onCreated={(place) => setPlaces((list) => [...list, { ...place, who: myDisplayName }])}
       />
     </div>
   );

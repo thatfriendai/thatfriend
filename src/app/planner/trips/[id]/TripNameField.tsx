@@ -3,8 +3,16 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 
-/** The trip name in the header bar is itself the rename field — no separate menu or modal. */
-export function TripNameField({ tripId, initialName }: { tripId: string; initialName: string }) {
+/** The trip name — in the header bar, or as the page's own H1 — is itself the rename field, no separate menu or modal. */
+export function TripNameField({
+  tripId,
+  initialName,
+  className,
+}: {
+  tripId: string;
+  initialName: string;
+  className?: string;
+}) {
   const router = useRouter();
   const [value, setValue] = useState(initialName);
   const [saving, setSaving] = useState(false);
@@ -45,7 +53,10 @@ export function TripNameField({ tripId, initialName }: { tripId: string; initial
       }}
       disabled={saving}
       title="Click to rename"
-      className="w-full min-w-0 truncate rounded-md border border-transparent bg-transparent p-0 text-[15px] font-medium text-ink outline-none hover:border-input-border focus:border-ink disabled:opacity-60"
+      className={
+        className ??
+        "w-full min-w-0 truncate rounded-md border border-transparent bg-transparent p-0 text-[15px] font-medium text-ink outline-none hover:border-input-border focus:border-ink disabled:opacity-60"
+      }
     />
   );
 }

@@ -5,13 +5,13 @@ const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 export type InboundIntent =
   | { kind: "add_place" }
-  | { kind: "question"; topic: "day" | "lodging_cost" | "roster" | "other"; dayRef: string | null }
+  | { kind: "question"; topic: "day" | "lodging_cost" | "budget" | "roster" | "other"; dayRef: string | null }
   | { kind: "nudge" }
   | { kind: "close_decision"; decisionRef: string | null }
   | { kind: "start_trip"; destination: string | null };
 
 const SYSTEM = `You classify one text message sent to "That Friend," a group trip-planning assistant, so it can be routed correctly. Most texts are someone forwarding a link, a note, or a caption for That Friend to save as a place on the trip — that's the default, "add_place", whenever the message isn't clearly a direct question or instruction addressed to the assistant itself. Only classify as something else when the message unambiguously reads as talking TO the assistant:
-- "question": asking what's happening on a specific day (topic "day", with dayRef holding whatever they used to refer to it verbatim, e.g. "day 1", "tomorrow", "Saturday"), asking about lodging/hotel/Airbnb cost (topic "lodging_cost"), or asking whether everyone has joined/confirmed/answered (topic "roster", e.g. "did everyone confirm", "who's in", "is everyone here"). Any other genuine question about the trip that isn't one of those gets topic "other".
+- "question": asking what's happening on a specific day (topic "day", with dayRef holding whatever they used to refer to it verbatim, e.g. "day 1", "tomorrow", "Saturday"); asking specifically about the lodging/hotel/Airbnb decision or its price options (topic "lodging_cost", e.g. "how much is the airbnb", "what are the hotel options"); asking more generally whether the trip will be expensive or what to expect to spend, not tied to one specific decision (topic "budget", e.g. "is this going to be expensive", "what's our budget looking like", "worried about cost"); or asking whether everyone has joined/confirmed/answered (topic "roster", e.g. "did everyone confirm", "who's in", "is everyone here"). Any other genuine question about the trip that isn't one of those gets topic "other".
 - "nudge": asking to remind, nudge, or ping the group or specific people about answering something.
 - "close_decision": asking to close, finalize, or lock in a poll/decision/vote. decisionRef holds whatever they used to refer to which one, verbatim (e.g. "the hotel one", "where to eat"), or null if unspecified.
 - "start_trip": asking to start, create, plan, or begin a brand-new trip (e.g. "start a trip to Lisbon", "new trip: Austin girls weekend", "let's plan a trip to Austin"). destination holds the place name verbatim as they wrote it, or null if they didn't name one (e.g. just "start a trip").
@@ -28,7 +28,9 @@ interface RawIntent {
 function sanitize(input: RawIntent): InboundIntent {
   if (input.kind === "question") {
     const topic =
-      input.topic === "day" || input.topic === "lodging_cost" || input.topic === "roster" ? input.topic : "other";
+      input.topic === "day" || input.topic === "lodging_cost" || input.topic === "budget" || input.topic === "roster"
+        ? input.topic
+        : "other";
     const dayRef = typeof input.dayRef === "string" && input.dayRef.trim() ? input.dayRef.trim().slice(0, 60) : null;
     return { kind: "question", topic, dayRef };
   }
@@ -79,7 +81,7 @@ export async function classifyIntent(text: string): Promise<InboundIntent> {
               },
               topic: {
                 type: "string",
-                enum: ["day", "lodging_cost", "roster", "other"],
+                enum: ["day", "lodging_cost", "budget", "roster", "other"],
                 description: "Only set when kind is 'question'.",
               },
               dayRef: {

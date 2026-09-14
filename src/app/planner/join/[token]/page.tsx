@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { AuthPanel } from "@/app/planner/login/AuthPanel";
 
 export default async function JoinPage({
   params,
@@ -85,40 +84,12 @@ export default async function JoinPage({
           )}
         </div>
 
-        <div className="mb-7 overflow-hidden rounded-2xl border border-border bg-card">
-          <div className="border-b border-border-soft p-5.5">
-            <p className="mb-2.5 font-mono text-[10.5px] tracking-[0.12em] text-muted uppercase">
-              Where it stands
-            </p>
-            <p className="text-[15.5px] leading-relaxed text-ink-body">
-              {memberNames.length > 0
-                ? `${memberNames.length} of the group ${memberNames.length === 1 ? "has" : "have"} joined so far. Nothing is booked yet, so you're not late.`
-                : "Nobody's answered yet — you could be the first."}
-            </p>
-          </div>
-          <div className="relative p-5.5 pb-6.5">
-            <div className="flex flex-col gap-2.5 opacity-55 blur-[4px] select-none">
-              <div className="h-2 w-[88%] rounded bg-border-soft" />
-              <div className="h-2 w-[72%] rounded bg-border-soft" />
-              <div className="h-2 w-[80%] rounded bg-border-soft" />
-              <div className="h-2 w-[55%] rounded bg-border-soft" />
-            </div>
-            <div className="absolute inset-0 flex items-center justify-center">
-              <p className="rounded-full border border-border bg-card px-4 py-2 text-sm text-muted">
-                Sign in to see the plan, notes and map
-              </p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mb-6 max-w-sm">
-          <AuthPanel token={token} />
-        </div>
-        <p className="max-w-[46em] text-[13.5px] leading-relaxed text-muted">
-          {ownerName} set the destination and dates already. All that&rsquo;s
-          left for you is your side of it: what you can spend, and how you
-          want the week to feel.
-        </p>
+        <Link
+          href={`/planner/login?token=${token}`}
+          className="flex items-center justify-center rounded-full bg-ink px-7 py-4 text-[16px] text-cream hover:bg-accent"
+        >
+          Sign in to see the plan, notes and map
+        </Link>
       </div>
     </div>
   );

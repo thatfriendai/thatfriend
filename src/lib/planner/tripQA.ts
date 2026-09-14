@@ -1,6 +1,8 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { formatDayLabel } from "./itinerary";
+import { BUDGET_FIELDS } from "./preferences";
+import { computeOverlap } from "./convergence";
 import type { PlannerDay } from "@/lib/supabase/planner-types";
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
@@ -115,6 +117,55 @@ async function answerLodgingCostQuestion(admin: SupabaseClient, tripId: string):
   return `"${decision.title}" hasn't been decided yet — options so far: ${list}.`;
 }
 
+/**
+ * A broader "is this going to be expensive" question — as opposed to
+ * answerLodgingCostQuestion, which only covers the stay decision. Grounded
+ * in whatever preferences have actually been submitted (same floor/comfy
+ * overlap math as the Convergence view); when nobody's answered anything
+ * yet, points at the two real actions that would produce a real number
+ * instead of a dead-end.
+ */
+async function answerBudgetQuestion(admin: SupabaseClient, tripId: string): Promise<string> {
+  const { data: prefRows } = await admin
+    .from("planner_preferences")
+    .select("stay_max, flight_max, food_max")
+    .eq("trip_id", tripId);
+  const rows = prefRows ?? [];
+
+  const overlaps = BUDGET_FIELDS.map((field) => {
+    const entries = rows
+      .filter((r) => typeof r[field.key as keyof (typeof rows)[number]] === "number")
+      .map((r) => ({ value: r[field.key as keyof (typeof rows)[number]] as number, userId: null, name: null }));
+    return computeOverlap(field.key, field.label, field.max, entries);
+  }).filter((o): o is NonNullable<typeof o> => o !== null);
+
+  const { data: stayDecision } = await admin
+    .from("planner_decisions")
+    .select("id")
+    .eq("trip_id", tripId)
+    .eq("kind", "stay")
+    .limit(1)
+    .maybeSingle();
+
+  if (overlaps.length === 0) {
+    if (stayDecision) return answerLodgingCostQuestion(admin, tripId);
+    return "Nothing to go on yet — add a lodging option or a restaurant pick as a decision, or get people to answer preferences, and I can give you a real number.";
+  }
+
+  const byKey = new Map(overlaps.map((o) => [o.key, o]));
+  const pieces: string[] = [];
+  const stay = byKey.get("stay_max");
+  if (stay) pieces.push(`lodging around $${stay.floor}-${stay.comfy}/night`);
+  const food = byKey.get("food_max");
+  if (food) pieces.push(`food around $${food.floor}-${food.comfy}/day`);
+  const flight = byKey.get("flight_max");
+  if (flight) pieces.push(`flights around $${flight.floor}-${flight.comfy} round trip`);
+
+  const base = `Based on what's been submitted so far: ${pieces.join(", ")}.`;
+  if (stayDecision) return `${base} ${await answerLodgingCostQuestion(admin, tripId)}`;
+  return `${base} Add a lodging option as a decision once you're ready to compare real prices.`;
+}
+
 async function answerRosterQuestion(admin: SupabaseClient, tripId: string): Promise<string> {
   const { data: trip } = await admin
     .from("planner_trips")
@@ -160,11 +211,12 @@ async function answerRosterQuestion(admin: SupabaseClient, tripId: string): Prom
 export async function answerTripQuestion(
   admin: SupabaseClient,
   tripId: string,
-  topic: "day" | "lodging_cost" | "roster" | "other",
+  topic: "day" | "lodging_cost" | "budget" | "roster" | "other",
   dayRef: string | null
 ): Promise<string> {
   if (topic === "day") return answerDayQuestion(admin, tripId, dayRef);
   if (topic === "lodging_cost") return answerLodgingCostQuestion(admin, tripId);
+  if (topic === "budget") return answerBudgetQuestion(admin, tripId);
   if (topic === "roster") return answerRosterQuestion(admin, tripId);
-  return "I can tell you about the day-by-day plan, lodging cost, or who's confirmed — ask me one of those.";
+  return "I can tell you about the day-by-day plan, budget, lodging cost, or who's confirmed — ask me one of those.";
 }

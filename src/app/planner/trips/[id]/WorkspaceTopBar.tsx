@@ -2,7 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { TripNameField } from "./TripNameField";
 
 const SECTION_IDS = ["trip101", "places", "stays", "decisions", "resources", "itinerary"];
@@ -112,18 +111,22 @@ export function WorkspaceTopBar({
     decisionsNeedVote: boolean;
   };
 }) {
-  const router = useRouter();
   const active = useActiveSection();
   const [addOpen, setAddOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const addRef = useClickOutside(() => setAddOpen(false));
   const menuRef = useClickOutside(() => setMenuOpen(false));
 
-  function openAdd(kind: "place" | "link" | "decision" | "day" | "resource") {
+  // A plain DOM event instead of a `router.push(...?openAdd=...)` round
+  // trip — pushing a new URL made Next.js re-run this whole page's server
+  // data fetch (places, resources, decisions, the stay-comparison narrative
+  // call) just to flip open a client-side modal, which is what made the
+  // +Add menu feel like it hung for several seconds before anything opened.
+  function openAdd(kind: "place" | "link" | "decision" | "day") {
     setAddOpen(false);
-    const anchor =
-      kind === "decision" ? "decisions" : kind === "day" ? "itinerary" : kind === "resource" ? "resources" : "places";
-    router.push(`/planner/trips/${tripId}?openAdd=${kind}#${anchor}`);
+    window.dispatchEvent(new CustomEvent("open-add-modal", { detail: { kind } }));
+    const anchor = kind === "decision" ? "decisions" : kind === "day" ? "itinerary" : "places";
+    document.getElementById(anchor)?.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   return (
@@ -171,7 +174,6 @@ export function WorkspaceTopBar({
                 {[
                   { key: "place" as const, label: "A place" },
                   { key: "link" as const, label: "A link" },
-                  { key: "resource" as const, label: "A resource" },
                   { key: "decision" as const, label: "A decision" },
                   { key: "day" as const, label: "A day" },
                 ].map((item) => (

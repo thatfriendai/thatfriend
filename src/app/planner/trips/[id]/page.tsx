@@ -4,6 +4,7 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signOut } from "@/app/planner/actions";
 import { CopyInviteLink } from "./CopyInviteLink";
+import { CopyJoinCode } from "./CopyJoinCode";
 import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
 import { DecisionsSection } from "./decisions/DecisionsSection";
@@ -20,6 +21,7 @@ import { DatesModal } from "./DatesModal";
 import { ConvergenceModal } from "./ConvergenceModal";
 import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { TripVisibilityToggle } from "./TripVisibilityToggle";
+import { TripNameField } from "./TripNameField";
 import { ensureDays } from "@/lib/planner/days";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 import { formatPhoneDisplay } from "@/lib/planner/phone";
@@ -176,6 +178,7 @@ export default async function PlannerTripPage({
   );
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const smsNumber = process.env.TWILIO_SMS_NUMBER ?? null;
   const roster = (members ?? []).map((m) => {
     const person = m.planner_users as unknown as {
       name: string | null;
@@ -254,9 +257,11 @@ export default async function PlannerTripPage({
 
       <div className="mx-auto max-w-[1080px] px-6 py-9.5 pb-28">
         <div id="trip101" className="mb-12">
-          <h1 className="text-[38px] leading-[1.08] font-display tracking-tight text-ink">
-            {trip.name}
-          </h1>
+          <TripNameField
+            tripId={id}
+            initialName={trip.name}
+            className="w-full min-w-0 rounded-lg border border-transparent bg-transparent p-0 text-[38px] leading-[1.08] font-display tracking-tight text-ink outline-none hover:border-input-border focus:border-ink"
+          />
           {trip.destination && (
             <p className="mt-1.5 mb-4 text-sm text-muted">{trip.destination}</p>
           )}
@@ -347,12 +352,20 @@ export default async function PlannerTripPage({
               clutter for a trip of one. */}
           <div className="mt-4 flex flex-col gap-3">
             {roster.length <= 1 ? (
-              joinInvite && (
-                <div>
-                  <p className="mb-2 text-[14px] text-body">Send this link to bring your travelers in.</p>
-                  <CopyInviteLink url={`${siteUrl}/planner/join/${joinInvite.token}`} />
-                </div>
-              )
+              <div className="flex flex-col gap-3">
+                {joinInvite && (
+                  <div>
+                    <p className="mb-2 text-[14px] text-body">Send this link to bring your travelers in.</p>
+                    <CopyInviteLink url={`${siteUrl}/planner/join/${joinInvite.token}`} />
+                  </div>
+                )}
+                {trip.join_code && (
+                  <div>
+                    <p className="mb-2 text-[14px] text-body">Or share this join code.</p>
+                    <CopyJoinCode code={trip.join_code} smsNumber={smsNumber} />
+                  </div>
+                )}
+              </div>
             ) : (
               <>
                 <StartGroupText tripId={id} started={Boolean(trip.twilio_conversation_sid)} />
@@ -418,13 +431,14 @@ export default async function PlannerTripPage({
           days={days}
           places={places}
           googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}
+          myDisplayName={user.name || user.email?.split("@")[0] || "Someone"}
         />
 
         <StaysSection tripId={id} stayDecision={stayDecision} myUserId={user.id} totalMembers={roster.length} />
 
         <DecisionsSection tripId={id} decisions={decisions} totalMembers={roster.length} />
 
-        <SourcesSection tripId={id} resources={resources} />
+        <SourcesSection resources={resources} />
       </div>
     </div>
   );
