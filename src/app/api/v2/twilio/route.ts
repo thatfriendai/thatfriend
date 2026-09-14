@@ -183,6 +183,9 @@ export async function POST(request: Request) {
   }
 
   if (result.places.length === 0) {
+    if (result.alreadyAdded) {
+      return reply("Already saved that link — nothing new to add.");
+    }
     if (result.duplicates.length > 0) {
       return reply(
         `Already on the map for "${tripName}": ${result.duplicates.join(", ")}.`

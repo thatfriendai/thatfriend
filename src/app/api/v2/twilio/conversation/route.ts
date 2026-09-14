@@ -147,7 +147,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true });
   }
 
-  if (result.places.length > 0) {
+  if (result.places.length === 0 && result.alreadyAdded) {
+    await sendConversationMessage(conversationSid, "Already saved that link — nothing new to add.");
+  } else if (result.places.length > 0) {
     const farNote =
       result.farAway.length > 0
         ? " " +
