@@ -105,18 +105,13 @@ export default async function PlannerTripPage({
     items: (items ?? []).filter((i) => i.day_id === d.id),
   }));
 
-  const resourceLabelById = new Map(
-    (resourceRows ?? []).map((r) => [r.id as string, r.label as string])
-  );
-
   const places = (placeRows ?? []).map((p) => {
     const person = p.planner_users as unknown as {
       name: string | null;
       email: string | null;
     } | null;
     const who = person?.name || person?.email?.split("@")[0] || "Someone";
-    const sourceLabel = p.resource_id ? (resourceLabelById.get(p.resource_id) ?? null) : null;
-    return { ...p, who, sourceLabel };
+    return { ...p, who };
   });
 
   // Hides any resource with nothing attached to it — a leftover dud from
