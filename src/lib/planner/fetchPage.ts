@@ -46,6 +46,25 @@ function decodeHtmlEntities(s: string): string {
     .replace(/&gt;/g, ">");
 }
 
+/** Pulls a human-readable page/video title — og:title first (more reliable for YouTube, articles with a shorter display title than their <title> tag), falling back to the <title> tag itself. */
+function findPageTitle(html: string): string | null {
+  const metaTags = html.match(/<meta\s+[^>]*>/gi) ?? [];
+  const ogTitleTag = metaTags.find((t) => /(?:property|name)=["']og:title["']/i.test(t));
+  const ogMatch = ogTitleTag?.match(/content=["']([^"']+)["']/i);
+  if (ogMatch) {
+    const title = decodeHtmlEntities(ogMatch[1]).trim();
+    if (title) return title;
+  }
+
+  const titleMatch = html.match(/<title[^>]*>([^<]*)<\/title>/i);
+  if (titleMatch) {
+    const title = decodeHtmlEntities(titleMatch[1]).replace(/\s+/g, " ").trim();
+    if (title) return title;
+  }
+
+  return null;
+}
+
 /** Pulls a page's preview image (og:image, falling back to twitter:image) straight out of the raw HTML. */
 function findPreviewImage(html: string, pageUrl: string): string | null {
   const metaTags = html.match(/<meta\s+[^>]*>/gi) ?? [];
@@ -99,6 +118,7 @@ export async function fetchPageText(
 
     const html = await res.text();
     const imageUrl = findPreviewImage(html, res.url || parsed.toString()) ?? undefined;
+    const pageTitle = findPageTitle(html);
     const text = html
       .replace(/<script[\s\S]*?<\/script>/gi, " ")
       .replace(/<style[\s\S]*?<\/style>/gi, " ")
@@ -109,10 +129,13 @@ export async function fetchPageText(
       .trim()
       .slice(0, 8000);
 
-    if (!text) return null;
+    if (!text && !pageTitle) return null;
 
-    const label = parsed.hostname.replace(/^www\./, "") + parsed.pathname.replace(/\/$/, "");
-    return { text, label: label.slice(0, 80), imageUrl };
+    // The real page/video title reads far better than a bare domain+path,
+    // which is all this fell back to before — that fallback only kicks in
+    // for the rare page with no <title> or og:title at all.
+    const label = pageTitle ?? parsed.hostname.replace(/^www\./, "") + parsed.pathname.replace(/\/$/, "");
+    return { text, label: label.slice(0, 120), imageUrl };
   } catch {
     return null;
   }

@@ -25,6 +25,7 @@ export function PlacesBoard({
   const [places, setPlaces] = useState(initialPlaces);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [addEntryMode, setAddEntryMode] = useState<"place" | "resource">("place");
   const [removingId, setRemovingId] = useState<string | null>(null);
 
   // The top bar's "+ Add" dropdown dispatches this instead of navigating,
@@ -32,7 +33,10 @@ export function PlacesBoard({
   useEffect(() => {
     function handler(e: Event) {
       const kind = (e as CustomEvent<{ kind: string }>).detail?.kind;
-      if (kind === "place" || kind === "link") setAddOpen(true);
+      if (kind === "place" || kind === "resource") {
+        setAddEntryMode(kind);
+        setAddOpen(true);
+      }
     }
     window.addEventListener("open-add-modal", handler);
     return () => window.removeEventListener("open-add-modal", handler);
@@ -120,11 +124,6 @@ export function PlacesBoard({
                         )}
                         <div className="min-w-0 flex-1">
                           <div className="text-[15px] font-medium text-[#2B2825]">{p.name}</div>
-                          {p.note && (
-                            <div className="mt-1 text-[13.5px] leading-[1.5] text-body">
-                              {p.note}
-                            </div>
-                          )}
                           <div className="mt-1.5 font-mono text-[10.5px] text-muted">
                             <span>added by {p.who}</span>
                           </div>
@@ -185,6 +184,7 @@ export function PlacesBoard({
         googleMapsApiKey={googleMapsApiKey}
         existingPlaces={places}
         open={addOpen}
+        entryMode={addEntryMode}
         onClose={() => setAddOpen(false)}
         onCreated={(place) => setPlaces((list) => [...list, { ...place, who: myDisplayName }])}
       />
