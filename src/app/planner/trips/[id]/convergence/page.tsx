@@ -75,38 +75,19 @@ export default async function ConvergencePage({
 
   const admin = createAdminClient();
 
-  const { data: membership } = await admin
-    .from("planner_memberships")
-    .select("trip_id")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // None of these five depend on each other — one round trip instead of
+  // five sequential ones. total/prefRows are wasted in the rare case one
+  // of the guards below fails, which is a fine trade for the common case.
+  const [{ data: membership }, { data: trip }, { data: myPref }, { count: total }, { data: prefRows }] = await Promise.all([
+    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_trips").select("name, privacy").eq("id", tripId).maybeSingle(),
+    admin.from("planner_preferences").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_memberships").select("*", { count: "exact", head: true }).eq("trip_id", tripId),
+    admin.from("planner_preferences").select("*, planner_users(id, name, email)").eq("trip_id", tripId),
+  ]);
   if (!membership) notFound();
-
-  const { data: trip } = await admin
-    .from("planner_trips")
-    .select("name, privacy")
-    .eq("id", tripId)
-    .maybeSingle();
   if (!trip) notFound();
-
-  const { data: myPref } = await admin
-    .from("planner_preferences")
-    .select("trip_id")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id)
-    .maybeSingle();
   if (!myPref) redirect(`/planner/trips/${tripId}/preferences`);
-
-  const { count: total } = await admin
-    .from("planner_memberships")
-    .select("*", { count: "exact", head: true })
-    .eq("trip_id", tripId);
-
-  const { data: prefRows } = await admin
-    .from("planner_preferences")
-    .select("*, planner_users(id, name, email)")
-    .eq("trip_id", tripId);
 
   const rows = prefRows ?? [];
   const isPrivate = trip.privacy === "private";

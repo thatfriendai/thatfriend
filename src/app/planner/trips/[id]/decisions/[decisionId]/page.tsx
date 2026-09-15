@@ -21,50 +21,32 @@ export default async function DecisionPage({
 
   const admin = createAdminClient();
 
-  const { data: membership } = await admin
-    .from("planner_memberships")
-    .select("trip_id")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // None of these seven depend on anything but the ids already in hand
+  // from params/user — one round trip instead of seven sequential ones.
+  const [
+    { data: membership },
+    { data: trip },
+    { data: decision },
+    { data: optionRows },
+    { data: voteRows },
+    { data: noteRows },
+    { data: members },
+  ] = await Promise.all([
+    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_trips").select("name").eq("id", tripId).maybeSingle(),
+    admin.from("planner_decisions").select("*").eq("id", decisionId).eq("trip_id", tripId).maybeSingle(),
+    admin.from("planner_decision_options").select("*").eq("decision_id", decisionId).order("position", { ascending: true }),
+    admin.from("planner_decision_votes").select("option_id, user_id, planner_users(name, email)").eq("decision_id", decisionId),
+    admin
+      .from("planner_decision_notes")
+      .select("*, planner_users(name, email)")
+      .eq("decision_id", decisionId)
+      .order("created_at", { ascending: true }),
+    admin.from("planner_memberships").select("user_id, planner_users(name, email)").eq("trip_id", tripId),
+  ]);
   if (!membership) notFound();
-
-  const { data: trip } = await admin
-    .from("planner_trips")
-    .select("name")
-    .eq("id", tripId)
-    .maybeSingle();
   if (!trip) notFound();
-
-  const { data: decision } = await admin
-    .from("planner_decisions")
-    .select("*")
-    .eq("id", decisionId)
-    .eq("trip_id", tripId)
-    .maybeSingle();
   if (!decision) notFound();
-
-  const { data: optionRows } = await admin
-    .from("planner_decision_options")
-    .select("*")
-    .eq("decision_id", decisionId)
-    .order("position", { ascending: true });
-
-  const { data: voteRows } = await admin
-    .from("planner_decision_votes")
-    .select("option_id, user_id, planner_users(name, email)")
-    .eq("decision_id", decisionId);
-
-  const { data: noteRows } = await admin
-    .from("planner_decision_notes")
-    .select("*, planner_users(name, email)")
-    .eq("decision_id", decisionId)
-    .order("created_at", { ascending: true });
-
-  const { data: members } = await admin
-    .from("planner_memberships")
-    .select("user_id, planner_users(name, email)")
-    .eq("trip_id", tripId);
 
   const roster = (members ?? []).map((m) => ({
     userId: m.user_id,

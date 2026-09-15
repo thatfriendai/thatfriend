@@ -21,46 +21,27 @@ export default async function PreferencesPage({
 
   const admin = createAdminClient();
 
-  const { data: membership } = await admin
-    .from("planner_memberships")
-    .select("role")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // None of these six depend on each other — one round trip instead of
+  // six sequential ones.
+  const [
+    { data: membership },
+    { data: trip },
+    { data: myPref },
+    { data: myAvailability },
+    { data: memberRows },
+    { data: allPrefs },
+  ] = await Promise.all([
+    admin.from("planner_memberships").select("role").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_trips").select("*, planner_users!planner_trips_created_by_fkey(name, email)").eq("id", tripId).maybeSingle(),
+    admin.from("planner_preferences").select("*").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_availability_marks").select("date").eq("trip_id", tripId).eq("user_id", user.id),
+    admin.from("planner_memberships").select("planner_users(id, name, email)").eq("trip_id", tripId),
+    admin.from("planner_preferences").select("user_id, stay_max, flight_max, food_max, non_negotiable").eq("trip_id", tripId),
+  ]);
   if (!membership) notFound();
-
-  const { data: trip } = await admin
-    .from("planner_trips")
-    .select("*, planner_users!planner_trips_created_by_fkey(name, email)")
-    .eq("id", tripId)
-    .maybeSingle();
   if (!trip) notFound();
 
   const starter = trip.planner_users as unknown as { name: string | null; email: string | null } | null;
-
-  const { data: myPref } = await admin
-    .from("planner_preferences")
-    .select("*")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const { data: myAvailability } = await admin
-    .from("planner_availability_marks")
-    .select("date")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id);
-
-  const { data: memberRows } = await admin
-    .from("planner_memberships")
-    .select("planner_users(id, name, email)")
-    .eq("trip_id", tripId);
-
-  const { data: allPrefs } = await admin
-    .from("planner_preferences")
-    .select("user_id, stay_max, flight_max, food_max, non_negotiable")
-    .eq("trip_id", tripId);
-
   const answeredIds = new Set((allPrefs ?? []).map((p) => p.user_id));
   const members = (memberRows ?? [])
     .map((m) => m.planner_users as unknown as { id: string; name: string | null; email: string | null } | null)

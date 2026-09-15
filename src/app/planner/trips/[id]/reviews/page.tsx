@@ -23,31 +23,31 @@ export default async function ReviewsPage({
 
   const admin = createAdminClient();
 
-  const { data: membership } = await admin
-    .from("planner_memberships")
-    .select("trip_id")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // Phase 1: only depends on tripId/user.id — one round trip instead of
+  // four sequential ones.
+  const [{ data: membership }, { data: trip }, { data: myReview }, visits] = await Promise.all([
+    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_trips").select("*").eq("id", tripId).maybeSingle(),
+    admin.from("planner_trip_reviews").select("*").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    listVisits(admin, tripId),
+  ]);
   if (!membership) notFound();
-
-  const { data: trip } = await admin
-    .from("planner_trips")
-    .select("*")
-    .eq("id", tripId)
-    .maybeSingle();
   if (!trip) notFound();
 
   const days = await ensureDays(admin, trip);
   const dayIds = days.map((d) => d.id);
+  const visitIds = visits.map((v) => v.id);
 
-  const { data: items } = dayIds.length
-    ? await admin
-        .from("planner_itinerary_items")
-        .select("*")
-        .in("day_id", dayIds)
-        .order("position", { ascending: true })
-    : { data: [] as PlannerItineraryItem[] };
+  // Phase 2: items (needs dayIds) and placeRatingRows (needs visitIds from
+  // phase 1) don't depend on each other.
+  const [{ data: items }, { data: placeRatingRows }] = await Promise.all([
+    dayIds.length
+      ? admin.from("planner_itinerary_items").select("*").in("day_id", dayIds).order("position", { ascending: true })
+      : Promise.resolve({ data: [] as PlannerItineraryItem[] }),
+    visitIds.length
+      ? admin.from("planner_place_ratings").select("place_id, user_id, rating, body, planner_users(name, email)").in("place_id", visitIds)
+      : Promise.resolve({ data: [] }),
+  ]);
 
   const itemIds = (items ?? []).map((i) => i.id);
   const { data: ratingRows } = itemIds.length
@@ -66,22 +66,6 @@ export default async function ReviewsPage({
     ...d,
     items: (items ?? []).filter((i) => i.day_id === d.id),
   }));
-
-  const { data: myReview } = await admin
-    .from("planner_trip_reviews")
-    .select("*")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  const visits = await listVisits(admin, tripId);
-  const visitIds = visits.map((v) => v.id);
-  const { data: placeRatingRows } = visitIds.length
-    ? await admin
-        .from("planner_place_ratings")
-        .select("place_id, user_id, rating, body, planner_users(name, email)")
-        .in("place_id", visitIds)
-    : { data: [] };
 
   const myPlaceRatings: Record<string, { rating: number; body: string | null }> = {};
   const othersByPlace: Record<string, { who: string; rating: number }[]> = {};

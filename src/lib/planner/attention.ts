@@ -42,11 +42,20 @@ export async function computeAttention(
 ): Promise<Attention> {
   const items: AttentionItem[] = [];
 
-  const { data: decisionRows } = await admin
-    .from("planner_decisions")
-    .select("id, title, status, deadline, planner_decision_votes(user_id)")
-    .eq("trip_id", tripId)
-    .eq("status", "open");
+  // All five queries in this function depend only on tripId — one round
+  // trip instead of two sequential ones.
+  const [{ data: decisionRows }, { data: placeRows }, { data: dayRows }, { data: memberRows }, { data: prefRows }] =
+    await Promise.all([
+      admin
+        .from("planner_decisions")
+        .select("id, title, status, deadline, planner_decision_votes(user_id)")
+        .eq("trip_id", tripId)
+        .eq("status", "open"),
+      admin.from("planner_places").select("id, name, lat, lng, resource_id").eq("trip_id", tripId),
+      admin.from("planner_days").select("id, date").eq("trip_id", tripId).order("date", { ascending: true }),
+      admin.from("planner_memberships").select("planner_users(id, phone)").eq("trip_id", tripId),
+      admin.from("planner_preferences").select("user_id").eq("trip_id", tripId),
+    ]);
 
   const decisions = (decisionRows ?? []).map((d) => ({
     id: d.id as string,
@@ -88,14 +97,6 @@ export async function computeAttention(
       severity: "normal",
     });
   }
-
-  const [{ data: placeRows }, { data: dayRows }, { data: memberRows }, { data: prefRows }] =
-    await Promise.all([
-      admin.from("planner_places").select("id, name, lat, lng, resource_id").eq("trip_id", tripId),
-      admin.from("planner_days").select("id, date").eq("trip_id", tripId).order("date", { ascending: true }),
-      admin.from("planner_memberships").select("planner_users(id, phone)").eq("trip_id", tripId),
-      admin.from("planner_preferences").select("user_id").eq("trip_id", tripId),
-    ]);
 
   const places = placeRows ?? [];
 
