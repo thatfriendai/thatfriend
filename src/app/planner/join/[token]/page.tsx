@@ -18,11 +18,11 @@ export default async function JoinPage({
 
   if (!invite) notFound();
 
-  const { data: trip } = await admin
-    .from("planner_trips")
-    .select("name, destination, start_date, end_date, created_by")
-    .eq("id", invite.trip_id)
-    .maybeSingle();
+  // trip and members both only need invite.trip_id, not each other.
+  const [{ data: trip }, { data: members }] = await Promise.all([
+    admin.from("planner_trips").select("name, destination, start_date, end_date, created_by").eq("id", invite.trip_id).maybeSingle(),
+    admin.from("planner_memberships").select("planner_users(name, email)").eq("trip_id", invite.trip_id),
+  ]);
 
   if (!trip) notFound();
 
@@ -31,11 +31,6 @@ export default async function JoinPage({
     .select("name, email")
     .eq("id", trip.created_by)
     .maybeSingle();
-
-  const { data: members } = await admin
-    .from("planner_memberships")
-    .select("planner_users(name, email)")
-    .eq("trip_id", invite.trip_id);
 
   const ownerName = owner?.name || owner?.email?.split("@")[0] || "Someone";
   const memberNames = (members ?? [])

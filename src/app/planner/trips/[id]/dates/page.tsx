@@ -20,35 +20,21 @@ export default async function DatesPage({
 
   const admin = createAdminClient();
 
-  const { data: membership } = await admin
-    .from("planner_memberships")
-    .select("role")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id)
-    .maybeSingle();
+  // None of these four depend on each other — one round trip instead of
+  // four sequential ones.
+  const [{ data: membership }, { data: trip }, { data: members }, { data: markRows }] = await Promise.all([
+    admin.from("planner_memberships").select("role").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_trips").select("*").eq("id", tripId).maybeSingle(),
+    admin.from("planner_memberships").select("user_id, planner_users(name, email)").eq("trip_id", tripId),
+    admin.from("planner_availability_marks").select("user_id, date, created_at").eq("trip_id", tripId),
+  ]);
   if (!membership) notFound();
-
-  const { data: trip } = await admin
-    .from("planner_trips")
-    .select("*")
-    .eq("id", tripId)
-    .maybeSingle();
   if (!trip) notFound();
-
-  const { data: members } = await admin
-    .from("planner_memberships")
-    .select("user_id, planner_users(name, email)")
-    .eq("trip_id", tripId);
 
   const roster = (members ?? []).map((m) => ({
     userId: m.user_id,
     label: labelOf(m.planner_users as unknown as { name: string | null; email: string | null } | null),
   }));
-
-  const { data: markRows } = await admin
-    .from("planner_availability_marks")
-    .select("user_id, date, created_at")
-    .eq("trip_id", tripId);
 
   const marks = markRows ?? [];
   const { proposal, coverage } = computeDateProposal(marks, roster.length);
