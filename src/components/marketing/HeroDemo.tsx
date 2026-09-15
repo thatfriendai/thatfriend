@@ -143,9 +143,9 @@ interface GeoPlace {
 }
 
 const PLACES: GeoPlace[] = [
-  { name: "Cervejaria Ramiro", source: "Maya", lat: 38.7268, lng: -9.1355 },
-  { name: "Time Out Market", source: "Priya", lat: 38.7071, lng: -9.1459 },
-  { name: "O Frade", source: "WhatsApp", lat: 38.7133, lng: -9.1218 },
+  { name: "Cervejaria Ramiro", source: "Maya", lat: 38.7152, lng: -9.1265 },
+  { name: "Time Out Market", source: "Priya", lat: 38.7112, lng: -9.1345 },
+  { name: "Belcanto", source: "WhatsApp", lat: 38.7107, lng: -9.1425 },
 ];
 
 // coordinates handed to places the visitor types, first one deliberately far out
@@ -266,7 +266,11 @@ const avatarStyle = (p: Person, size: number) =>
   }px;color:#FFFDF9;background:${p.color};`;
 
 export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
-  const [step, setStep] = useState(1);
+  // 0 intro, 1 dates, 1.5 dates-confirmed celebration, 2 stay, 2.5
+  // stay-confirmed celebration, 3 places, 3.5 places-confirmed celebration,
+  // 4 the finished itinerary — the .5 states are their own full screens
+  // between each decision, not just a recap bar.
+  const [step, setStep] = useState(0);
   const [start, setStart] = useState<number | null>(null);
   const [end, setEnd] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -278,11 +282,36 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   const [places, setPlaces] = useState<string[]>([]);
   const [confetti, setConfetti] = useState(false);
   const [activePin, setActivePin] = useState<number | null>(null);
+  const [mapW, setMapW] = useState(818);
+  const [mapH, setMapH] = useState(320);
 
   const timersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
   const later = (fn: () => void, ms: number) => {
     timersRef.current.push(setTimeout(fn, ms));
   };
+
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  // The label-collision math needs the map's real rendered size, not a
+  // guessed constant — the panel's width varies with the viewport, so a
+  // fixed frame size drifted from reality and mis-placed labels.
+  function measureMap(el: HTMLDivElement | null) {
+    if (!el) {
+      resizeObserverRef.current?.disconnect();
+      resizeObserverRef.current = null;
+      return;
+    }
+    const read = () => {
+      const r = el.getBoundingClientRect();
+      if (r.width) {
+        setMapW((w) => (Math.abs(r.width - w) > 1 ? r.width : w));
+        setMapH((h) => (Math.abs(r.height - h) > 1 ? r.height : h));
+      }
+    };
+    read();
+    resizeObserverRef.current?.disconnect();
+    resizeObserverRef.current = new ResizeObserver(read);
+    resizeObserverRef.current.observe(el);
+  }
 
   useEffect(() => {
     const up = () => setDragging((d) => (d ? false : d));
@@ -290,6 +319,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
     return () => {
       window.removeEventListener("mouseup", up);
       timersRef.current.forEach(clearTimeout);
+      resizeObserverRef.current?.disconnect();
     };
   }, []);
 
@@ -330,29 +360,20 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
     const k = 1 / (autoplaySpeed ?? 1);
     setStart(19);
     setEnd(27);
-    setStep(2);
+    setStep(1.5);
     setConfetti(true);
     later(() => setConfetti(false), 1600 * k);
-    later(() => setVote("casa"), 900 * k);
-    later(() => setStep(3), 1900 * k);
-    later(() => setPlaces(["Descobre, Belém"]), 2500 * k);
-    later(() => setStep(4), 3300 * k);
-  }
-
-  function reset(e: React.MouseEvent) {
-    e.preventDefault();
-    timersRef.current.forEach(clearTimeout);
-    timersRef.current = [];
-    setStep(1);
-    setStart(null);
-    setEnd(null);
-    setHover(null);
-    setVote(null);
-    setTiebreak(null);
-    setExtraStay(false);
-    setThing("");
-    setPlaces([]);
-    setConfetti(false);
+    later(() => setStep(2), 1700 * k);
+    later(() => setVote("casa"), 2600 * k);
+    later(() => {
+      setStep(2.5);
+      setConfetti(true);
+    }, 3500 * k);
+    later(() => setConfetti(false), 5100 * k);
+    later(() => setStep(3), 5000 * k);
+    later(() => setPlaces(["Descobre, Belém"]), 5600 * k);
+    later(() => setStep(3.5), 6400 * k);
+    later(() => setStep(4), 7800 * k);
   }
 
   const r = resolved();
@@ -413,13 +434,12 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   const tally = (o: Stay) => o.votes.length + (vote === o.id ? 1 : 0);
   const cheapest = Math.min(...options.map((o) => o.perNight));
 
-  const cellBase = "box-sizing:border-box;flex:1 1 0;min-width:124px;border-bottom:1px solid #EDE8DD;padding:12px 14px;";
+  const cellBase = "box-sizing:border-box;flex:1 1 0;min-width:146px;border-bottom:1px solid #EDE8DD;padding:15px 16px;";
   const edge = (i: number) => (i < options.length - 1 || !extraStay ? "border-right:1px solid #EDE8DD;" : "");
-  const KIND_TINT = ["#8A5A7A", "#6E5A7A", "#5E5A6E", "#A9709A"];
   const stayCols = options.map((o, i) => {
     const mine = vote === o.id;
     const votes = vote === o.id ? o.votes.concat("you") : o.votes;
-    const tint = KIND_TINT[i % KIND_TINT.length];
+    const tint = "#8C8478";
     return {
       o,
       name: o.name,
@@ -427,7 +447,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
       source: o.source,
       isHome: o.kind === "home",
       isHotel: o.kind === "hotel",
-      headStyle: css(cellBase + edge(i) + "border-top:2.5px solid " + tint + ";" + (mine ? "background:#FBF6EC;" : "")),
+      headStyle: css(cellBase + edge(i) + "border-top:1px solid #EDE8DD;" + (mine ? "background:#FBF6EC;" : "")),
       thumbStyle: css(
         "height:40px;border-radius:7px;margin-bottom:9px;display:flex;align-items:center;gap:7px;padding:0 9px;background:" +
           (mine ? "#FDF8F1" : "#FCFAF5") +
@@ -435,15 +455,15 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
           (mine ? "#E8DFD0" : "#EDE8DD") +
           ";"
       ),
-      sourceStyle: css(`font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.07em;text-transform:uppercase;color:${tint};`),
+      sourceStyle: css(`font-family:'DM Mono',monospace;font-size:11px;letter-spacing:0.07em;text-transform:uppercase;color:${tint};`),
       voters: votes.map((k) => ({
         initials: PEOPLE[k].initials,
         style: css(avatarStyle(PEOPLE[k], 22) + "margin-right:-6px;border:1.5px solid #FFFDF9;"),
       })),
-      voteCellStyle: css("box-sizing:border-box;flex:1 1 0;min-width:124px;padding:12px 14px;" + edge(i) + (mine ? "background:#FBF6EC;" : "")),
+      voteCellStyle: css("box-sizing:border-box;flex:1 1 0;min-width:146px;padding:15px 16px;" + edge(i) + (mine ? "background:#FBF6EC;" : "")),
       voteBtn: mine ? "Your vote" : "Vote",
       voteBtnStyle: css(
-        "width:100%;border-radius:999px;padding:7px;font-size:12.5px;cursor:pointer;transition:border-color 140ms ease;" +
+        "width:100%;border-radius:999px;padding:10px;font-size:15px;cursor:pointer;transition:border-color 140ms ease;" +
           (mine ? "border:none;background:#8A5A7A;color:#FFFDF9;" : "border:1px solid #E4DED2;background:transparent;color:#4A453E;")
       ),
       onVote: () => {
@@ -454,7 +474,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   });
 
   const labelStyle = css(
-    "box-sizing:border-box;width:112px;flex:none;background:#FCFAF5;border-bottom:1px solid #EDE8DD;border-right:1px solid #EDE8DD;padding:12px;font-family:'DM Mono',monospace;font-size:9.5px;letter-spacing:0.08em;text-transform:uppercase;color:#8C8478;line-height:1.5;"
+    "box-sizing:border-box;width:132px;flex:none;background:#FCFAF5;border-bottom:1px solid #EDE8DD;border-right:1px solid #EDE8DD;padding:14px 13px;font-family:'DM Mono',monospace;font-size:12px;letter-spacing:0.05em;text-transform:uppercase;color:#6E6459;line-height:1.5;"
   );
   const cellsFor = (main: (o: (typeof options)[number]) => string, sub: (o: (typeof options)[number]) => string, isBest: (o: (typeof options)[number]) => boolean) =>
     options.map((o, i) => ({
@@ -462,7 +482,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
       main: main(o),
       sub: sub(o),
       style: css(cellBase + edge(i) + (vote === o.id ? "background:#FBF6EC;" : "")),
-      mainStyle: css("font-size:13.5px;line-height:1.35;min-height:37px;color:" + (isBest(o) ? "#4C6749" : "#1B1917") + ";"),
+      mainStyle: css("font-size:17px;line-height:1.35;min-height:46px;color:" + (isBest(o) ? "#6E5A7A" : "#1B1917") + ";"),
     }));
 
   const matrixRows = [
@@ -509,7 +529,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   // instead of pretending they're next door.
   const stayAt = winner.inCity ? { lat: winner.lat, lng: winner.lng } : CITY_BASE;
   const mapOriginName = winner.inCity ? winner.name : "Lisbon nights";
-  const TINTS = ["#A9709A", "#8FA37A", "#C9A86A", "#8A9BB0", "#C08E7A"];
+  const TINTS = ["#A9709A", "#8A5A7A", "#6E5A7A", "#B08AA4", "#A98A5A"];
   const allPlaces = savedPlaces.map((p, i) => {
     const km = kmBetween(stayAt, p);
     return { ...p, km, walk: travelLabel(km), tint: p.mine ? "#8A5A7A" : TINTS[i % TINTS.length] };
@@ -522,7 +542,9 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   const midLat = (Math.min(...lats) + Math.max(...lats)) / 2;
   const midLng = (Math.min(...lngs) + Math.max(...lngs)) / 2;
   const kx = Math.cos((midLat * Math.PI) / 180);
-  const ASPECT = 836 / 268;
+  const FW = mapW;
+  const FH = mapH;
+  const ASPECT = FW / FH; // measured from the live frame
   let spanLat = Math.max(Math.max(...lats) - Math.min(...lats), 0.03) * 1.32;
   let spanLng = Math.max(Math.max(...lngs) - Math.min(...lngs), 0.04) * 1.2;
   if ((spanLng * kx) / spanLat < ASPECT) spanLng = (spanLat * ASPECT) / kx;
@@ -565,7 +587,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
     {
       key: 2,
       day: dayName(r.start + 2),
-      title: "O Frade, then whatever is open",
+      title: "Belcanto, then whatever is open",
       note: nearestWalk + " minutes from the door, so nobody books a taxi",
       style: css(rowBase),
       skip: r.start + 2 >= transfer,
@@ -582,8 +604,16 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
 
   // one shared label layer: first claim wins, later labels that collide are dropped
   const claimed: { x0: number; x1: number; y0: number; y1: number }[] = [];
-  const FW = 818;
-  const FH = 268;
+  const claimPx = (cx: number, cy: number, wPx: number, hPx: number) => {
+    const w = (wPx / FW) * 100;
+    const h = (hPx / FH) * 100;
+    claimed.push({ x0: cx - w / 2, x1: cx + w / 2, y0: cy - h / 2, y1: cy + h / 2 });
+  };
+  // pins own their space first, so no label lands under a dot
+  pts.forEach((p) => {
+    const xy = project(p);
+    claimPx(xy.x, xy.y, 36, 32);
+  });
   const claim = (cx: number, cy: number, chars: number, rotated: boolean) => {
     const lenPx = chars * 5.7 + 10;
     const thickPx = 14;
@@ -679,7 +709,14 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
     .filter((rd): rd is { show: true; name: string; key: string; style: CSSProperties } => Boolean(rd.show));
 
   const rangeLabel = start === null ? "Drag to pick" : selEnd === null || selEnd === start ? `${start} Sept` : `${start} to ${selEnd} Sept`;
-  const stepLabel = step >= 4 ? "Done in 40 seconds" : `Step ${step} of 3`;
+  const stepLabel =
+    step === 0
+      ? "Three decisions"
+      : step >= 4
+        ? "Done in 40 seconds"
+        : Math.round(step) === step
+          ? `Step ${step} of 3`
+          : `Step ${Math.floor(step)} done`;
 
   const confettiPieces = confetti
     ? Array.from({ length: 14 }, (_, i) => ({
@@ -692,7 +729,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             "px;height:" +
             (i % 2 ? 9 : 6) +
             "px;border-radius:1px;pointer-events:none;background:" +
-            ["#8A5A7A", "#A9709A", "#6E8C6A", "#A98A5A", "#6E5A7A"][i % 5] +
+            ["#8A5A7A", "#A9709A", "#C9A0B8", "#A98A5A", "#6E5A7A"][i % 5] +
             ";animation:tfFall " +
             (900 + (i % 5) * 190) +
             "ms ease-in " +
@@ -728,7 +765,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
         ),
         dotStyle: css(
           p.stay
-            ? "width:27px;height:27px;border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;color:#FFFDF9;background:#2F5D5A;box-shadow:0 1px 5px rgba(27,25,23,0.18);"
+            ? "width:27px;height:27px;border-radius:999px;flex:none;display:flex;align-items:center;justify-content:center;font-size:13px;color:#FFFDF9;background:#6E5A7A;box-shadow:0 1px 5px rgba(27,25,23,0.18);"
             : "width:" +
                 (active ? 26 : 13) +
                 "px;height:" +
@@ -763,7 +800,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   }
   function addThing() {
     const v = thing.trim();
-    setStep(4);
+    setStep(3.5);
     if (v) setPlaces((p) => p.concat(v));
     setThing("");
   }
@@ -804,10 +841,50 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
         <span style={{ fontSize: 13, color: "#8C8478" }}>{stepLabel}</span>
       </div>
 
+      {step === 0 && (
+        <div style={{ padding: "30px 26px 32px" }}>
+          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: "clamp(30px, 3.4vw, 38px)", lineHeight: 1.08, marginBottom: 12 }}>
+            Get a glimpse of how it works.
+          </div>
+          <div style={{ fontSize: 17, lineHeight: 1.5, color: "#4A453E", maxWidth: "30em", marginBottom: 26 }}>
+            Four friends, one week in Portugal, three decisions. Make them here.
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 26 }}>
+            <div style={{ background: "#FAF0F6", borderRadius: 11, padding: "15px 16px 17px" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#A9709A", marginBottom: 7 }}>DECISION 1</div>
+              <div style={{ fontSize: 16.5, color: "#1B1917", marginBottom: 5 }}>The dates</div>
+              <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Everyone marks what works.</div>
+            </div>
+            <div style={{ background: "#EFE2EE", borderRadius: 11, padding: "15px 16px 17px" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#7A4A6A", marginBottom: 7 }}>DECISION 2</div>
+              <div style={{ fontSize: 16.5, color: "#1B1917", marginBottom: 5 }}>Where you sleep</div>
+              <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Priced side by side, then a vote.</div>
+            </div>
+            <div style={{ borderRadius: 11, padding: "15px 16px 17px", backgroundColor: "#EBE6F4" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#5F5880", marginBottom: 7 }}>DECISION 3</div>
+              <div style={{ fontSize: 16.5, color: "#1B1917", marginBottom: 5 }}>What you do</div>
+              <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Chat links, on a map.</div>
+            </div>
+          </div>
+          <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
+            <button
+              type="button"
+              onClick={() => setStep(1)}
+              style={{ border: "none", background: "#8A5A7A", color: "#FFFDF9", fontSize: 18, padding: "16px 34px", borderRadius: 999, cursor: "pointer" }}
+            >
+              Start with the dates
+            </button>
+            <a href="#demo" onClick={runAll} style={{ fontSize: 13.5, color: "#8C8478", textDecoration: "underline", textUnderlineOffset: 3 }}>
+              Play it for me
+            </a>
+          </div>
+        </div>
+      )}
+
       {step === 1 && (
         <div style={{ padding: "18px 20px 20px" }}>
           <div style={{ fontSize: 15, color: "#2B2825", marginBottom: 4 }}>When could you go?</div>
-          <div style={{ fontSize: 13.5, color: "#8C8478", marginBottom: 14 }}>Drag across the days that work for you.</div>
+          <div style={{ fontSize: 13.5, color: "#8C8478", marginBottom: 14 }}>Drag the days that work for you.</div>
 
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
             <span style={{ fontSize: 13.5 }}>September 2026</span>
@@ -852,7 +929,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             <button
               type="button"
               onClick={() => {
-                setStep(2);
+                setStep(1.5);
                 setConfetti(true);
                 later(() => setConfetti(false), 1600);
               }}
@@ -871,7 +948,37 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
         </div>
       )}
 
-      {step > 1 && (
+      {step === 1.5 && (
+        <div style={{ position: "relative", background: "#FAF0F6", padding: "46px 28px 34px" }}>
+          <div style={{ position: "absolute", left: 0, top: 0, right: 0, height: 44, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+            {confettiPieces.map((c) => (
+              <div key={c.key} style={c.style} />
+            ))}
+          </div>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, letterSpacing: "0.12em", textTransform: "uppercase", color: "#A9709A", marginBottom: 8 }}>
+            Decision 1 of 3 · confirmed
+          </div>
+          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 33, lineHeight: 1.08, marginBottom: 8 }}>
+            {r.start} to {r.end} Sept, {r.nights} nights
+          </div>
+          <div style={{ fontSize: 16, lineHeight: 1.5, color: "#4A3E46" }}>The one window all four can make.</div>
+          <div style={{ height: 1, background: "#EBD8E6", margin: "24px 0 20px" }} />
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8C8478", marginBottom: 8 }}>
+            Next up · decision 2
+          </div>
+          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 30, lineHeight: 1.08, marginBottom: 8 }}>Where the four of you sleep</div>
+          <div style={{ fontSize: 17.5, lineHeight: 1.5, color: "#4A453E", marginBottom: 26 }}>Every option priced for your nights, then a vote.</div>
+          <button
+            type="button"
+            onClick={() => setStep(2)}
+            style={{ border: "none", background: "#8A5A7A", color: "#FFFDF9", fontSize: 17, padding: "15px 30px", borderRadius: 999, cursor: "pointer" }}
+          >
+            Compare the places to stay
+          </button>
+        </div>
+      )}
+
+      {(step === 2 || step === 3 || step === 4) && (
         <div
           style={{
             position: "relative",
@@ -905,7 +1012,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             <div style={{ fontSize: 17, color: "#1B1917", marginBottom: 3 }}>
               {r.start} to {r.end} Sept, {r.nights} nights
             </div>
-            <div style={{ fontSize: 14, color: "#4C6749" }}>These are the dates that work for all four</div>
+            <div style={{ fontSize: 14, color: "#6E5A7A" }}>These are the dates that work for all four</div>
           </div>
           <button
             type="button"
@@ -921,9 +1028,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
         <div style={{ padding: "18px 0 20px", animation: "tfRise 380ms ease-out both" }}>
           <div style={{ padding: "0 20px 14px" }}>
             <div style={{ fontSize: 15, color: "#2B2825", marginBottom: 4 }}>Where do we stay?</div>
-            <div style={{ fontSize: 13.5, color: "#8C8478" }}>
-              Everything the group added, priced for your {r.nights} nights. Vote, or add one of your own.
-            </div>
+            <div style={{ fontSize: 13.5, color: "#8C8478" }}>Priced for your {r.nights} nights. Vote, or add one.</div>
           </div>
 
           <div style={{ overflowX: "auto", padding: "0 20px 2px" }}>
@@ -932,7 +1037,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                 <div
                   style={{
                     boxSizing: "border-box",
-                    width: 112,
+                    width: 132,
                     flex: "none",
                     borderBottom: "1px solid #EDE8DD",
                     borderRight: "1px solid #EDE8DD",
@@ -972,7 +1077,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                     style={{
                       boxSizing: "border-box",
                       flex: "1 1 0",
-                      minWidth: 124,
+                      minWidth: 146,
                       borderBottom: "1px solid #EDE8DD",
                       padding: "12px 14px",
                       borderLeft: "1px dashed #DCD4C4",
@@ -1004,7 +1109,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                       style={{
                         boxSizing: "border-box",
                         flex: "1 1 0",
-                        minWidth: 124,
+                        minWidth: 146,
                         padding: "12px 14px",
                         borderBottom: "1px solid #EDE8DD",
                         borderLeft: "1px dashed #DCD4C4",
@@ -1019,15 +1124,15 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                 <div
                   style={{
                     boxSizing: "border-box",
-                    width: 112,
+                    width: 132,
                     flex: "none",
                     borderRight: "1px solid #EDE8DD",
-                    padding: 12,
+                    padding: "14px 13px",
                     fontFamily: "'DM Mono', monospace",
-                    fontSize: 9.5,
-                    letterSpacing: "0.08em",
+                    fontSize: 12,
+                    letterSpacing: "0.05em",
                     textTransform: "uppercase",
-                    color: "#8C8478",
+                    color: "#6E6459",
                     background: "#FCFAF5",
                     lineHeight: 1.6,
                   }}
@@ -1051,7 +1156,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                   </div>
                 ))}
                 {!extraStay && (
-                  <div style={{ boxSizing: "border-box", flex: "1 1 0", minWidth: 124, padding: "12px 14px", borderLeft: "1px dashed #DCD4C4", background: "#FCFAF5" }} />
+                  <div style={{ boxSizing: "border-box", flex: "1 1 0", minWidth: 146, padding: "12px 14px", borderLeft: "1px dashed #DCD4C4", background: "#FCFAF5" }} />
                 )}
               </div>
             </div>
@@ -1118,7 +1223,11 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                 <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
                   <button
                     type="button"
-                    onClick={() => setStep(3)}
+                    onClick={() => {
+                      setStep(2.5);
+                      setConfetti(true);
+                      later(() => setConfetti(false), 1600);
+                    }}
                     style={{ border: "none", background: "#8A5A7A", color: "#FFFDF9", fontSize: 14.5, padding: "11px 22px", borderRadius: 999, cursor: "pointer" }}
                   >
                     Lock in {winner.name}
@@ -1133,7 +1242,35 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
         </div>
       )}
 
-      {step > 2 && (
+      {step === 2.5 && (
+        <div style={{ position: "relative", background: "#EFE2EE", padding: "46px 28px 34px" }}>
+          <div style={{ position: "absolute", left: 0, top: 0, right: 0, height: 44, overflow: "hidden", pointerEvents: "none", zIndex: 0 }}>
+            {confettiPieces.map((c) => (
+              <div key={c.key} style={c.style} />
+            ))}
+          </div>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, letterSpacing: "0.12em", textTransform: "uppercase", color: "#7A4A6A", marginBottom: 8 }}>
+            Decision 2 of 3 · confirmed
+          </div>
+          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 33, lineHeight: 1.08, marginBottom: 8 }}>{winner.name}</div>
+          <div style={{ fontSize: 16, lineHeight: 1.5, color: "#453E4C" }}>{winnerVotes} of 4 voted, and the reasoning stays with it.</div>
+          <div style={{ height: 1, background: "#E0CBDD", margin: "24px 0 20px" }} />
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8C8478", marginBottom: 8 }}>
+            Next up · decision 3
+          </div>
+          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 30, lineHeight: 1.08, marginBottom: 8 }}>The places you actually want to go</div>
+          <div style={{ fontSize: 17.5, lineHeight: 1.5, color: "#4A453E", marginBottom: 26 }}>Saved links, timed from your door.</div>
+          <button
+            type="button"
+            onClick={() => setStep(3)}
+            style={{ border: "none", background: "#7A4A6A", color: "#FFFDF9", fontSize: 17, padding: "15px 30px", borderRadius: 999, cursor: "pointer" }}
+          >
+            Map the places
+          </button>
+        </div>
+      )}
+
+      {(step === 3 || step === 4) && (
         <div
           style={{
             padding: "13px 20px",
@@ -1175,14 +1312,13 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
       {step === 3 && (
         <div style={{ padding: "18px 20px 20px", animation: "tfRise 380ms ease-out both" }}>
           <div style={{ fontSize: 15, color: "#2B2825", marginBottom: 4 }}>The places you want to eat</div>
-          <div style={{ fontSize: 13.5, color: "#8C8478", marginBottom: 13 }}>
-            Saved from the links your group sent. Hover a pin to see which is which, and add your own.
-          </div>
+          <div style={{ fontSize: 13.5, color: "#8C8478", marginBottom: 13 }}>Saved from your group chat. Hover a pin, or add your own.</div>
 
           <div
+            ref={measureMap}
             style={{
               position: "relative",
-              height: 268,
+              height: 320,
               borderRadius: 11,
               border: "1px solid #E4DED2",
               overflow: "hidden",
@@ -1301,7 +1437,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                   width: 17,
                   height: 17,
                   borderRadius: 999,
-                  background: "#2F5D5A",
+                  background: "#6E5A7A",
                   color: "#FFFDF9",
                   fontSize: 9.5,
                   display: "flex",
@@ -1381,6 +1517,29 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
         </div>
       )}
 
+      {step === 3.5 && (
+        <div style={{ background: "#E7E1F2", padding: "32px 28px 34px" }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, letterSpacing: "0.12em", textTransform: "uppercase", color: "#5F5880", marginBottom: 8 }}>
+            Decision 3 of 3 · confirmed
+          </div>
+          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 33, lineHeight: 1.08, marginBottom: 8 }}>{allPlaces.length} places on the map</div>
+          <div style={{ fontSize: 16, lineHeight: 1.5, color: "#413E4C" }}>Nothing double-booked, nothing across the river.</div>
+          <div style={{ height: 1, background: "#D6CFE8", margin: "24px 0 20px" }} />
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8C8478", marginBottom: 8 }}>
+            That&rsquo;s all three
+          </div>
+          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 30, lineHeight: 1.08, marginBottom: 8 }}>Here is the trip you just planned</div>
+          <div style={{ fontSize: 17.5, lineHeight: 1.5, color: "#4A453E", marginBottom: 26 }}>Day by day. Send this instead of another poll.</div>
+          <button
+            type="button"
+            onClick={() => setStep(4)}
+            style={{ border: "none", background: "#5F5880", color: "#FFFDF9", fontSize: 17, padding: "15px 30px", borderRadius: 999, cursor: "pointer" }}
+          >
+            See the plan
+          </button>
+        </div>
+      )}
+
       {step === 4 && (
         <div style={{ animation: "tfRise 400ms ease-out both" }}>
           <div style={{ padding: "16px 20px 6px" }}>
@@ -1395,20 +1554,27 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
               </div>
             </div>
           ))}
-          <div style={{ padding: "16px 20px", background: "#FBF6EC", borderTop: "1px solid #E8DFD0" }}>
-            <div style={{ fontSize: 14, color: "#2B2825", marginBottom: 12 }}>
-              Dates locked, bed decided, and every place you saved is on the map.
+          <div style={{ padding: "40px 28px 44px", background: "#FBF6EC", borderTop: "1px solid #E8DFD0", textAlign: "center" }}>
+            <div style={{ fontSize: 16.5, lineHeight: 1.5, color: "#2B2825", margin: "0 auto 26px", maxWidth: "26em" }}>
+              Three decisions, forty seconds, one plan.
             </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 15 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 22, flexWrap: "wrap" }}>
               <Link
                 href="/planner/trips/new"
-                style={{ border: "none", background: "#1B1917", color: "#F7F4EE", fontSize: 14.5, padding: "11px 22px", borderRadius: 999, cursor: "pointer", textDecoration: "none" }}
+                style={{
+                  display: "inline-block",
+                  background: "#33253C",
+                  color: "#FBF6EC",
+                  fontFamily: "'Instrument Serif', Georgia, serif",
+                  fontSize: 34,
+                  padding: "25px 58px",
+                  borderRadius: 999,
+                  textDecoration: "none",
+                  boxShadow: "0 14px 34px rgba(51,37,60,0.28)",
+                }}
               >
-                Start planning
+                Now let&rsquo;s plan yours
               </Link>
-              <a href="#demo" onClick={reset} style={{ fontSize: 13.5, color: "#8C8478", textDecoration: "underline", textUnderlineOffset: 3 }}>
-                Try it again
-              </a>
             </div>
           </div>
         </div>
