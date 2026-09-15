@@ -69,7 +69,7 @@ export default function Home() {
               For the trip that&rsquo;s been &ldquo;a maybe&rdquo; since forever.
             </p>
             <h1 className="mb-5 text-[clamp(40px,4.6vw,60px)] leading-[1.02] font-display tracking-tight text-[#FBF6EC] text-balance">
-              The operating system for planning trips with your friends.
+              Everything you need to plan a group trip.
             </h1>
             <p className="max-w-[32em] text-[18.5px] leading-relaxed text-[#E0D2DC] text-pretty">
               If you travel in groups, you know it&rsquo;s almost impossible to
