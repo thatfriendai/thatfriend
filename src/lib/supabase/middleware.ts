@@ -28,7 +28,21 @@ export async function updateSession(request: NextRequest) {
 
   // Refreshes the session if expired — required for Server Components,
   // which can't write cookies themselves.
-  await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  // A signed-in visitor doesn't need the marketing homepage — this used to
+  // be a second, redundant auth.getUser() call made again inside the page
+  // itself (via getPlannerUser()) just to reach the same redirect, which
+  // also meant that page could never be served as static/cached HTML.
+  // Matches getPlannerUser()'s own gate (email-based sessions only — a
+  // phone-only auth user isn't "logged in" for this purpose either).
+  if (user?.email && request.nextUrl.pathname === "/") {
+    const redirectResponse = NextResponse.redirect(new URL("/planner/home", request.url));
+    supabaseResponse.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
+    return redirectResponse;
+  }
 
   return supabaseResponse;
 }

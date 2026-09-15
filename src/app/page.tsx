@@ -1,6 +1,4 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getPlannerUser } from "@/lib/planner/session";
 import { HeroDemo } from "@/components/marketing/HeroDemo";
 
 const forGroups = [
@@ -38,10 +36,12 @@ const forGroups = [
   },
 ];
 
-export default async function Home() {
-  const plannerUser = await getPlannerUser();
-  if (plannerUser) redirect("/planner/home");
-
+// A signed-in visitor is redirected away from here in middleware
+// (src/lib/supabase/middleware.ts) before this ever renders — no auth
+// check here means this page has nothing dynamic left in it and can be
+// served as static, cached HTML for the (overwhelming majority) logged-out
+// case instead of doing a fresh server render on every visit.
+export default function Home() {
   return (
     <div className="flex flex-1 flex-col bg-canvas">
       <header className="border-b border-border bg-card">
