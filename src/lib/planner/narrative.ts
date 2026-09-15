@@ -1,4 +1,5 @@
 import "server-only";
+import { unstable_cache } from "next/cache";
 import Anthropic from "@anthropic-ai/sdk";
 import type { ConvergenceOverlap, ClusterCount } from "./convergence";
 
@@ -9,29 +10,22 @@ export interface NarrativeRead {
   body: string;
 }
 
-/**
- * The "write the short reads on the convergence screen" job from the spec
- * — e.g. "Accommodation is the constraint, not activities." Takes only
- * the aggregated stats, never raw per-person text, so it stays cheap and
- * can't leak anything a private trip is hiding.
- */
-export async function generateConvergenceReads(
-  tripName: string,
-  overlaps: ConvergenceOverlap[],
-  clusters: ClusterCount[],
-  nonNegotiables: string[]
-): Promise<NarrativeRead[]> {
-  const summary = {
-    overlaps: overlaps.map((o) => ({
-      label: o.label,
-      floor: o.floor,
-      worksForMost: o.comfy,
-      spread: o.dots.map((d) => d.value),
-    })),
-    interests: clusters.map((c) => `${c.label}: ${c.count} of ${c.total}`),
-    nonNegotiables,
-  };
+interface ConvergenceSummary {
+  overlaps: { label: string; floor: number; worksForMost: number; spread: number[] }[];
+  interests: string[];
+  nonNegotiables: string[];
+}
 
+/**
+ * Both the Convergence page and its API route call this whenever there's
+ * overlap data — a live Anthropic call previously re-run on every view,
+ * even when nobody's answered anything new since the last one. Cached on
+ * exactly the aggregated summary the prompt reads, so repeat views of an
+ * unchanged trip reuse the same reads, and a real change (someone submits
+ * preferences) naturally produces a different cache key instead of a
+ * stale read.
+ */
+async function readsFromSummary(tripName: string, summary: ConvergenceSummary): Promise<NarrativeRead[]> {
   const message = await client.messages.create({
     model: "claude-sonnet-5",
     max_tokens: 600,
@@ -68,4 +62,32 @@ export async function generateConvergenceReads(
 
   const input = toolUse.input as { reads?: NarrativeRead[] };
   return Array.isArray(input.reads) ? input.reads : [];
+}
+
+const cachedReadsFromSummary = unstable_cache(readsFromSummary, ["convergence-reads"], { revalidate: 3600 });
+
+/**
+ * The "write the short reads on the convergence screen" job from the spec
+ * — e.g. "Accommodation is the constraint, not activities." Takes only
+ * the aggregated stats, never raw per-person text, so it stays cheap and
+ * can't leak anything a private trip is hiding.
+ */
+export async function generateConvergenceReads(
+  tripName: string,
+  overlaps: ConvergenceOverlap[],
+  clusters: ClusterCount[],
+  nonNegotiables: string[]
+): Promise<NarrativeRead[]> {
+  const summary: ConvergenceSummary = {
+    overlaps: overlaps.map((o) => ({
+      label: o.label,
+      floor: o.floor,
+      worksForMost: o.comfy,
+      spread: o.dots.map((d) => d.value),
+    })),
+    interests: clusters.map((c) => `${c.label}: ${c.count} of ${c.total}`),
+    nonNegotiables,
+  };
+
+  return cachedReadsFromSummary(tripName, summary);
 }

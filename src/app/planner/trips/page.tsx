@@ -31,12 +31,19 @@ export default async function PlannerTripsPage() {
   if (!user) redirect("/planner/login");
 
   const admin = createAdminClient();
-  const { data: memberships } = await admin
-    .from("planner_memberships")
-    .select(
-      "role, planner_trips(id, name, destination, start_date, end_date, dates_locked_at)"
-    )
-    .eq("user_id", user.id);
+  const today = new Date().toISOString().slice(0, 10);
+
+  // Phase 1: the only queries that don't depend on anything but user.id —
+  // one round trip instead of running ahead of everything else below one
+  // at a time.
+  const [{ data: memberships }, { data: tripSaveRows }, { data: savedPlaceRows }] = await Promise.all([
+    admin
+      .from("planner_memberships")
+      .select("role, planner_trips(id, name, destination, start_date, end_date, dates_locked_at)")
+      .eq("user_id", user.id),
+    admin.from("planner_trip_saves").select("trip_id").eq("user_id", user.id),
+    admin.from("planner_saved_places").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
+  ]);
 
   const rows = (memberships ?? [])
     .map((m) => ({
@@ -46,31 +53,7 @@ export default async function PlannerTripsPage() {
     .filter((x): x is { role: string; trip: TripRow } => Boolean(x.trip));
 
   const allTripIds = rows.map((r) => r.trip.id);
-  const today = new Date().toISOString().slice(0, 10);
-
-  const { data: memberRows } = allTripIds.length
-    ? await admin.from("planner_memberships").select("trip_id").in("trip_id", allTripIds)
-    : { data: [] };
-  const memberCounts = new Map<string, number>();
-  for (const m of memberRows ?? []) {
-    memberCounts.set(m.trip_id, (memberCounts.get(m.trip_id) ?? 0) + 1);
-  }
-
   const inPlanningIds = rows.filter((r) => !r.trip.dates_locked_at).map((r) => r.trip.id);
-  const { data: markRows } = inPlanningIds.length
-    ? await admin
-        .from("planner_availability_marks")
-        .select("trip_id, user_id")
-        .in("trip_id", inPlanningIds)
-    : { data: [] };
-  const answeredCounts = new Map<string, number>();
-  for (const tripId of inPlanningIds) {
-    const distinct = new Set(
-      (markRows ?? []).filter((m) => m.trip_id === tripId).map((m) => m.user_id)
-    );
-    answeredCounts.set(tripId, distinct.size);
-  }
-
   const recentIds = rows
     .filter(
       (r) =>
@@ -79,27 +62,59 @@ export default async function PlannerTripsPage() {
         r.trip.end_date < today
     )
     .map((r) => r.trip.id);
+  const savedTripIds = (tripSaveRows ?? []).map((r) => r.trip_id as string);
 
-  const { data: recentItems } = recentIds.length
-    ? await admin.from("planner_itinerary_items").select("id, trip_id").in("trip_id", recentIds)
-    : { data: [] };
-  const { data: myRatings } = recentIds.length
-    ? await admin
-        .from("planner_item_ratings")
-        .select("item_id, trip_id")
-        .eq("user_id", user.id)
-        .in("trip_id", recentIds)
-    : { data: [] };
-  const { data: allRatings } = recentIds.length
-    ? await admin.from("planner_item_ratings").select("item_id, trip_id").in("trip_id", recentIds)
-    : { data: [] };
-  const { data: myReviews } = recentIds.length
-    ? await admin
-        .from("planner_trip_reviews")
-        .select("trip_id")
-        .eq("user_id", user.id)
-        .in("trip_id", recentIds)
-    : { data: [] };
+  // Phase 2: every one of these is keyed off the id lists derived above,
+  // but none of them depend on each other — this was eight sequential
+  // awaits, each paying its own round trip, now one.
+  const [
+    { data: memberRows },
+    { data: markRows },
+    { data: recentItems },
+    { data: myRatings },
+    { data: allRatings },
+    { data: myReviews },
+    { data: dayRows },
+    { data: savedTripRows },
+  ] = await Promise.all([
+    allTripIds.length
+      ? admin.from("planner_memberships").select("trip_id").in("trip_id", allTripIds)
+      : Promise.resolve({ data: [] }),
+    inPlanningIds.length
+      ? admin.from("planner_availability_marks").select("trip_id, user_id").in("trip_id", inPlanningIds)
+      : Promise.resolve({ data: [] }),
+    recentIds.length
+      ? admin.from("planner_itinerary_items").select("id, trip_id").in("trip_id", recentIds)
+      : Promise.resolve({ data: [] }),
+    recentIds.length
+      ? admin.from("planner_item_ratings").select("item_id, trip_id").eq("user_id", user.id).in("trip_id", recentIds)
+      : Promise.resolve({ data: [] }),
+    recentIds.length
+      ? admin.from("planner_item_ratings").select("item_id, trip_id").in("trip_id", recentIds)
+      : Promise.resolve({ data: [] }),
+    recentIds.length
+      ? admin.from("planner_trip_reviews").select("trip_id").eq("user_id", user.id).in("trip_id", recentIds)
+      : Promise.resolve({ data: [] }),
+    allTripIds.length
+      ? admin.from("planner_days").select("id, trip_id, date").in("trip_id", allTripIds).order("date", { ascending: true })
+      : Promise.resolve({ data: [] }),
+    savedTripIds.length
+      ? admin.from("planner_trips").select("id, name, destination, start_date, end_date, created_by").in("id", savedTripIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const memberCounts = new Map<string, number>();
+  for (const m of memberRows ?? []) {
+    memberCounts.set(m.trip_id, (memberCounts.get(m.trip_id) ?? 0) + 1);
+  }
+
+  const answeredCounts = new Map<string, number>();
+  for (const tripId of inPlanningIds) {
+    const distinct = new Set(
+      (markRows ?? []).filter((m) => m.trip_id === tripId).map((m) => m.user_id)
+    );
+    answeredCounts.set(tripId, distinct.size);
+  }
 
   const myRatedItemIds = new Set((myRatings ?? []).map((r) => r.item_id));
   const reviewedTripIds = new Set((myReviews ?? []).map((r) => r.trip_id));
@@ -153,26 +168,7 @@ export default async function PlannerTripsPage() {
     { key: "past", label: "Past" },
   ];
 
-  // ---- Saved trips + saved places (the "Saved" tab) ----
-  const { data: tripSaveRows } = await admin
-    .from("planner_trip_saves")
-    .select("trip_id")
-    .eq("user_id", user.id);
-  const savedTripIds = (tripSaveRows ?? []).map((r) => r.trip_id as string);
-
-  const { data: savedTripRows } = savedTripIds.length
-    ? await admin
-        .from("planner_trips")
-        .select("id, name, destination, start_date, end_date, created_by")
-        .in("id", savedTripIds)
-    : { data: [] };
-
-  const { data: savedPlaceRows } = await admin
-    .from("planner_saved_places")
-    .select("*")
-    .eq("user_id", user.id)
-    .order("created_at", { ascending: false });
-
+  // ---- Saved trips + saved places (the "Saved" tab) — fetched in phase 1/2 above ----
   const ownerIdsToLookUp = [
     ...new Set([
       ...(savedTripRows ?? []).map((t) => t.created_by as string),
@@ -221,10 +217,7 @@ export default async function PlannerTripsPage() {
     sourceUserId: p.source_user_id as string | null,
   }));
 
-  // ---- Own trips + days, for the "Add to itinerary" picker ----
-  const { data: dayRows } = allTripIds.length
-    ? await admin.from("planner_days").select("id, trip_id, date").in("trip_id", allTripIds).order("date", { ascending: true })
-    : { data: [] };
+  // ---- Own trips + days, for the "Add to itinerary" picker (dayRows fetched in phase 2 above) ----
   const daysByTrip = new Map<string, { id: string; label: string }[]>();
   for (const d of dayRows ?? []) {
     const label = new Date((d.date as string) + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" });
