@@ -55,10 +55,62 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     );
   }
 
-  const { data: memberships } = await admin
-    .from("planner_memberships")
-    .select("trip_id, planner_trips(id, name, destination, start_date, end_date, is_public)")
-    .eq("user_id", profileUser.id);
+  const thirtyDaysAgo = new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+
+  // Phase 1: everything here depends only on profileUser.id/viewer.id, not
+  // on each other — one round trip instead of four-plus sequential ones.
+  const [
+    { data: memberships },
+    { count: followersCount },
+    { startedFollowingYou, following, travelledWith },
+    friendsResult,
+    viewerCountResult,
+  ] = await Promise.all([
+    admin
+      .from("planner_memberships")
+      .select("trip_id, planner_trips(id, name, destination, start_date, end_date, is_public)")
+      .eq("user_id", profileUser.id),
+    admin.from("planner_follows").select("*", { count: "exact", head: true }).eq("followee_id", profileUser.id),
+    buildFollowingLists(admin, profileUser.id),
+    viewer && !isSelf
+      ? Promise.all([
+          admin
+            .from("planner_follows")
+            .select("follower_id")
+            .eq("follower_id", viewer.id)
+            .eq("followee_id", profileUser.id)
+            .maybeSingle(),
+          listFriends(admin, viewer.id),
+          listFriends(admin, profileUser.id),
+        ])
+      : Promise.resolve(null),
+    isSelf
+      ? admin
+          .from("planner_profile_views")
+          .select("viewer_id")
+          .eq("profile_user_id", profileUser.id)
+          .gte("viewed_at", thirtyDaysAgo)
+      : Promise.resolve(null),
+  ]);
+
+  let isFollowing = false;
+  let mutualFriendsCount = 0;
+  if (friendsResult) {
+    const [{ data: followRow }, viewerFriends, profileFriends] = friendsResult;
+    isFollowing = Boolean(followRow);
+    const viewerFriendIds = new Set(viewerFriends.map((f) => f.id));
+    mutualFriendsCount = profileFriends.filter((f) => viewerFriendIds.has(f.id)).length;
+  } else if (viewer) {
+    // Best-effort, non-blocking — a failed insert shouldn't break the page.
+    void admin
+      .from("planner_profile_views")
+      .insert({ profile_user_id: profileUser.id, viewer_id: viewer.id })
+      .then(undefined, () => {});
+  }
+
+  const recentViewerCount = viewerCountResult
+    ? new Set((viewerCountResult.data ?? []).map((r) => r.viewer_id as string)).size
+    : 0;
 
   const allTrips = (memberships ?? [])
     .map(
@@ -79,33 +131,57 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   const privateTripCount = allTrips.length - publicTrips.length;
   const destinationByTripId = new Map(allTrips.map((t) => [t.id, t.destination]));
 
-  const [{ data: placeRows }, { data: memberRows }] =
-    publicTripIds.length > 0
-      ? await Promise.all([
-          admin.from("planner_places").select("trip_id").in("trip_id", publicTripIds),
-          admin.from("planner_memberships").select("trip_id").in("trip_id", publicTripIds),
-        ])
-      : [{ data: [] }, { data: [] }];
-
-  const placeCountByTrip = countBy(placeRows ?? [], (r) => r.trip_id as string);
-  const memberCountByTrip = countBy(memberRows ?? [], (r) => r.trip_id as string);
-
   const today = new Date().toISOString().slice(0, 10);
   const nextTrip =
     publicTrips
       .filter((t) => t.start_date && (!t.end_date || t.end_date >= today))
       .sort((a, b) => (a.start_date ?? "9999").localeCompare(b.start_date ?? "9999"))[0] ?? null;
+  const ratingScopeTripIds = isSelf ? allTrips.map((t) => t.id) : publicTripIds;
 
-  let canAskToJoinNextTrip = false;
-  if (!isSelf && viewer && nextTrip) {
-    const { data: viewerMembership } = await admin
-      .from("planner_memberships")
-      .select("trip_id")
-      .eq("trip_id", nextTrip.id)
-      .eq("user_id", viewer.id)
-      .maybeSingle();
-    canAskToJoinNextTrip = !viewerMembership;
-  }
+  // Phase 2: none of these four depend on each other — every one of them
+  // is derivable from phase 1's results alone — so they run as one round
+  // trip instead of up to four sequential ones.
+  const [
+    [{ data: placeRows }, { data: memberRows }],
+    viewerMembershipResult,
+    { data: ratingRows },
+    { data: viewerFollowRows },
+  ] = await Promise.all([
+    publicTripIds.length > 0
+      ? Promise.all([
+          admin.from("planner_places").select("trip_id").in("trip_id", publicTripIds),
+          admin.from("planner_memberships").select("trip_id").in("trip_id", publicTripIds),
+        ])
+      : Promise.resolve([{ data: [] as { trip_id: string }[] }, { data: [] as { trip_id: string }[] }]),
+    !isSelf && viewer && nextTrip
+      ? admin.from("planner_memberships").select("trip_id").eq("trip_id", nextTrip.id).eq("user_id", viewer.id).maybeSingle()
+      : Promise.resolve(null),
+    ratingScopeTripIds.length > 0
+      ? admin
+          .from("planner_place_ratings")
+          .select(
+            "id, rating, body, created_at, trip_id, planner_places(id, name, kind, lat, lng, address, google_place_id, photo_url)"
+          )
+          .eq("user_id", profileUser.id)
+          .in("trip_id", ratingScopeTripIds)
+          .order("rating", { ascending: false })
+      : Promise.resolve({ data: [] }),
+    !isSelf && viewer && following.length > 0
+      ? admin
+          .from("planner_follows")
+          .select("followee_id")
+          .eq("follower_id", viewer.id)
+          .in(
+            "followee_id",
+            following.map((f) => f.id)
+          )
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const placeCountByTrip = countBy(placeRows ?? [], (r) => r.trip_id as string);
+  const memberCountByTrip = countBy(memberRows ?? [], (r) => r.trip_id as string);
+  const canAskToJoinNextTrip = !isSelf && viewer && nextTrip ? !viewerMembershipResult?.data : false;
+  const viewerFollowsSet = new Set((viewerFollowRows ?? []).map((r) => r.followee_id as string));
 
   const trips: TripCardData[] = publicTrips.map((t) => ({
     id: t.id,
@@ -116,19 +192,6 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     travellerCount: memberCountByTrip.get(t.id) ?? 0,
     canAskToJoin: canAskToJoinNextTrip && t.id === nextTrip?.id,
   }));
-
-  const ratingScopeTripIds = isSelf ? allTrips.map((t) => t.id) : publicTripIds;
-  const { data: ratingRows } =
-    ratingScopeTripIds.length > 0
-      ? await admin
-          .from("planner_place_ratings")
-          .select(
-            "id, rating, body, created_at, trip_id, planner_places(id, name, kind, lat, lng, address, google_place_id, photo_url)"
-          )
-          .eq("user_id", profileUser.id)
-          .in("trip_id", ratingScopeTripIds)
-          .order("rating", { ascending: false })
-      : { data: [] };
 
   const feed: RatingCardData[] = (ratingRows ?? [])
     .map((r) => {
@@ -174,9 +237,12 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     const endedTripIds = allTrips
       .filter((t) => ratingScopeTripIds.includes(t.id) && t.end_date && t.end_date < today)
       .map((t) => t.id);
-    for (const tripId of endedTripIds) {
-      const tripVisits = await listVisits(admin, tripId);
-      for (const v of tripVisits) {
+    // Fetched for every ended trip at once instead of one at a time — the
+    // per-trip bookkeeping below still runs in endedTripIds order, so
+    // "first unrated trip" means the same thing it always did.
+    const visitsByTrip = await Promise.all(endedTripIds.map((tripId) => listVisits(admin, tripId)));
+    endedTripIds.forEach((tripId, i) => {
+      for (const v of visitsByTrip[i]) {
         if (ratedPlaceIds.has(v.id)) continue;
         unratedVisitCount++;
         firstUnratedTripId ??= tripId;
@@ -184,63 +250,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           visits.push({ id: v.id, name: v.name, tripName: destinationByTripId.get(tripId) ?? "a trip", dayLabel: v.dayLabel });
         }
       }
-    }
-  }
-
-  let recentViewerCount = 0;
-  if (isSelf) {
-    const thirtyDaysAgo = new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
-    const { data: viewRows } = await admin
-      .from("planner_profile_views")
-      .select("viewer_id")
-      .eq("profile_user_id", profileUser.id)
-      .gte("viewed_at", thirtyDaysAgo);
-    recentViewerCount = new Set((viewRows ?? []).map((r) => r.viewer_id as string)).size;
-  } else if (viewer) {
-    // Best-effort, non-blocking — a failed insert shouldn't break the page.
-    void admin
-      .from("planner_profile_views")
-      .insert({ profile_user_id: profileUser.id, viewer_id: viewer.id })
-      .then(undefined, () => {});
-  }
-
-  const { count: followersCount } = await admin
-    .from("planner_follows")
-    .select("*", { count: "exact", head: true })
-    .eq("followee_id", profileUser.id);
-
-  let isFollowing = false;
-  let mutualFriendsCount = 0;
-
-  if (viewer && !isSelf) {
-    const [{ data: followRow }, viewerFriends, profileFriends] = await Promise.all([
-      admin
-        .from("planner_follows")
-        .select("follower_id")
-        .eq("follower_id", viewer.id)
-        .eq("followee_id", profileUser.id)
-        .maybeSingle(),
-      listFriends(admin, viewer.id),
-      listFriends(admin, profileUser.id),
-    ]);
-    isFollowing = Boolean(followRow);
-    const viewerFriendIds = new Set(viewerFriends.map((f) => f.id));
-    mutualFriendsCount = profileFriends.filter((f) => viewerFriendIds.has(f.id)).length;
-  }
-
-  const { startedFollowingYou, following, travelledWith } = await buildFollowingLists(admin, profileUser.id);
-
-  let viewerFollowsSet = new Set<string>();
-  if (!isSelf && viewer && following.length > 0) {
-    const { data: viewerFollowRows } = await admin
-      .from("planner_follows")
-      .select("followee_id")
-      .eq("follower_id", viewer.id)
-      .in(
-        "followee_id",
-        following.map((f) => f.id)
-      );
-    viewerFollowsSet = new Set((viewerFollowRows ?? []).map((r) => r.followee_id as string));
+    });
   }
 
   const followingRows = following.map((f) => ({

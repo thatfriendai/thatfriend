@@ -37,7 +37,14 @@ export default async function ExplorePage() {
 
   const admin = createAdminClient();
 
-  const friends = await listFriends(admin, viewer.id);
+  // None of these three depend on each other — savedRows and navCounts
+  // only need viewer.id, so there's no reason to make them wait behind the
+  // friends-of-friends expansion below, which used to run them dead last.
+  const [friends, { data: savedRows }, { tripsCount }] = await Promise.all([
+    listFriends(admin, viewer.id),
+    admin.from("planner_trip_saves").select("trip_id").eq("user_id", viewer.id),
+    getNavCounts(admin, viewer.id),
+  ]);
   const friendIds = friends.map((f) => f.id);
   const friendIdSet = new Set(friendIds);
 
@@ -53,15 +60,12 @@ export default async function ExplorePage() {
   const fofIds = friendsOfFriends.map((f) => f.id);
   const allNetworkIds = [...friendIds, ...fofIds];
 
-  const [{ data: networkMemberships }, { data: savedRows }] = await Promise.all([
-    allNetworkIds.length > 0
-      ? admin
-          .from("planner_memberships")
-          .select("user_id, planner_trips(id, is_public)")
-          .in("user_id", allNetworkIds)
-      : Promise.resolve({ data: [] }),
-    admin.from("planner_trip_saves").select("trip_id").eq("user_id", viewer.id),
-  ]);
+  const { data: networkMemberships } = allNetworkIds.length > 0
+    ? await admin
+        .from("planner_memberships")
+        .select("user_id, planner_trips(id, is_public)")
+        .in("user_id", allNetworkIds)
+    : { data: [] };
 
   const publicTripCountByUser = countBy(
     (networkMemberships ?? []).filter(
@@ -122,7 +126,6 @@ export default async function ExplorePage() {
   }
 
   const [friendsTrips, fofTrips] = await Promise.all([fetchTripCards(friendIds), fetchTripCards(fofIds)]);
-  const { tripsCount } = await getNavCounts(admin, viewer.id);
 
   return (
     <ExploreView
