@@ -29,7 +29,7 @@ export function TripVisibilityToggle({
 
   const content = (
     <>
-      <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">Privacy</span>
+      <span className="font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Privacy</span>
       <span>{isPublic ? "Public" : "Private"}</span>
       <span
         className="relative h-[18px] w-[34px] flex-none rounded-full transition-colors"

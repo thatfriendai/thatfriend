@@ -3,8 +3,32 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { TripNameField } from "./TripNameField";
+import { HelpTip } from "@/components/planner/HelpTip";
 
 const SECTION_IDS = ["trip101", "places", "stays", "decisions", "resources", "itinerary"];
+
+const NAV_TIPS: Record<string, { what: string; todo: string }> = {
+  trip101: {
+    what: "The facts everyone keeps asking for: dates, who's coming, how private the trip is.",
+    todo: "Set the dates first — nothing else can be scheduled until they exist.",
+  },
+  places: {
+    what: "Everything anyone saved, on a list and a map.",
+    todo: "Click a place to find it on the map.",
+  },
+  stays: {
+    what: "Options for where you sleep, priced for your nights.",
+    todo: "Add one, or tell us you're already booked.",
+  },
+  resources: {
+    what: "The raw links and screenshots your group sent in.",
+    todo: "Review anything that never turned into a saved place.",
+  },
+  decisions: {
+    what: "The open questions and what the group settled on.",
+    todo: "Vote on anything still open, so it stops coming back.",
+  },
+};
 
 function useActiveSection() {
   const [active, setActive] = useState<string | null>(null);
@@ -47,7 +71,7 @@ function NavCount({ n, accent }: { n: number; accent?: boolean }) {
     <span
       className={
         accent
-          ? "ml-1.5 rounded-full bg-accent px-1.5 py-0.5 font-mono text-[10px] text-on-accent"
+          ? "ml-1.5 rounded-full bg-accent px-1.5 py-0.5 font-mono text-[10.5px] text-on-accent"
           : "ml-1.5 font-mono text-[11px] text-faint"
       }
     >
@@ -168,7 +192,7 @@ export function WorkspaceTopBar({
               onClick={() => setAddOpen((v) => !v)}
               className="flex items-center gap-1 whitespace-nowrap rounded-full bg-accent px-4 py-2 text-[13.5px] text-on-accent hover:opacity-90"
             >
-              + Add <span className="text-[10px]">&#9662;</span>
+              + Add <span className="text-[10.5px]">&#9662;</span>
             </button>
             {addOpen && (
               <div className="absolute right-0 z-30 mt-1.5 w-40 rounded-xl border border-border bg-card py-1.5 shadow-md">
@@ -194,7 +218,7 @@ export function WorkspaceTopBar({
             <button
               type="button"
               onClick={() => setMenuOpen((v) => !v)}
-              className="flex h-9 w-9 items-center justify-center rounded-full text-[14px] text-on-accent"
+              className="flex h-9 w-9 items-center justify-center rounded-full text-[17px] text-on-accent"
               style={{ background: "var(--color-accent)" }}
             >
               {navInitial}
@@ -228,25 +252,35 @@ export function WorkspaceTopBar({
       </div>
 
       <div className="flex items-center overflow-x-auto px-5 sm:px-7">
-        <NavLink href="#trip101" active={active === "trip101" || active === null}>
-          Trip 101
-        </NavLink>
-        <NavLink href="#places" active={active === "places"}>
-          Places
-          <NavCount n={navCounts.places} />
-        </NavLink>
-        <NavLink href="#stays" active={active === "stays"}>
-          Stays
-          <NavCount n={navCounts.stays} />
-        </NavLink>
-        <NavLink href="#resources" active={active === "resources"}>
-          Resources
-          <NavCount n={navCounts.sources} />
-        </NavLink>
-        <NavLink href="#decisions" active={active === "decisions"}>
-          Decisions
-          <NavCount n={navCounts.decisions} accent={navCounts.decisionsNeedVote} />
-        </NavLink>
+        <HelpTip id="nav-trip101" what={NAV_TIPS.trip101.what} todo={NAV_TIPS.trip101.todo}>
+          <NavLink href="#trip101" active={active === "trip101" || active === null}>
+            Trip 101
+          </NavLink>
+        </HelpTip>
+        <HelpTip id="nav-places" what={NAV_TIPS.places.what} todo={NAV_TIPS.places.todo}>
+          <NavLink href="#places" active={active === "places"}>
+            Places
+            <NavCount n={navCounts.places} />
+          </NavLink>
+        </HelpTip>
+        <HelpTip id="nav-stays" what={NAV_TIPS.stays.what} todo={NAV_TIPS.stays.todo}>
+          <NavLink href="#stays" active={active === "stays"}>
+            Stays
+            <NavCount n={navCounts.stays} />
+          </NavLink>
+        </HelpTip>
+        <HelpTip id="nav-resources" what={NAV_TIPS.resources.what} todo={NAV_TIPS.resources.todo}>
+          <NavLink href="#resources" active={active === "resources"}>
+            Resources
+            <NavCount n={navCounts.sources} />
+          </NavLink>
+        </HelpTip>
+        <HelpTip id="nav-decisions" what={NAV_TIPS.decisions.what} todo={NAV_TIPS.decisions.todo} align="right">
+          <NavLink href="#decisions" active={active === "decisions"}>
+            Decisions
+            <NavCount n={navCounts.decisions} accent={navCounts.decisionsNeedVote} />
+          </NavLink>
+        </HelpTip>
       </div>
     </header>
   );

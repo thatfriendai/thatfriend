@@ -79,7 +79,7 @@ export function DecisionsSection({
                 <div className="font-mono text-[10.5px] tracking-[0.08em] text-muted uppercase">
                   {d.status === "closed" ? "closed" : `${d.voteCount} of ${totalMembers} voted`}
                 </div>
-                <div className="mt-1 text-[12.5px] text-faint">
+                <div className="mt-1 text-[14.5px] text-faint">
                   {d.noteCount} {d.noteCount === 1 ? "note" : "notes"}
                 </div>
               </div>
