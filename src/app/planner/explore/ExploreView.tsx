@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState } from "react";
 import { HomeNav } from "@/components/planner/HomeNav";
 import { TripCover } from "@/components/planner/TripCover";
@@ -164,8 +164,14 @@ export function ExploreView({
   navTripsCount: number;
   signOutAction: () => Promise<void>;
 }) {
-  const [filter, setFilter] = useState<FilterChoice>("Set-jetting");
-  const [openGuideId, setOpenGuideId] = useState<string | null>(null);
+  // A link like /planner/explore?guide=g1 (Home's "From the guides"
+  // cards) should land straight on that guide, in its own category tab —
+  // read once on mount, not synced back to the URL afterward.
+  const searchParams = useSearchParams();
+  const linkedGuide = GUIDES.find((g) => g.id === searchParams.get("guide")) ?? null;
+
+  const [filter, setFilter] = useState<FilterChoice>(linkedGuide?.type ?? "Set-jetting");
+  const [openGuideId, setOpenGuideId] = useState<string | null>(linkedGuide?.id ?? null);
   const [showAllPlaces, setShowAllPlaces] = useState(false);
 
   const [scope, setScope] = useState<"friends" | "fof">("friends");

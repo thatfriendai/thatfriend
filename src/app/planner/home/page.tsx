@@ -4,7 +4,8 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeHomeAttention, computeTripsToRate } from "@/lib/planner/homeAttention";
 import { HomeNav } from "@/components/planner/HomeNav";
-import { GUIDES, TYPE_COLORS } from "@/lib/planner/guides";
+import { GUIDES, TYPE_COLORS, TYPE_WASH } from "@/lib/planner/guides";
+import { tintFor } from "@/lib/planner/cover";
 import { signOut } from "../actions";
 import { TextItInBar } from "./TextItInBar";
 
@@ -107,6 +108,7 @@ export default async function HomePage() {
         dates: formatDates(trip.start_date, trip.end_date) ?? "No dates yet",
         travelers: travelerCount === 1 ? "Just you" : `${travelerCount} travellers`,
         cta,
+        tint: tintFor(trip.id),
       };
     });
 
@@ -149,16 +151,19 @@ export default async function HomePage() {
           {tripCards.map((t) => (
             <div
               key={t.id}
-              className="flex flex-col gap-4.5 rounded-[18px] border border-border bg-card px-6.5 py-6.5 pb-5.5"
+              className="flex flex-col gap-4.5 rounded-[18px] border px-6.5 py-6.5 pb-5.5"
+              style={{ borderColor: `${t.tint}33`, borderTop: `3px solid ${t.tint}`, background: "var(--color-card)" }}
             >
               <div>
-                <div className="mb-2 font-mono text-[10.5px] tracking-[0.1em] text-faint uppercase">{t.place}</div>
+                <div className="mb-2 font-mono text-[10.5px] tracking-[0.1em] uppercase" style={{ color: t.tint }}>
+                  {t.place}
+                </div>
                 <Link href={`/planner/trips/${t.id}`} className="block font-display text-[34px] leading-[1.1] tracking-tight text-ink">
                   {t.title}
                 </Link>
               </div>
 
-              <div className="flex flex-col gap-2.5 border-t border-b border-border-soft py-3.5">
+              <div className="flex flex-col gap-2.5 rounded-[11px] px-3.5 py-3.5" style={{ background: `${t.tint}0F` }}>
                 <div className="flex items-baseline gap-3">
                   <span className="w-[78px] flex-none font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Dates</span>
                   <span className="text-[15px] text-body">{t.dates}</span>
@@ -173,7 +178,8 @@ export default async function HomePage() {
                 {t.cta && (
                   <Link
                     href={t.cta.href}
-                    className="flex-none rounded-full bg-accent px-5.5 py-2.5 text-[14.5px] text-on-accent hover:opacity-90"
+                    className="flex-none rounded-full px-5.5 py-2.5 text-[14.5px] text-cream hover:opacity-90"
+                    style={{ background: t.tint }}
                   >
                     {t.cta.label}
                   </Link>
@@ -213,8 +219,9 @@ export default async function HomePage() {
             {FEATURED_GUIDES.map((g) => (
               <Link
                 key={g.id}
-                href="/planner/explore"
-                className="flex flex-col gap-2 rounded-2xl border border-border bg-card px-5.5 py-5.5 pb-5"
+                href={`/planner/explore?guide=${g.id}`}
+                className="flex flex-col gap-2 rounded-2xl border px-5.5 py-5.5 pb-5"
+                style={{ background: TYPE_WASH[g.type], borderColor: `${TYPE_COLORS[g.type]}33` }}
               >
                 <span
                   className="font-mono text-[10.5px] tracking-[0.1em] uppercase"
@@ -224,7 +231,10 @@ export default async function HomePage() {
                 </span>
                 <span className="font-display text-[28px] leading-[1.1] text-ink">{g.city.split(",")[0]}</span>
                 <span className="text-[14.5px] leading-[1.5] text-body text-pretty">{g.blurb}</span>
-                <span className="mt-1 border-t border-border-soft pt-3 font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">
+                <span
+                  className="mt-1 border-t pt-3 font-mono text-[10.5px] tracking-[0.08em] uppercase"
+                  style={{ borderColor: `${TYPE_COLORS[g.type]}33`, color: TYPE_COLORS[g.type] }}
+                >
                   {g.places.length} places &rarr;
                 </span>
               </Link>

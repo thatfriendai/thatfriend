@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -128,15 +129,17 @@ export default async function ExplorePage() {
   const [friendsTrips, fofTrips] = await Promise.all([fetchTripCards(friendIds), fetchTripCards(fofIds)]);
 
   return (
-    <ExploreView
-      friendChips={friendChips}
-      fofChips={fofChips}
-      friendsTrips={friendsTrips}
-      fofTrips={fofTrips}
-      navInitial={initialsOf(viewer.name || viewer.email || "?")}
-      navUsername={viewer.username}
-      navTripsCount={tripsCount}
-      signOutAction={signOut}
-    />
+    <Suspense fallback={null}>
+      <ExploreView
+        friendChips={friendChips}
+        fofChips={fofChips}
+        friendsTrips={friendsTrips}
+        fofTrips={fofTrips}
+        navInitial={initialsOf(viewer.name || viewer.email || "?")}
+        navUsername={viewer.username}
+        navTripsCount={tripsCount}
+        signOutAction={signOut}
+      />
+    </Suspense>
   );
 }
