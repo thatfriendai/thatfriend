@@ -12,12 +12,15 @@ export interface HomeAttentionItem {
 }
 
 /**
- * Cross-trip "Needs you" list for the Home page. Priority order, highest
- * first: a trip you organize with no dates, then an open decision closing
- * inside 48h you haven't voted on. Capped at 3 total, collected in that
- * order so the most pressing items survive the cut. Unrated places from a
- * wrapped trip used to be a third, lowest-priority item in this same list
- * — see computeTripsToRate below for why that moved to its own section.
+ * Cross-trip "Needs you" list for the Home page: open decisions closing
+ * inside 48h that you haven't voted on. Capped at 3. A trip with no dates
+ * used to be a higher-priority item in this same list, but that's now
+ * shown directly on that trip's own card on Home ("Add dates") instead of
+ * as a separate feed entry — one less place saying the same thing, and the
+ * card's button actually does what it says (its old label, "Send the
+ * ask", didn't send anything; it just linked to the trip). Unrated places
+ * from a wrapped trip are a third kind of "needs you" — see
+ * computeTripsToRate below for why that's still its own function.
  *
  * "Money owed by you" is in the original design spec too, but this app
  * has no expense-tracking system (the workspace top bar's Splitwise icon
@@ -44,38 +47,6 @@ export async function computeHomeAttention(admin: SupabaseClient, userId: string
     .filter((m): m is { role: string; trip: NonNullable<typeof m.trip> } => Boolean(m.trip));
 
   const tripIds = memberships.map((m) => m.trip.id);
-
-  const noDatesItems: HomeAttentionItem[] = [];
-  const noDatesTripIds = memberships
-    .filter((m) => m.role === "owner" && !m.trip.dates_locked_at)
-    .map((m) => m.trip.id);
-  if (noDatesTripIds.length > 0) {
-    const [{ data: memberCountRows }, { data: markRows }] = await Promise.all([
-      admin.from("planner_memberships").select("trip_id").in("trip_id", noDatesTripIds),
-      admin.from("planner_availability_marks").select("trip_id, user_id").in("trip_id", noDatesTripIds),
-    ]);
-    const totalByTrip = new Map<string, number>();
-    for (const r of memberCountRows ?? []) totalByTrip.set(r.trip_id, (totalByTrip.get(r.trip_id) ?? 0) + 1);
-    const answeredByTrip = new Map<string, Set<string>>();
-    for (const r of markRows ?? []) {
-      const set = answeredByTrip.get(r.trip_id) ?? new Set<string>();
-      set.add(r.user_id);
-      answeredByTrip.set(r.trip_id, set);
-    }
-    for (const m of memberships) {
-      if (!noDatesTripIds.includes(m.trip.id)) continue;
-      const answered = answeredByTrip.get(m.trip.id)?.size ?? 0;
-      const total = totalByTrip.get(m.trip.id) ?? 0;
-      noDatesItems.push({
-        id: `dates-${m.trip.id}`,
-        title: `${m.trip.name} still has no dates`,
-        meta: `You're organizing · ${answered} of ${total} answered`,
-        action: "Send the ask",
-        href: `/planner/trips/${m.trip.id}`,
-        urgent: true,
-      });
-    }
-  }
 
   const decisionItems: HomeAttentionItem[] = [];
   if (tripIds.length > 0) {
@@ -106,7 +77,7 @@ export async function computeHomeAttention(admin: SupabaseClient, userId: string
     }
   }
 
-  return [...noDatesItems, ...decisionItems].slice(0, 3);
+  return decisionItems.slice(0, 3);
 }
 
 /**
