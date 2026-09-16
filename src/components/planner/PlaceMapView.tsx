@@ -56,7 +56,13 @@ export function PlaceMapView({
       return marker;
     });
 
-    if (geocoded.length > 0) {
+    const focused = selectedId ? geocoded.find((p) => p.id === selectedId) : null;
+    if (focused) {
+      // Click-to-zoom: center and zoom in on the one place, rather than
+      // just re-fitting the same bounds as always.
+      mapInstance.current.panTo({ lat: focused.lat, lng: focused.lng });
+      mapInstance.current.setZoom(15);
+    } else if (geocoded.length > 0) {
       const bounds = new google.maps.LatLngBounds();
       geocoded.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }));
       mapInstance.current.fitBounds(bounds, 40);

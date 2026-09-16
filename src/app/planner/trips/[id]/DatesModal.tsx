@@ -45,7 +45,7 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
         onClick={openModal}
         className="flex items-center gap-1.5 rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink hover:border-ink"
       >
-        <span className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">Dates</span>
+        <span className="font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Dates</span>
         {dateRangeLabel}
       </button>
 

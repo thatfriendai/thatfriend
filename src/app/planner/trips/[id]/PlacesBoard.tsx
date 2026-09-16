@@ -5,9 +5,11 @@ import { KIND_OPTIONS } from "@/lib/planner/itinerary";
 import { AddPlaceModal } from "./AddPlaceModal";
 import { PlaceMapView } from "@/components/planner/PlaceMapView";
 import { PlaceKindTile } from "@/components/planner/PlaceKindIcon";
-import type { PlannerDay, PlannerPlace } from "@/lib/supabase/planner-types";
+import type { PlannerDay, PlannerPlace, PlaceKind } from "@/lib/supabase/planner-types";
 
 type PlaceWithWho = PlannerPlace & { who: string };
+
+const MINE_FILTER = "__mine__";
 
 export function PlacesBoard({
   tripId,
@@ -27,6 +29,16 @@ export function PlacesBoard({
   const [addOpen, setAddOpen] = useState(false);
   const [addEntryMode, setAddEntryMode] = useState<"place" | "resource">("place");
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [activeFilters, setActiveFilters] = useState<string[]>([]);
+
+  function toggleFilter(f: string) {
+    setSelectedId(null);
+    setActiveFilters((list) => (list.includes(f) ? list.filter((x) => x !== f) : [...list, f]));
+  }
+  function clearFilters() {
+    setSelectedId(null);
+    setActiveFilters([]);
+  }
 
   // The top bar's "+ Add" dropdown dispatches this instead of navigating,
   // so opening the modal doesn't wait on a full page re-fetch.
@@ -51,12 +63,19 @@ export function PlacesBoard({
     setSelectedId((current) => (current === id ? null : current));
   }
 
+  const activeKinds = activeFilters.filter((f) => f !== MINE_FILTER) as PlaceKind[];
+  const mineOnly = activeFilters.includes(MINE_FILTER);
+  const visible = places.filter(
+    (p) => (activeKinds.length === 0 || activeKinds.includes(p.kind)) && (!mineOnly || p.who === myDisplayName)
+  );
+
   const groups = KIND_OPTIONS.map((k) => ({
     ...k,
-    places: places.filter((p) => p.kind === k.kind),
+    places: visible.filter((p) => p.kind === k.kind),
   })).filter((g) => g.places.length > 0);
 
-  const selected = places.find((p) => p.id === selectedId) ?? null;
+  const selected = visible.find((p) => p.id === selectedId) ?? null;
+  const isFiltered = activeFilters.length > 0;
 
   return (
     <div id="places">
@@ -82,8 +101,61 @@ export function PlacesBoard({
           </p>
         </div>
       ) : (
-        <div className="mb-10 grid grid-cols-1 overflow-hidden rounded-2xl border border-border lg:h-[460px] lg:[grid-template-columns:minmax(340px,1fr)_minmax(300px,0.95fr)]">
+        <div className="mb-10 overflow-hidden rounded-2xl border border-border">
+          <div className="flex flex-wrap items-center gap-2 border-b border-border bg-[#FBF9F3] px-4 py-3">
+            {KIND_OPTIONS.filter((k) => places.some((p) => p.kind === k.kind)).map((k) => (
+              <button
+                key={k.kind}
+                type="button"
+                onClick={() => toggleFilter(k.kind)}
+                className="rounded-full border px-3 py-1.5 text-[14px] transition-colors"
+                style={{
+                  borderColor: activeKinds.includes(k.kind) ? "#1B1917" : "var(--color-input-border)",
+                  background: activeKinds.includes(k.kind) ? "#1B1917" : "var(--color-card)",
+                  color: activeKinds.includes(k.kind) ? "var(--color-cream)" : "var(--color-ink-body)",
+                }}
+              >
+                {k.kind}
+              </button>
+            ))}
+            <button
+              type="button"
+              onClick={() => toggleFilter(MINE_FILTER)}
+              className="rounded-full border px-3 py-1.5 text-[14px] transition-colors"
+              style={{
+                borderColor: mineOnly ? "#1B1917" : "var(--color-input-border)",
+                background: mineOnly ? "#1B1917" : "var(--color-card)",
+                color: mineOnly ? "var(--color-cream)" : "var(--color-ink-body)",
+              }}
+            >
+              Added by me
+            </button>
+            {isFiltered && (
+              <button
+                type="button"
+                onClick={clearFilters}
+                className="ml-auto text-[14px] text-accent underline underline-offset-[3px]"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 lg:h-[460px] lg:[grid-template-columns:minmax(340px,1fr)_minmax(300px,0.95fr)]">
           <div className="order-2 max-h-[420px] overflow-y-auto bg-[#FBF9F3] px-2.5 py-4 pb-6 lg:order-1 lg:max-h-none">
+            {visible.length === 0 ? (
+              <div className="px-4 py-8 text-center">
+                <p className="mb-1 text-[16px] text-[#4A453E]">Nothing matches those filters</p>
+                <p className="mb-4 text-[14.5px] text-muted">Clear the filter, or add one from a link</p>
+                <button
+                  type="button"
+                  onClick={clearFilters}
+                  className="rounded-full border border-input-border px-4 py-2 text-[14.5px] text-ink-body hover:border-ink"
+                >
+                  Clear filters
+                </button>
+              </div>
+            ) : (
             <div className="flex flex-col gap-5.5">
               {groups.map((g) => (
                 <div key={g.kind}>
@@ -124,6 +196,9 @@ export function PlacesBoard({
                         )}
                         <div className="min-w-0 flex-1">
                           <div className="text-[15px] font-medium text-[#2B2825]">{p.name}</div>
+                          {p.note && (
+                            <div className="mt-0.5 line-clamp-1 text-[14.5px] text-body">{p.note}</div>
+                          )}
                           <div className="mt-1.5 font-mono text-[10.5px] text-muted">
                             <span>added by {p.who}</span>
                           </div>
@@ -146,34 +221,48 @@ export function PlacesBoard({
                 </div>
               ))}
             </div>
+            )}
           </div>
 
           <div className="relative order-1 h-[220px] border-b border-border lg:order-2 lg:h-auto lg:border-b-0 lg:border-l">
             <PlaceMapView
               apiKey={googleMapsApiKey}
-              places={places}
+              places={visible}
               selectedId={selectedId}
               onSelect={setSelectedId}
             />
             {selected && (
-              <div className="absolute top-3 right-3 left-3 rounded-[10px] border border-border bg-card px-3.5 py-2.5">
-                <div className="text-[13.5px] text-[#2B2825]">{selected.name}</div>
-                <div className="mt-1 mb-2.5 font-mono text-[10px] text-muted">
-                  added by {selected.who}
+              <>
+                <button
+                  type="button"
+                  onClick={() => setSelectedId(null)}
+                  className="absolute top-3 right-3 z-10 rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13.5px] text-ink-body hover:border-ink"
+                >
+                  Show all
+                </button>
+                <div className="absolute right-3 bottom-3 left-3 rounded-[10px] border border-border bg-card px-3.5 py-2.5">
+                  <div className="text-[13.5px] text-[#2B2825]">{selected.name}</div>
+                  {selected.note && (
+                    <div className="mt-0.5 line-clamp-1 text-[13.5px] text-body">{selected.note}</div>
+                  )}
+                  <div className="mt-1 mb-2.5 font-mono text-[10.5px] text-muted">
+                    added by {selected.who}
+                  </div>
+                  <div className="flex flex-wrap gap-3.5 border-t border-[#EDE8DD] pt-2.5">
+                    {KIND_OPTIONS.map((k) => (
+                      <div key={k.kind} className="flex items-center gap-1.5 text-xs text-[#6B655C]">
+                        <span
+                          className="h-2 w-2 rounded-[2px]"
+                          style={{ background: k.color }}
+                        />
+                        <span>{k.kind}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-3.5 border-t border-[#EDE8DD] pt-2.5">
-                  {KIND_OPTIONS.map((k) => (
-                    <div key={k.kind} className="flex items-center gap-1.5 text-xs text-[#6B655C]">
-                      <span
-                        className="h-2 w-2 rounded-[2px]"
-                        style={{ background: k.color }}
-                      />
-                      <span>{k.kind}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              </>
             )}
+          </div>
           </div>
         </div>
       )}
