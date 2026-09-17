@@ -19,7 +19,7 @@ export async function sendNudge(
 ): Promise<{ sentCount: number } | { error: string }> {
   const { data: members } = await admin
     .from("planner_memberships")
-    .select("planner_users(id, name, phone, whatsapp_opt_in)")
+    .select("planner_users(id, name, phone, whatsapp_opt_in, notify_sms)")
     .eq("trip_id", trip.id);
 
   const nudgeable = (members ?? [])
@@ -30,6 +30,7 @@ export async function sendNudge(
           name: string | null;
           phone: string | null;
           whatsapp_opt_in: boolean;
+          notify_sms: boolean;
         } | null
     )
     .filter((m): m is NonNullable<typeof m> => Boolean(m?.phone));
@@ -70,8 +71,13 @@ export async function sendNudge(
     }
   }
 
+  // Individual texts are the one send path gated on notify_sms — the group
+  // message above just names whoever's still pending, same as it always
+  // has, regardless of their opt-in state.
+  const toNudgeConsented = toNudge.filter((m) => m.notify_sms);
+
   let sentCount = 0;
-  for (const member of toNudge) {
+  for (const member of toNudgeConsented) {
     try {
       const namePart = member.name ? ` ${member.name.split(" ")[0]}` : "";
       await sendUserText(

@@ -55,7 +55,7 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="mb-12 text-[14.5px] text-muted">
-          Effective: August 28, 2026 &middot; Applies to: web app &amp;
+          Effective: September 17, 2026 &middot; Applies to: web app &amp;
           mobile app
         </p>
 
@@ -83,6 +83,15 @@ export default function PrivacyPage() {
             name and email address, and, if you sign in through Google or
             Apple, the basic profile information they share with us (see
             Section 4).
+          </p>
+          <p>
+            <strong className="text-ink">
+              Phone number, if you provide one:
+            </strong>{" "}
+            used to verify your identity by text, and to recognize you as a
+            returning user if a friend adds your number to a new trip, so
+            you&rsquo;re not asked to verify again. See Section 11 for how we
+            text you.
           </p>
           <p>
             <strong className="text-ink">Trip and calendar information:</strong>{" "}
@@ -126,6 +135,21 @@ export default function PrivacyPage() {
             app running and fix bugs. We are not currently using third-party
             analytics or advertising tools. If that changes, we&rsquo;ll
             update this section to name the tools we use.
+          </p>
+          <p className="mt-3 text-lg font-display text-ink">
+            Matching contacts to existing accounts
+          </p>
+          <p>
+            When a trip organizer adds a phone number to a trip, we check
+            whether that number already belongs to a That Friend account. If
+            it does, we send that person a direct trip invite instead of a
+            sign-up link, so a returning user doesn&rsquo;t have to verify
+            their number again. This may let the organizer know that person
+            already uses That Friend. We don&rsquo;t share any other
+            profile, trip, or contact information about that person with the
+            organizer, and we don&rsquo;t add that person to the trip or
+            make their information visible to the group, unless and until
+            they accept the invite (see Section 11).
           </p>
         </Section>
 
@@ -172,16 +196,11 @@ export default function PrivacyPage() {
             comments and messages, is visible to the other members of that
             trip. Think of a shared trip like a shared document: anyone you
             or the trip organizer has added can see what&rsquo;s in it.
-          </p>
-          <p>
-            Budgets are the exception, and how they are shared depends on the
-            setting the organizer chooses when the trip is created. On a
-            Private trip, the amount you enter is never shown next to your
-            name; the group only sees the combined range everyone&rsquo;s
-            numbers produce. On an Open trip, your amount is visible to the
-            other members as you enter it. The trip&rsquo;s current setting
-            is shown to you before you answer, and changing it applies to
-            everyone on that trip.
+            You&rsquo;re only added as a member, and your information only
+            becomes visible to that trip&rsquo;s group, after you accept an
+            invite to join it, including when you&rsquo;re invited to a trip
+            created by someone new because we recognized your phone number
+            from an earlier trip.
           </p>
           <p className="mt-3 text-lg font-display text-ink">
             With service providers
@@ -328,9 +347,19 @@ export default function PrivacyPage() {
         <Section n="11" id="pp-11" title="Text messaging (SMS)">
           <p>
             If you provide a mobile phone number, we use it to send you text
-            messages related to the app: a one-time code to sign in, a
-            confirmation when a link, note, or photo you forward gets added
-            to your trip, and reminders about a trip you&rsquo;re part of.
+            messages related to the app: a one-time code to sign in, an
+            invite when someone adds you to a trip, a confirmation when a
+            link, note, or photo you forward gets added to your trip, and
+            reminders about a trip you&rsquo;re part of.
+          </p>
+          <p>
+            An invite text can come from a trip you weren&rsquo;t expecting,
+            if the organizer added a phone number we recognize from a trip
+            you were on before. Being recognized this way isn&rsquo;t the
+            same as being added: we send you an invite text either way, but
+            you decide whether to join, and your name and other information
+            isn&rsquo;t shared with that trip&rsquo;s members until you
+            accept.
           </p>
           <p>
             <strong className="text-ink">We do not share or sell your

@@ -1,12 +1,24 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
-import { generateToken } from "@/lib/planner/tokens";
+import { generateToken, generateJoinCode } from "@/lib/planner/tokens";
+import { findOrCreatePlannerUserByPhone } from "@/lib/planner/plannerUser";
+import { toE164, isUSPhone } from "@/lib/planner/phone";
+import { sendSmsText } from "@/lib/twilio/send";
+import { addParticipantToConversation } from "@/lib/twilio/conversations";
+import { logConsentCarryover } from "@/lib/planner/consent";
 
 interface InviteRequest {
   email?: string;
   phone?: string;
 }
+
+type PhoneInviteStatus = "sent" | "carried_over" | "already_member" | "invalid" | "error";
+
+// Off until the privacy policy has a line covering "if you've texted That
+// Friend before, we may add your number to other trips your contacts
+// invite you to without asking again" — see the handoff doc.
+const CONTACT_MATCH_ENABLED = process.env.ENABLE_CONTACT_MATCH_INVITES === "true";
 
 export async function POST(
   request: Request,
@@ -34,30 +46,140 @@ export async function POST(
     return NextResponse.json({ error: "Provide a list of { email | phone }." }, { status: 400 });
   }
 
-  const rows = body
-    .map((entry) => {
-      const email = entry.email?.trim().toLowerCase();
-      const phone = entry.phone?.trim();
-      if (email) return { trip_id: tripId, channel: "email" as const, sent_to: email, token: generateToken() };
-      if (phone) return { trip_id: tripId, channel: "sms" as const, sent_to: phone, token: generateToken() };
-      return null;
-    })
-    .filter((row): row is NonNullable<typeof row> => row !== null);
+  const { data: trip } = await admin
+    .from("planner_trips")
+    .select("name, destination, join_code, twilio_conversation_sid")
+    .eq("id", tripId)
+    .maybeSingle();
+  if (!trip) return NextResponse.json({ error: "Trip not found." }, { status: 404 });
 
-  if (rows.length === 0) {
-    return NextResponse.json({ error: "Each entry needs an email or phone." }, { status: 400 });
+  let joinCode = trip.join_code;
+  const organizerName = user.name?.split(" ")[0] || "A friend";
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+  // Same precedence as before: an entry with an email is treated as an
+  // email invite even if it also carries a phone.
+  const emailRows: { trip_id: string; channel: "email"; sent_to: string; token: string }[] = [];
+  const phoneEntries: string[] = [];
+  for (const entry of body) {
+    const email = entry.email?.trim().toLowerCase();
+    if (email) {
+      emailRows.push({ trip_id: tripId, channel: "email", sent_to: email, token: generateToken() });
+      continue;
+    }
+    const phone = entry.phone?.trim();
+    if (phone) phoneEntries.push(phone);
   }
 
-  const { data: invites, error } = await admin
-    .from("planner_invites")
-    .insert(rows)
-    .select("*");
+  const phoneResults: { phone: string; status: PhoneInviteStatus }[] = [];
+
+  for (const rawPhone of phoneEntries) {
+    const phone = toE164(rawPhone);
+    if (!isUSPhone(phone)) {
+      phoneResults.push({ phone: rawPhone, status: "invalid" });
+      continue;
+    }
+
+    let invitedUser;
+    try {
+      invitedUser = await findOrCreatePlannerUserByPhone(admin, phone);
+    } catch {
+      phoneResults.push({ phone, status: "error" });
+      continue;
+    }
+
+    const { data: existingMembership } = await admin
+      .from("planner_memberships")
+      .select("trip_id")
+      .eq("trip_id", tripId)
+      .eq("user_id", invitedUser.id)
+      .maybeSingle();
+    if (existingMembership) {
+      phoneResults.push({ phone, status: "already_member" });
+      continue;
+    }
+
+    if (!joinCode) {
+      joinCode = generateJoinCode(trip.destination ?? trip.name);
+      await admin.from("planner_trips").update({ join_code: joinCode }).eq("id", tripId);
+    }
+
+    // Returning-user contact-match: this number already opted in on a prior
+    // trip, so skip the join-text/link step entirely and add them straight
+    // in, with one informational (not consent-seeking) text.
+    if (CONTACT_MATCH_ENABLED && invitedUser.notify_sms) {
+      const { error: memberError } = await admin
+        .from("planner_memberships")
+        .insert({ trip_id: tripId, user_id: invitedUser.id, role: "member" });
+      if (memberError) {
+        phoneResults.push({ phone, status: "error" });
+        continue;
+      }
+
+      if (trip.twilio_conversation_sid) {
+        await addParticipantToConversation(trip.twilio_conversation_sid, phone).catch(() => {
+          // Best-effort — group-text sync can catch up later.
+        });
+      }
+
+      await admin
+        .from("planner_trip_invites")
+        .upsert(
+          { trip_id: tripId, phone, token: generateToken(), joined_at: new Date().toISOString() },
+          { onConflict: "trip_id,phone" }
+        );
+
+      await logConsentCarryover(admin, phone, invitedUser.sms_opted_in_at, tripId);
+
+      try {
+        await sendSmsText(
+          phone,
+          `${organizerName} added you to "${trip.name}" on That Friend. Reply STOP anytime to opt out.`
+        );
+      } catch {
+        // Best-effort — they're a real member either way.
+      }
+
+      phoneResults.push({ phone, status: "carried_over" });
+      continue;
+    }
+
+    const token = generateToken();
+    const { error: inviteError } = await admin
+      .from("planner_trip_invites")
+      .upsert(
+        {
+          trip_id: tripId,
+          phone,
+          token,
+          created_at: new Date().toISOString(),
+          clicked_at: null,
+          joined_at: null,
+          expires_at: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+        },
+        { onConflict: "trip_id,phone" }
+      );
+    if (inviteError) {
+      phoneResults.push({ phone, status: "error" });
+      continue;
+    }
+
+    const link = `${siteUrl}/j/${token}`;
+    const message = `${organizerName} invited you to "${trip.name}" on That Friend: ${link}\nOr reply JOIN ${joinCode} to join by text. Reply STOP to opt out.`;
+    try {
+      await sendSmsText(phone, message);
+      phoneResults.push({ phone, status: "sent" });
+    } catch {
+      phoneResults.push({ phone, status: "error" });
+    }
+  }
+
+  const { data: invites, error } =
+    emailRows.length > 0
+      ? await admin.from("planner_invites").insert(emailRows).select("*")
+      : { data: [], error: null };
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  // Actually delivering the email/SMS invite is a follow-up — this just
-  // creates the trackable invite + token. The 'link' channel from trip
-  // creation doesn't need delivery, which is why it's the only one that
-  // works end-to-end today.
-  return NextResponse.json({ invites, delivered: false }, { status: 201 });
+  return NextResponse.json({ invites, phoneResults, delivered: true }, { status: 201 });
 }

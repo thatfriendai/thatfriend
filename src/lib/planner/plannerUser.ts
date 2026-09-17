@@ -12,12 +12,42 @@ import { normalizePhoneDigits } from "./phone";
 export async function findPlannerUserByPhone(admin: SupabaseClient, fromDigits: string) {
   const { data: candidates, error } = await admin
     .from("planner_users")
-    .select("id, phone, whatsapp_opt_in")
+    .select("id, phone, whatsapp_opt_in, notify_sms, sms_opted_in_at")
     .not("phone", "is", null);
 
   if (error) throw new Error(`Phone lookup failed: ${error.message}`);
 
   return (candidates ?? []).find((c) => normalizePhoneDigits(c.phone as string) === fromDigits) ?? null;
+}
+
+/**
+ * Same lookup, but provisions a bare planner_users row (phone only, no
+ * name/email/auth) when none exists yet. Used by the organizer invite flow,
+ * which knows a real phone number before the invitee has ever touched the
+ * app — this is the only place outside phone sign-in that creates an
+ * account, and it's deliberately scoped to "an organizer entered this exact
+ * number," not "someone texted us" (the inbound webhooks still refuse to
+ * create accounts from arbitrary inbound text).
+ */
+export async function findOrCreatePlannerUserByPhone(admin: SupabaseClient, e164Phone: string) {
+  const digits = normalizePhoneDigits(e164Phone);
+  const existing = await findPlannerUserByPhone(admin, digits);
+  if (existing) return existing;
+
+  const { data: created, error } = await admin
+    .from("planner_users")
+    .insert({ phone: e164Phone })
+    .select("id, phone, whatsapp_opt_in, notify_sms, sms_opted_in_at")
+    .single();
+
+  if (error?.code === "23505") {
+    // Lost a race with a concurrent invite for the same number — someone
+    // else's insert won, fall back to reading it.
+    const raced = await findPlannerUserByPhone(admin, digits);
+    if (raced) return raced;
+  }
+  if (error || !created) throw new Error(`Could not create a user for that phone: ${error?.message ?? "unknown error"}`);
+  return created;
 }
 
 /** Tables where a planner_users.id shows up as a plain "owner" column — no uniqueness constraint, so reassigning can't collide. */

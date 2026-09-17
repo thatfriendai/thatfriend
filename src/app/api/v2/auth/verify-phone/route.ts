@@ -6,6 +6,7 @@ import { toE164, isUSPhone } from "@/lib/planner/phone";
 import { getPlannerUser } from "@/lib/planner/session";
 import { mergePlannerUsers } from "@/lib/planner/plannerUser";
 import { autoFriendTripMembers } from "@/lib/planner/follows";
+import { sendSmsText } from "@/lib/twilio/send";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -80,15 +81,17 @@ export async function POST(request: Request) {
 
   const { data: existing } = await admin
     .from("planner_users")
-    .select("id, name, username")
+    .select("id, name, username, sms_opted_in_at")
     .eq("phone", phone)
     .maybeSingle();
 
   let plannerUserId: string;
   let needsProfile: boolean;
+  let neverTextedIn = true;
   if (existing) {
     plannerUserId = existing.id;
     needsProfile = !existing.username;
+    neverTextedIn = !existing.sms_opted_in_at;
     if (codeRow.name && !existing.name) {
       await admin.from("planner_users").update({ name: codeRow.name }).eq("id", existing.id);
     }
@@ -141,6 +144,20 @@ export async function POST(request: Request) {
             // Best-effort — they can still be synced into the group thread later.
           }
         );
+      }
+
+      // This web accept flow doesn't itself go through the organizer
+      // invite-SMS (that only fires from the per-phone invite endpoint) —
+      // if this is the first time we've ever had a way to text this
+      // number, that ask has to happen here instead of waiting for a
+      // notify.ts/nudge.ts event to get there first by coincidence.
+      if (neverTextedIn) {
+        await sendSmsText(
+          phone,
+          "Reply JOIN to get trip updates from That Friend. Reply STOP anytime to opt out."
+        ).catch(() => {
+          // Best-effort — they're a real member either way.
+        });
       }
 
       return NextResponse.json({ redirect: `/planner/trips/${invite.trip_id}/preferences` });
