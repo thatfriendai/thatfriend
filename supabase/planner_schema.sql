@@ -743,3 +743,79 @@ create table if not exists planner_processed_messages (
 
 alter table planner_processed_messages enable row level security;
 grant all on planner_processed_messages to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- planner_trip_invites — one row per (trip, phone) the organizer has
+-- actually invited, replacing the trip-wide join_code as the thing that's
+-- actually sent. Lets a "that.fr/j/<token>" link be scoped to a specific
+-- invitee (funnel data: clicked_at/joined_at) instead of an undifferentiated
+-- code anyone with it can use. join_code (above) keeps working as the
+-- manual-fallback path — screenshots/forwards of the link still happen.
+-- unique(trip_id, phone) makes "resend/regenerate" an upsert: a new token
+-- resets the funnel columns rather than creating a duplicate row.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_trip_invites (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  phone text not null,
+  token text not null unique,
+  created_at timestamptz not null default now(),
+  clicked_at timestamptz,
+  joined_at timestamptz,
+  expires_at timestamptz not null default (now() + interval '30 days'),
+  unique (trip_id, phone)
+);
+create index if not exists planner_trip_invites_trip_idx on planner_trip_invites (trip_id);
+
+alter table planner_trip_invites enable row level security;
+grant all on planner_trip_invites to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- planner_users.sms_opted_in_at — the first time this phone ever gave
+-- affirmative consent (an inbound text, a tapped join link, or a carried-
+-- over opt-in via contact matching), set once and never cleared. Distinct
+-- from notify_sms, which is the CURRENT live gate every proactive send
+-- checks — it flips false on STOP and can flip true again later without
+-- resetting this timestamp. New accounts now default to notify_sms = false
+-- (opt-in model) instead of true; existing users keep whatever they already
+-- had, since they're already legitimately opted in.
+-- ---------------------------------------------------------------------------
+alter table planner_users add column if not exists sms_opted_in_at timestamptz;
+alter table planner_users alter column notify_sms set default false;
+
+-- ---------------------------------------------------------------------------
+-- planner_sms_consent_log — append-only history of consent EVENTS (state
+-- changes), not a transcript of every inbound text: see
+-- src/lib/planner/consent.ts's recordConsentEvent, which only writes here
+-- when notify_sms actually flips from false to true. Exists because
+-- notify_sms/sms_opted_in_at on planner_users only ever show current state
+-- — if consent is ever challenged, this is the history.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_sms_consent_log (
+  id uuid primary key default gen_random_uuid(),
+  phone text not null,
+  opted_in_at timestamptz not null default now(),
+  method text not null check (
+    method in ('join_code', 'link_tap', 'contact_match_carryover', 're_opt_in_after_stop', 'inbound_reply')
+  ),
+  trip_id uuid references planner_trips (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists planner_sms_consent_log_phone_idx on planner_sms_consent_log (phone);
+
+alter table planner_sms_consent_log enable row level security;
+grant all on planner_sms_consent_log to anon, authenticated, service_role;
+
+-- One-time backfill: every existing opted-in phone gets a best-guess
+-- consent-log entry, since none existed before this table did. join_code is
+-- the only join mechanism that existed historically, and created_at is the
+-- best available proxy for when consent actually happened. Idempotent via
+-- the not-exists check, safe to leave in place / re-run.
+insert into planner_sms_consent_log (phone, opted_in_at, method, trip_id)
+select u.phone, u.created_at, 'join_code', null
+from planner_users u
+where u.phone is not null
+  and u.notify_sms = true
+  and not exists (
+    select 1 from planner_sms_consent_log l where l.phone = u.phone
+  );

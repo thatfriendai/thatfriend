@@ -115,5 +115,17 @@ export async function joinTripByCode(admin: SupabaseClient, user: PlannerUserLit
     });
   }
 
+  if (user.phone) {
+    // Closes the funnel for a per-invite link (src/app/j/[token]) if this
+    // join came from one — matches on (trip, phone) whether they tapped the
+    // link or just typed the code in from a screenshot/forward.
+    await admin
+      .from("planner_trip_invites")
+      .update({ joined_at: new Date().toISOString() })
+      .eq("trip_id", trip.id)
+      .eq("phone", toE164(user.phone))
+      .is("joined_at", null);
+  }
+
   return { outcome: "joined", tripName: trip.name };
 }

@@ -6,6 +6,7 @@ import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { toE164 } from "@/lib/planner/phone";
 import { autoFriendTripMembers } from "@/lib/planner/follows";
 import { completePendingEmailLink } from "@/lib/planner/emailLink";
+import { sendSmsText } from "@/lib/twilio/send";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -76,6 +77,19 @@ export async function GET(request: Request) {
             toE164(plannerUser.phone)
           ).catch(() => {
             // Best-effort — they can still be synced into the group thread later.
+          });
+        }
+
+        // Same one-time consent ask as the phone sign-in accept flow (see
+        // verify-phone/route.ts) — this is the email/OAuth equivalent, and
+        // it's the only other place a phone-having member can join without
+        // the organizer invite-SMS having already served as the ask.
+        if (!plannerUser.sms_opted_in_at) {
+          await sendSmsText(
+            toE164(plannerUser.phone),
+            "Reply JOIN to get trip updates from That Friend. Reply STOP anytime to opt out."
+          ).catch(() => {
+            // Best-effort — they're a real member either way.
           });
         }
       }

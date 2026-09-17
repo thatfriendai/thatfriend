@@ -29,6 +29,7 @@ export interface PlannerUser {
   digest_frequency: DigestFrequency;
   default_trip_public: boolean;
   location: string | null;
+  sms_opted_in_at: string | null;
 }
 
 export interface PlannerFollow {
@@ -120,6 +121,35 @@ export interface PlannerInvite {
   channel: InviteChannel;
   sent_to: string | null;
   accepted_by: string | null;
+  created_at: string;
+}
+
+/** One row per (trip, phone) an organizer has actually invited — see src/app/j/[token]. */
+export interface PlannerTripInvite {
+  id: string;
+  trip_id: string;
+  phone: string;
+  token: string;
+  created_at: string;
+  clicked_at: string | null;
+  joined_at: string | null;
+  expires_at: string;
+}
+
+export type ConsentMethod =
+  | "join_code"
+  | "link_tap"
+  | "contact_match_carryover"
+  | "re_opt_in_after_stop"
+  | "inbound_reply";
+
+/** Append-only audit trail of consent state changes — see src/lib/planner/consent.ts. */
+export interface PlannerSmsConsentLog {
+  id: string;
+  phone: string;
+  opted_in_at: string;
+  method: ConsentMethod;
+  trip_id: string | null;
   created_at: string;
 }
 

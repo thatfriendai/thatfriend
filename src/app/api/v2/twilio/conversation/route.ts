@@ -9,6 +9,7 @@ import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib
 import { classifyIntent } from "@/lib/planner/inboundIntent";
 import { answerTripQuestion } from "@/lib/planner/tripQA";
 import { sendNudge } from "@/lib/planner/nudge";
+import { recordConsentEvent, handleOptKeywordFromBody } from "@/lib/planner/consent";
 
 const ASSISTANT_AUTHOR = "That Friend";
 
@@ -89,6 +90,24 @@ export async function POST(request: Request) {
     // can't match to an account — nothing sane to do, stay quiet.
     return NextResponse.json({ ok: true });
   }
+
+  // STOP/START as a plain message body — see the 1:1 webhook's identical
+  // backstop comment; the opt-out callback route is the reliable mechanism.
+  if (body) {
+    const optKeyword = await handleOptKeywordFromBody(admin, user, body, trip.id);
+    if (optKeyword === "stop") {
+      await sendConversationMessage(conversationSid, "You won't get texts from That Friend anymore. Reply START anytime to turn them back on.");
+      return NextResponse.json({ ok: true });
+    }
+    if (optKeyword === "start") {
+      await sendConversationMessage(conversationSid, "You're opted back in — text away.");
+      return NextResponse.json({ ok: true });
+    }
+  }
+
+  // No join-code concept inside a group thread (you're already in), so any
+  // inbound message here is consent classified simply as a reply.
+  await recordConsentEvent(admin, user, "inbound_reply", trip.id);
 
   if (body) {
     const intent = await classifyIntent(body);

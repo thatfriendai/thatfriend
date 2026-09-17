@@ -2,13 +2,14 @@ import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { downloadTwilioMedia, getPublicWebhookUrl } from "@/lib/twilio/client";
-import { normalizePhoneDigits } from "@/lib/planner/phone";
+import { normalizePhoneDigits, toE164 } from "@/lib/planner/phone";
 import { findPlannerUserByPhone } from "@/lib/planner/plannerUser";
 import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib/planner/whatsappResource";
 import { classifyIntent } from "@/lib/planner/inboundIntent";
 import { answerTripQuestion } from "@/lib/planner/tripQA";
 import { sendNudge } from "@/lib/planner/nudge";
 import { createTripFromText, joinTripByCode } from "@/lib/planner/smsTripStart";
+import { recordConsentEvent, handleOptKeywordFromBody, type ConsentMethod } from "@/lib/planner/consent";
 
 // "hello LISBON4K", "hi LISBON4K", "join LISBON4K" — deterministic, not
 // LLM-classified, since it's an exact code the app itself generated.
@@ -93,6 +94,21 @@ export async function POST(request: Request) {
     await admin.from("planner_users").update({ whatsapp_opt_in: true }).eq("id", user.id);
   }
 
+  // STOP/START as a plain message body — Twilio's Advanced Opt-Out normally
+  // intercepts these before they ever reach here (see
+  // src/app/api/v2/twilio/opt-out/route.ts for the reliable mechanism);
+  // this is only a backstop, checked first so neither word is mistaken for
+  // a join code or resource to save.
+  if (body) {
+    const optKeyword = await handleOptKeywordFromBody(admin, user, body);
+    if (optKeyword === "stop") {
+      return reply("You won't get texts from That Friend anymore. Reply START anytime to turn them back on.");
+    }
+    if (optKeyword === "start") {
+      return reply("You're opted back in — text away.");
+    }
+  }
+
   const { data: membership } = await admin
     .from("planner_memberships")
     .select("trip_id, planner_trips(id, name, twilio_conversation_sid)")
@@ -105,6 +121,34 @@ export async function POST(request: Request) {
     ? (membership.planner_trips as unknown as { id: string; name: string; twilio_conversation_sid: string | null } | null)
     : null;
   const tripName = trip?.name ?? "your trip";
+
+  // Any inbound message from here on is itself affirmative consent —
+  // classify how (a tracked join-link tap, a bare join code, or just a
+  // reply) before acting on it, so the audit log records why.
+  if (body) {
+    const joinMatch = body.match(JOIN_CODE_PATTERN);
+    let method: ConsentMethod = "inbound_reply";
+    let consentTripId: string | null = trip?.id ?? null;
+    if (joinMatch) {
+      method = "join_code";
+      const code = joinMatch[1].trim().toUpperCase();
+      const { data: codeTrip } = await admin.from("planner_trips").select("id").eq("join_code", code).maybeSingle();
+      consentTripId = codeTrip?.id ?? null;
+      if (codeTrip && user.phone) {
+        const { data: trackedInvite } = await admin
+          .from("planner_trip_invites")
+          .select("id")
+          .eq("trip_id", codeTrip.id)
+          .eq("phone", toE164(user.phone))
+          .not("clicked_at", "is", null)
+          .maybeSingle();
+        if (trackedInvite) method = "link_tap";
+      }
+    }
+    await recordConsentEvent(admin, user, method, consentTripId);
+  } else if (numMedia > 0) {
+    await recordConsentEvent(admin, user, "inbound_reply", trip?.id ?? null);
+  }
 
   // These two — joining by code, and starting a brand-new trip — are the
   // only things that make sense with zero existing memberships, so they're

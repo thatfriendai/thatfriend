@@ -104,6 +104,11 @@ sandbox number from section 4, which can't send or receive plain SMS at all.
 6. Run the new column from `supabase/planner_schema.sql`
    (`planner_trips.twilio_conversation_sid`) in the Supabase SQL Editor if
    you already ran that file before this change.
+7. Under the Messaging Service's **Integration → Opt-Out Callback**, set
+   `https://<your-domain>/api/v2/twilio/opt-out`, method **POST** — this is
+   the reliable way STOP/START reach the app; Advanced Opt-Out (on by
+   default) can otherwise intercept those keywords before they reach the
+   inbound webhooks above.
 
 **Before relying on this at any real volume**, register an A2P 10DLC brand
 and campaign for the number (Messaging → Regulatory Compliance) — US
@@ -134,6 +139,7 @@ cp .env.local.example .env.local
 | `NEXT_PUBLIC_WHATSAPP_DISPLAY_NUMBER` | v1: human-readable form shown in the UI |
 | `TWILIO_SMS_NUMBER` | v2 planner: real SMS/MMS number, E.164 (`+1...`) |
 | `TWILIO_MESSAGING_SERVICE_SID` | v2 planner: Messaging Service that number belongs to |
+| `ENABLE_CONTACT_MATCH_INVITES` | v2 planner: skip re-asking consent from already-opted-in numbers on invite — off until the privacy policy covers it |
 
 `.env.local` is gitignored — it never gets committed.
 
