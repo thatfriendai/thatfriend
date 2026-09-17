@@ -170,7 +170,7 @@ export function ExploreView({
   const searchParams = useSearchParams();
   const linkedGuide = GUIDES.find((g) => g.id === searchParams.get("guide")) ?? null;
 
-  const [filter, setFilter] = useState<FilterChoice>(linkedGuide?.type ?? "Set-jetting");
+  const [filter, setFilter] = useState<FilterChoice>(linkedGuide?.type ?? GUIDE_TYPES[0]);
   const [openGuideId, setOpenGuideId] = useState<string | null>(linkedGuide?.id ?? null);
   const [showAllPlaces, setShowAllPlaces] = useState(false);
 

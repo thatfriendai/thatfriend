@@ -1,6 +1,6 @@
 import type { PlaceKind } from "@/lib/supabase/planner-types";
 
-export type GuideType = "Set-jetting" | "Local insider" | "Best of That Friend" | "Seasonal" | "Reported sightings";
+export type GuideType = "Trending cities" | "Set-jetting" | "Local insider" | "Best of That Friend" | "Seasonal" | "Reported sightings";
 export type GuidePlaceKind = "Restaurant" | "Bar" | "Museum" | "Activity" | "Beach" | "Stay" | "Bakery";
 
 export interface GuidePlace {
@@ -30,14 +30,22 @@ export interface Guide {
   places: GuidePlace[];
 }
 
-export const GUIDE_TYPES: GuideType[] = ["Set-jetting", "Local insider", "Best of That Friend", "Seasonal", "Reported sightings"];
+export const GUIDE_TYPES: GuideType[] = [
+  "Trending cities",
+  "Set-jetting",
+  "Local insider",
+  "Best of That Friend",
+  "Seasonal",
+  "Reported sightings",
+];
 
 // Types that are editorial (written by That Friend or an outside contributor)
 // rather than aggregated from real trip data — see "Best of That Friend"
 // below, the one type built from actual organizer trips.
-export const EDITORIAL: GuideType[] = ["Set-jetting", "Seasonal", "Reported sightings", "Local insider"];
+export const EDITORIAL: GuideType[] = ["Trending cities", "Set-jetting", "Seasonal", "Reported sightings", "Local insider"];
 
 export const TYPE_COLORS: Record<GuideType, string> = {
+  "Trending cities": "#8A5A7A",
   "Set-jetting": "#8A5A7A",
   "Local insider": "#6E5A7A",
   "Best of That Friend": "#5E5A6E",
@@ -46,12 +54,64 @@ export const TYPE_COLORS: Record<GuideType, string> = {
 };
 
 export const TYPE_WASH: Record<GuideType, string> = {
+  "Trending cities": "#F4F1F5",
   "Set-jetting": "#F6F1F4",
   "Local insider": "#F2F0F5",
   "Best of That Friend": "#F1F1F4",
   Seasonal: "#F8F1F6",
   "Reported sightings": "#F5F1F3",
 };
+
+// The city palette (ink/wash/line) for Home's "Trending right now" cards —
+// distinct from TYPE_COLORS, which is one color per guide category. Each
+// entry's `guide` id must match a TRENDING guide below.
+export interface TrendingCity {
+  guide: string;
+  name: string;
+  country: string;
+  rank: string;
+  why: string;
+  itinerary: string;
+  ink: string;
+  wash: string;
+  line: string;
+}
+
+export const TRENDING_CITIES: TrendingCity[] = [
+  {
+    guide: "tc1",
+    name: "Seoul",
+    country: "South Korea",
+    rank: "No. 1",
+    why: "Planning is up sharply for spring. Cheap flights and a long shoulder season.",
+    itinerary: "4-day itinerary · 8 places",
+    ink: "#8A5A7A",
+    wash: "#FAF0F6",
+    line: "#EBD8E6",
+  },
+  {
+    guide: "tc2",
+    name: "Mexico City",
+    country: "Mexico",
+    rank: "No. 2",
+    why: "The most copied itinerary on That Friend three months running.",
+    itinerary: "3-day itinerary · 8 places",
+    ink: "#7A4A6A",
+    wash: "#EFE2EE",
+    line: "#E0CBDD",
+  },
+  {
+    guide: "tc3",
+    name: "Naples",
+    country: "Italy",
+    rank: "No. 3",
+    why: "Rising fast as the Amalfi alternative, and open all winter.",
+    itinerary: "3-day itinerary · 7 places",
+    ink: "#5F5880",
+    wash: "#E7E1F2",
+    line: "#D6CFE8",
+  },
+];
 
 // A guide place's kind uses its own small vocabulary (it predates and is
 // richer than the real itinerary board's PlaceKind); this is how a cloned
@@ -68,7 +128,101 @@ export const GUIDE_KIND_TO_PLACE_KIND: Record<GuidePlaceKind, PlaceKind> = {
   Bakery: "Coffee shops",
 };
 
+const TRENDING: Guide[] = [
+  {
+    id: "tc1",
+    type: "Trending cities",
+    city: "Seoul, South Korea",
+    title: "Seoul in four days, the itinerary we built",
+    blurb:
+      "The most-planned city on That Friend this month. Four days that hold up in any season, built to be walked one neighbourhood at a time.",
+    creditLabel: "Editorial",
+    credit: "Built by That Friend",
+    creditNote:
+      "Assembled by our editors and pressure-tested against organizer feedback. Nothing here is a paid placement.",
+    why1: "Seoul rewards staying in one district per day. The city is large, the subway is fast, and the common mistake is crossing it four times a day for a restaurant.",
+    why2: "So the days are geographic: Jongno, then Seochon and the palaces, then Euljiro at night, then a market morning before you leave.",
+    cloneNote: "Eight anchors in a new workspace, already grouped by day.",
+    facts: [
+      { label: "Best time", value: "Late March to May, or October" },
+      { label: "Getting around", value: "Subway and a T-money card" },
+      { label: "Sensible base", value: "Jongno or Mapo" },
+      { label: "Length", value: "Four days, three nights" },
+    ],
+    places: [
+      { name: "Gyeongbokgung", kind: "Activity", where: "Jongno · mornings", note: "Go at opening, before the tour groups. The changing of the guard is at ten." },
+      { name: "Tosokchon", kind: "Restaurant", where: "Seochon · walk-in", note: "Ginseng chicken soup in a warren of old rooms. Lunch, and expect a short queue." },
+      { name: "Bukchon Hanok Village", kind: "Activity", where: "Jongno · quiet hours", note: "People live here. Go early, keep your voice down, skip the rental hanbok photo crush." },
+      { name: "Euljiro alleys", kind: "Bar", where: "Euljiro · evenings", note: "Beer and grilled things at plastic tables between print shops. The best night in the city." },
+      { name: "Gwangjang Market", kind: "Activity", where: "Jongno · before noon", note: "Mung bean pancakes at the stalls in the middle. Cash, and go hungry." },
+      { name: "Leeum Museum", kind: "Museum", where: "Itaewon", note: "Two buildings, one ticket, and the only museum worth crossing the river for." },
+      { name: "Mangwon neighbourhood", kind: "Activity", where: "Mapo · afternoon", note: "Where the day off goes. Market street, coffee, and the river path at the end of it." },
+      { name: "Cheongsu-dang", kind: "Bakery", where: "Seongsu · afternoon", note: "The cafe that started the Seongsu wave. Worth it once, on a weekday." },
+    ],
+  },
+  {
+    id: "tc2",
+    type: "Trending cities",
+    city: "Mexico City, Mexico",
+    title: "Mexico City in three days, the itinerary we built",
+    blurb:
+      "The most copied itinerary on That Friend three months running. Three days across Roma, Centro and Coyoacán, with the drive times that actually work.",
+    creditLabel: "Editorial",
+    credit: "Built by That Friend",
+    creditNote: "Assembled by our editors from the routes organizer trips kept converging on. No paid placements.",
+    why1: "The city is bigger than it looks on a map and traffic decides your day. Groups that try Centro and Coyoacán on the same afternoon spend two hours in a car.",
+    why2: "One district a day, museums in the morning, dinner within walking distance of where you sleep.",
+    cloneNote: "Eight places in a new workspace, in the order the days run.",
+    facts: [
+      { label: "Best time", value: "March to May, or October" },
+      { label: "Getting around", value: "Walk your district, car between them" },
+      { label: "Sensible base", value: "Roma Norte or Juárez" },
+      { label: "Length", value: "Three days, two nights" },
+    ],
+    places: [
+      { name: "Museo Nacional de Antropología", kind: "Museum", where: "Chapultepec · mornings", note: "Three hours minimum. Closed Mondays, which trips keep forgetting." },
+      { name: "Panadería Rosetta", kind: "Bakery", where: "Roma Norte", note: "The guava roll, standing up, before anything else." },
+      { name: "Mercado de Medellín", kind: "Activity", where: "Roma Sur", note: "Lunch at the counters rather than the restaurants around it." },
+      { name: "Centro Histórico walk", kind: "Activity", where: "Centro · morning", note: "Zócalo, Templo Mayor, then the Bellas Artes interior. Half a day, on foot." },
+      { name: "Contramar", kind: "Restaurant", where: "Roma Norte · book ahead", note: "Lunch only, tuna tostadas, and a three-week booking window." },
+      { name: "Coyoacán", kind: "Activity", where: "South · half day", note: "Frida Kahlo house needs a timed ticket. The market and the plazas are the better part." },
+      { name: "Licorería Limantour", kind: "Bar", where: "Roma Norte", note: "The first-night drink. Walk-in before nine, otherwise queue." },
+      { name: "Xochimilco", kind: "Activity", where: "Far south · full day", note: "Only if you have a fourth day, and only with a group. Book the boat, bring the food." },
+    ],
+  },
+  {
+    id: "tc3",
+    type: "Trending cities",
+    city: "Naples, Italy",
+    title: "Naples in three days, the itinerary we built",
+    blurb:
+      "Rising fast as the Amalfi alternative, and open all winter. Three days of the city itself, with the one day trip that is worth the train.",
+    creditLabel: "Editorial",
+    credit: "Built by That Friend",
+    creditNote: "Assembled by our editors. Nothing on this list is a paid placement.",
+    why1: "Most trips treat Naples as an airport on the way to the coast. Three days in the city costs a third of Positano and is better in February.",
+    why2: "The centre is walkable and chaotic, so the days are short and the day trip is the only thing on its day.",
+    cloneNote: "Seven places in a new workspace, with the train day separated out.",
+    facts: [
+      { label: "Best time", value: "October to April" },
+      { label: "Getting around", value: "On foot, plus the Circumvesuviana" },
+      { label: "Sensible base", value: "Chiaia or the centro storico" },
+      { label: "Length", value: "Three days, two nights" },
+    ],
+    places: [
+      { name: "Museo Archeologico Nazionale", kind: "Museum", where: "Centro · mornings", note: "Everything excavated from Pompeii is here, not there. Go before the site, not after." },
+      { name: "Pizzeria Da Attilio", kind: "Restaurant", where: "Pignasecca · walk-in", note: "Lunch, cash, and a wait. Better than the famous one with the queue around the block." },
+      { name: "Napoli Sotterranea", kind: "Activity", where: "Centro · book ahead", note: "Greek cisterns under the old city. Tours run hourly and the last one fills." },
+      { name: "Spanish Quarter", kind: "Activity", where: "Centro · afternoon", note: "Walk it uphill in the late afternoon when the laundry and the light line up." },
+      { name: "Pompeii", kind: "Activity", where: "Circumvesuviana · full day", note: "Its own day. First train, water, and the Villa dei Misteri before you leave." },
+      { name: "Sfogliatella at Attanasio", kind: "Bakery", where: "Near Garibaldi station", note: "Fifty metres from the station, hot from the oven, eaten standing." },
+      { name: "Lungomare Caracciolo", kind: "Activity", where: "Chiaia · sunset", note: "The evening walk along the water, with Vesuvius on your left the whole way." },
+    ],
+  },
+];
+
 export const GUIDES: Guide[] = [
+  ...TRENDING,
   {
     id: "g1",
     type: "Set-jetting",
