@@ -4,7 +4,7 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeHomeAttention, computeTripsToRate } from "@/lib/planner/homeAttention";
 import { HomeNav } from "@/components/planner/HomeNav";
-import { GUIDES, TYPE_COLORS, TYPE_WASH } from "@/lib/planner/guides";
+import { TRENDING_CITIES } from "@/lib/planner/guides";
 import { tintFor } from "@/lib/planner/cover";
 import { signOut } from "../actions";
 import { TextItInBar } from "./TextItInBar";
@@ -35,11 +35,6 @@ function initialsOf(name: string) {
       .toUpperCase() || "?"
   );
 }
-
-// The three featured guides on Home. No real "trending" signal exists (no
-// view/clone analytics), so this doesn't claim one — it just surfaces real,
-// already-written guide content rather than fabricating trending copy.
-const FEATURED_GUIDES = GUIDES.slice(0, 3);
 
 export default async function HomePage() {
   const user = await getPlannerUser();
@@ -207,35 +202,43 @@ export default async function HomePage() {
 
         <section>
           <div className="mb-1.5 flex items-baseline justify-between gap-4">
-            <p className="font-mono text-[11px] tracking-[0.14em] text-muted uppercase">From the guides</p>
+            <p className="font-mono text-[11px] tracking-[0.14em] text-muted uppercase">Trending right now</p>
             <Link href="/planner/explore" className="text-[14px] text-body hover:text-accent">
-              All guides &rarr;
+              All cities &rarr;
             </Link>
           </div>
           <p className="mb-4.5 text-[14.5px] text-muted">
-            Editorially written place lists you can copy straight into a trip.
+            Three cities people are planning most this month. Each one opens an itinerary we built.
           </p>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
-            {FEATURED_GUIDES.map((g) => (
+            {TRENDING_CITIES.map((c) => (
               <Link
-                key={g.id}
-                href={`/planner/explore?guide=${g.id}`}
-                className="flex flex-col gap-2 rounded-2xl border px-5.5 py-5.5 pb-5"
-                style={{ background: TYPE_WASH[g.type], borderColor: `${TYPE_COLORS[g.type]}33` }}
+                key={c.guide}
+                href={`/planner/explore?guide=${c.guide}`}
+                className="flex flex-col gap-2.5 rounded-2xl px-5.5 py-5.5 pb-5"
+                style={{ background: c.wash, border: `1px solid ${c.line}` }}
               >
+                <div className="flex items-center justify-between gap-2.5">
+                  <span
+                    className="font-mono text-[10.5px] tracking-[0.1em] uppercase"
+                    style={{ color: c.ink }}
+                  >
+                    {c.country}
+                  </span>
+                  <span
+                    className="rounded-full px-2.5 py-1 font-mono text-[10px] tracking-[0.1em] text-cream uppercase"
+                    style={{ background: c.ink }}
+                  >
+                    {c.rank}
+                  </span>
+                </div>
+                <span className="font-display text-[30px] leading-[1.1] text-ink">{c.name}</span>
+                <span className="text-[14.5px] leading-[1.55] text-body text-pretty">{c.why}</span>
                 <span
-                  className="font-mono text-[10.5px] tracking-[0.1em] uppercase"
-                  style={{ color: TYPE_COLORS[g.type] }}
+                  className="mt-1.5 font-mono text-[10.5px] tracking-[0.08em] uppercase"
+                  style={{ color: c.ink }}
                 >
-                  {g.type}
-                </span>
-                <span className="font-display text-[28px] leading-[1.1] text-ink">{g.city.split(",")[0]}</span>
-                <span className="text-[14.5px] leading-[1.5] text-body text-pretty">{g.blurb}</span>
-                <span
-                  className="mt-1 border-t pt-3 font-mono text-[10.5px] tracking-[0.08em] uppercase"
-                  style={{ borderColor: `${TYPE_COLORS[g.type]}33`, color: TYPE_COLORS[g.type] }}
-                >
-                  {g.places.length} places &rarr;
+                  {c.itinerary} &rarr;
                 </span>
               </Link>
             ))}
