@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { generateToken } from "@/lib/planner/tokens";
-import type { TripPrivacy } from "@/lib/supabase/planner-types";
+import { TRIP_TYPES, type TripPrivacy } from "@/lib/supabase/planner-types";
 
 export async function POST(request: Request) {
   const user = await getPlannerUser();
@@ -11,6 +11,11 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const name = typeof body.name === "string" ? body.name.trim() : "";
   if (!name) return NextResponse.json({ error: "Trip name is required." }, { status: 400 });
+
+  const tripType = typeof body.trip_type === "string" ? body.trip_type : "";
+  if (!TRIP_TYPES.includes(tripType as (typeof TRIP_TYPES)[number])) {
+    return NextResponse.json({ error: "Trip type is required." }, { status: 400 });
+  }
 
   const privacy: TripPrivacy = body.privacy === "open" ? "open" : "private";
 
@@ -24,6 +29,7 @@ export async function POST(request: Request) {
       start_date: body.start_date || null,
       end_date: body.end_date || null,
       occasion: body.occasion || null,
+      trip_type: tripType,
       budget_band: body.budget_band || null,
       privacy,
       created_by: user.id,

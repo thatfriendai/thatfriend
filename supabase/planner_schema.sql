@@ -819,3 +819,28 @@ where u.phone is not null
   and not exists (
     select 1 from planner_sms_consent_log l where l.phone = u.phone
   );
+
+-- ---------------------------------------------------------------------------
+-- planner_trips.trip_type — required, picked once at trip creation (the
+-- create form disables submit until one is chosen). Replaces the old
+-- optional "occasion" chips on that form; `occasion` itself is untouched
+-- and still readable on old rows. Nullable at the DB level anyway, since
+-- trips created before this shipped have no value and none is backfilled.
+-- Trip *templates* per type (pre-seeded decisions/checklists) were
+-- designed and explicitly cut — this is a plain classification column,
+-- used only for Explore's "Trip type" browse tab.
+-- ---------------------------------------------------------------------------
+alter table planner_trips add column if not exists trip_type text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'planner_trips_trip_type_check'
+  ) then
+    alter table planner_trips add constraint planner_trips_trip_type_check
+      check (trip_type is null or trip_type in (
+        'Bachelorette', 'Girls trip', 'Reunion', 'Ski trip', 'Birthday',
+        'Family', 'Remote work week', 'Just a trip'
+      ));
+  end if;
+end $$;

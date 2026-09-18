@@ -85,9 +85,9 @@ export const TRENDING_CITIES: TrendingCity[] = [
     rank: "No. 1",
     why: "Planning is up sharply for spring. Cheap flights and a long shoulder season.",
     itinerary: "4-day itinerary · 8 places",
-    ink: "#8A5A7A",
-    wash: "#FAF0F6",
-    line: "#EBD8E6",
+    ink: "#6B5560",
+    wash: "#F2F0F5",
+    line: "#E2DEE7",
   },
   {
     guide: "tc2",
@@ -96,9 +96,9 @@ export const TRENDING_CITIES: TrendingCity[] = [
     rank: "No. 2",
     why: "The most copied itinerary on That Friend three months running.",
     itinerary: "3-day itinerary · 8 places",
-    ink: "#7A4A6A",
-    wash: "#EFE2EE",
-    line: "#E0CBDD",
+    ink: "#6B5560",
+    wash: "#F2F0F5",
+    line: "#E2DEE7",
   },
   {
     guide: "tc3",
@@ -107,9 +107,9 @@ export const TRENDING_CITIES: TrendingCity[] = [
     rank: "No. 3",
     why: "Rising fast as the Amalfi alternative, and open all winter.",
     itinerary: "3-day itinerary · 7 places",
-    ink: "#5F5880",
-    wash: "#E7E1F2",
-    line: "#D6CFE8",
+    ink: "#5E5A68",
+    wash: "#F2F0F5",
+    line: "#E2DEE7",
   },
 ];
 

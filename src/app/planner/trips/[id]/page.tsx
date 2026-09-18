@@ -156,12 +156,20 @@ export default async function PlannerTripPage({
     const options = (d.planner_decision_options ?? []) as { id: string; label: string }[];
     const votes = (d.planner_decision_votes ?? []) as { option_id: string; user_id: string }[];
     const decidedOption = options.find((o) => o.id === d.decided_option_id);
+    const voteCountByOption = new Map<string, number>();
+    for (const v of votes) voteCountByOption.set(v.option_id, (voteCountByOption.get(v.option_id) ?? 0) + 1);
+    // Real per-option tallies, sorted highest first — "how it was decided"
+    // on the closed-decisions tab is built from this, not written by hand.
+    const optionVotes = options
+      .map((o) => ({ label: o.label, count: voteCountByOption.get(o.id) ?? 0 }))
+      .sort((a, b) => b.count - a.count);
     return {
       ...d,
       optionCount: options.length,
       voteCount: votes.length,
       noteCount: (d.planner_decision_notes ?? []).length,
       decidedLabel: decidedOption?.label ?? null,
+      optionVotes,
     };
   });
 

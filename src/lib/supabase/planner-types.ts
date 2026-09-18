@@ -11,6 +11,27 @@ export type StaySource = "airbnb" | "hotel" | "aparthotel" | "other";
 
 export type DigestFrequency = "instant" | "daily" | "weekly" | "urgent";
 
+export type TripType =
+  | "Bachelorette"
+  | "Girls trip"
+  | "Reunion"
+  | "Ski trip"
+  | "Birthday"
+  | "Family"
+  | "Remote work week"
+  | "Just a trip";
+
+export const TRIP_TYPES: TripType[] = [
+  "Bachelorette",
+  "Girls trip",
+  "Reunion",
+  "Ski trip",
+  "Birthday",
+  "Family",
+  "Remote work week",
+  "Just a trip",
+];
+
 export interface PlannerUser {
   id: string;
   name: string | null;
@@ -90,6 +111,7 @@ export interface PlannerTrip {
   start_date: string | null;
   end_date: string | null;
   occasion: string | null;
+  trip_type: TripType | null;
   budget_band: string | null;
   privacy: TripPrivacy;
   created_by: string;

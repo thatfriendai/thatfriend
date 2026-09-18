@@ -5,15 +5,7 @@ import { useState } from "react";
 import { AvailabilityCalendar } from "@/components/planner/AvailabilityCalendar";
 import { DestinationSearch } from "@/components/planner/DestinationSearch";
 import { CopyInviteLink } from "@/app/planner/trips/[id]/CopyInviteLink";
-
-const OCCASIONS = [
-  "Bachelorette",
-  "Reunion",
-  "Birthday",
-  "Remote work week",
-  "Family",
-  "Just a trip",
-];
+import { TRIP_TYPES } from "@/lib/supabase/planner-types";
 
 const BANDS = [
   { key: "Tight", hint: "Hostels, buses" },
@@ -59,7 +51,7 @@ export function NewTripForm({
   const [destination, setDestination] = useState("");
   const [undecidedDestination, setUndecidedDestination] = useState(false);
   const [availableDates, setAvailableDates] = useState<string[]>([]);
-  const [occasion, setOccasion] = useState<string | null>(null);
+  const [tripType, setTripType] = useState<string | null>(null);
   const [band, setBand] = useState<string | null>(null);
   const [privacy, setPrivacy] = useState<"private" | "open">("private");
   const [invitees, setInvitees] = useState<string[]>([]);
@@ -77,7 +69,7 @@ export function NewTripForm({
 
   async function handleSubmit(e: React.SyntheticEvent, finishLater = false) {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (!name.trim() || !tripType) return;
     setPending(finishLater ? "later" : "invite");
     setError(null);
 
@@ -88,7 +80,7 @@ export function NewTripForm({
         name,
         destination: undecidedDestination ? "" : destination,
         available_dates: availableDates,
-        occasion,
+        trip_type: tripType,
         budget_band: band,
         privacy,
       }),
@@ -213,19 +205,28 @@ export function NewTripForm({
       </div>
 
       <div>
-        <label className="mb-1 block text-base font-medium text-ink">What is it</label>
+        <div className="mb-1 flex items-baseline justify-between gap-3.5">
+          <label className="text-base font-medium text-ink">Trip type</label>
+          <span
+            className={`font-mono text-[10.5px] tracking-[0.1em] uppercase ${
+              tripType ? "text-muted" : "text-accent"
+            }`}
+          >
+            {tripType ? "Set" : "Required"}
+          </span>
+        </div>
         <p className="mb-3 text-sm text-muted">
-          Shapes what That Friend suggests and who it nudges.
+          Shapes what That Friend suggests, and puts the trip in the right category in Explore.
         </p>
         <div className="flex flex-wrap gap-2.5">
-          {OCCASIONS.map((o) => (
+          {TRIP_TYPES.map((t) => (
             <button
-              key={o}
+              key={t}
               type="button"
-              onClick={() => setOccasion(o)}
-              className={chipClass(occasion === o)}
+              onClick={() => setTripType(t)}
+              className={chipClass(tripType === t)}
             >
-              {o}
+              {t}
             </button>
           ))}
         </div>
@@ -337,23 +338,25 @@ export function NewTripForm({
       <div className="flex flex-wrap items-center gap-4.5 border-t border-border pt-7">
         <button
           type="submit"
-          disabled={pending !== null}
-          className="rounded-full bg-ink px-7.5 py-3.5 text-[15.5px] text-cream hover:bg-accent disabled:opacity-50"
+          disabled={pending !== null || !tripType}
+          className="rounded-full bg-ink px-7.5 py-3.5 text-[15.5px] text-cream hover:bg-accent disabled:opacity-50 disabled:hover:bg-ink"
         >
           {pending === "invite" ? "Creating…" : "Create trip and invite"}
         </button>
         <button
           type="button"
           onClick={(e) => handleSubmit(e, true)}
-          disabled={pending !== null}
-          className="rounded-full border border-input-border bg-card px-6 py-3.5 text-[15px] text-ink hover:border-ink disabled:opacity-50"
+          disabled={pending !== null || !tripType}
+          className="rounded-full border border-input-border bg-card px-6 py-3.5 text-[15px] text-ink hover:border-ink disabled:opacity-50 disabled:hover:border-input-border"
         >
           {pending === "later" ? "Saving…" : "Save and finish later"}
         </button>
         <span className="text-sm text-muted">
-          {invitees.length > 0
-            ? `${invitees.length} invite${invitees.length === 1 ? "" : "s"} go out now, and everyone gets asked for their budget.`
-            : "You can add or remove people anytime."}
+          {!tripType
+            ? "Pick a trip type first."
+            : invitees.length > 0
+              ? `${invitees.length} invite${invitees.length === 1 ? "" : "s"} go out now, and everyone gets asked for their budget.`
+              : "You can add or remove people anytime."}
         </span>
       </div>
     </form>
