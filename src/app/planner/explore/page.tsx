@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { listFriends } from "@/lib/planner/follows";
 import { getNavCounts } from "@/lib/planner/navCounts";
 import { signOut } from "@/app/planner/actions";
-import { ExploreView, type FriendChip, type TripCard } from "./ExploreView";
+import { ExploreView, type TripCard } from "./ExploreView";
 
 function initialsOf(name: string) {
   return (
@@ -59,39 +59,10 @@ export default async function ExplorePage() {
   }
   const friendsOfFriends = [...fofMap.values()];
   const fofIds = friendsOfFriends.map((f) => f.id);
-  const allNetworkIds = [...friendIds, ...fofIds];
-
-  const { data: networkMemberships } = allNetworkIds.length > 0
-    ? await admin
-        .from("planner_memberships")
-        .select("user_id, planner_trips(id, is_public)")
-        .in("user_id", allNetworkIds)
-    : { data: [] };
-
-  const publicTripCountByUser = countBy(
-    (networkMemberships ?? []).filter(
-      (m) => (m.planner_trips as unknown as { is_public: boolean } | null)?.is_public
-    ),
-    (m) => m.user_id as string
-  );
 
   const nameById = new Map<string, { name: string | null; username: string | null }>();
   for (const f of friends) nameById.set(f.id, { name: f.name, username: f.username });
   for (const f of friendsOfFriends) nameById.set(f.id, { name: f.name, username: f.username });
-
-  function toChips(ids: string[]): FriendChip[] {
-    return ids
-      .map((id) => ({
-        id,
-        name: nameById.get(id)?.name || nameById.get(id)?.username || "Someone",
-        username: nameById.get(id)?.username ?? null,
-        tripCount: publicTripCountByUser.get(id) ?? 0,
-      }))
-      .sort((a, b) => b.tripCount - a.tripCount);
-  }
-
-  const friendChips = toChips(friendIds);
-  const fofChips = toChips(fofIds);
 
   const savedTripIds = new Set((savedRows ?? []).map((r) => r.trip_id as string));
 
@@ -99,7 +70,7 @@ export default async function ExplorePage() {
     if (ownerIds.length === 0) return [];
     const { data: trips } = await admin
       .from("planner_trips")
-      .select("id, name, destination, start_date, created_by")
+      .select("id, name, destination, start_date, created_by, trip_type")
       .in("created_by", ownerIds)
       .eq("is_public", true)
       .order("created_at", { ascending: false })
@@ -122,19 +93,63 @@ export default async function ExplorePage() {
         ownerUsername: owner?.username ?? null,
         placeCount: placeCountByTrip.get(t.id as string) ?? 0,
         saved: savedTripIds.has(t.id as string),
+        tripType: t.trip_type as string | null,
       };
     });
   }
 
-  const [friendsTrips, fofTrips] = await Promise.all([fetchTripCards(friendIds), fetchTripCards(fofIds)]);
+  // Unlike fetchTripCards above (scoped to a friend/FoF owner list), the
+  // "Trip type" tab browses every public trip on the platform — per the
+  // design handoff, "Every public trip, grouped by what kind of trip it
+  // was," independent of who you follow. Owners here can fall outside the
+  // friend network entirely, so their names come from a fresh lookup
+  // rather than the network-scoped nameById map above.
+  async function fetchPublicTrips(): Promise<TripCard[]> {
+    const { data: trips } = await admin
+      .from("planner_trips")
+      .select("id, name, destination, start_date, created_by, trip_type")
+      .eq("is_public", true)
+      .order("created_at", { ascending: false })
+      .limit(60);
+    if (!trips || trips.length === 0) return [];
+
+    const ownerIds = [...new Set(trips.map((t) => t.created_by as string))];
+    const tripIds = trips.map((t) => t.id as string);
+    const [{ data: ownerRows }, { data: placeRows }] = await Promise.all([
+      admin.from("planner_users").select("id, name, username").in("id", ownerIds),
+      admin.from("planner_places").select("trip_id").in("trip_id", tripIds),
+    ]);
+    const ownerById = new Map((ownerRows ?? []).map((o) => [o.id as string, o]));
+    const placeCountByTrip = countBy(placeRows ?? [], (r) => r.trip_id as string);
+
+    return trips.map((t) => {
+      const owner = ownerById.get(t.created_by as string);
+      return {
+        id: t.id as string,
+        name: t.name as string,
+        destination: t.destination as string | null,
+        monthYear: formatMonthYear(t.start_date as string | null),
+        ownerName: owner?.name || owner?.username || "Someone",
+        ownerUsername: (owner?.username as string | null) ?? null,
+        placeCount: placeCountByTrip.get(t.id as string) ?? 0,
+        saved: savedTripIds.has(t.id as string),
+        tripType: t.trip_type as string | null,
+      };
+    });
+  }
+
+  const [friendsTrips, fofTrips, publicTrips] = await Promise.all([
+    fetchTripCards(friendIds),
+    fetchTripCards(fofIds),
+    fetchPublicTrips(),
+  ]);
 
   return (
     <Suspense fallback={null}>
       <ExploreView
-        friendChips={friendChips}
-        fofChips={fofChips}
         friendsTrips={friendsTrips}
         fofTrips={fofTrips}
+        publicTrips={publicTrips}
         navInitial={initialsOf(viewer.name || viewer.email || "?")}
         navUsername={viewer.username}
         navTripsCount={tripsCount}

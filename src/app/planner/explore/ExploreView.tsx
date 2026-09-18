@@ -15,13 +15,7 @@ import {
   type Guide,
   type GuideType,
 } from "@/lib/planner/guides";
-
-export interface FriendChip {
-  id: string;
-  name: string;
-  username: string | null;
-  tripCount: number;
-}
+import { TRIP_TYPES } from "@/lib/supabase/planner-types";
 
 export interface TripCard {
   id: string;
@@ -32,9 +26,14 @@ export interface TripCard {
   ownerUsername: string | null;
   placeCount: number;
   saved: boolean;
+  tripType: string | null;
 }
 
-type FilterChoice = GuideType | "Your friends";
+const TRIP_TYPE_TAB = "Trip type" as const;
+const FRIENDS_TRIPS_TAB = "Friends’ trips" as const;
+const ALL_TRIP_TYPES = "All types" as const;
+
+type FilterChoice = GuideType | typeof TRIP_TYPE_TAB | typeof FRIENDS_TRIPS_TAB;
 
 function initialsOf(name: string) {
   return (
@@ -145,20 +144,105 @@ function GuideKicker({ type }: { type: GuideType }) {
   );
 }
 
+// Shared by the "Friends' trips" and "Trip type" tabs — same card grid,
+// different title/subtitle/source array and empty copy.
+function TripsGrid({
+  trips,
+  title,
+  subtitle,
+  count,
+  emptyLine,
+  emptyHint,
+}: {
+  trips: TripCard[];
+  title: string;
+  subtitle: string;
+  count: string;
+  emptyLine: string;
+  emptyHint?: string;
+}) {
+  return (
+    <>
+      <div className="mb-3 flex items-baseline justify-between">
+        <div>
+          <h2 className="mb-1 font-display text-[26px] tracking-tight text-ink">{title}</h2>
+          <p className="text-[14px] text-muted">{subtitle}</p>
+        </div>
+        <span className="font-mono text-[11px] tracking-[0.08em] text-faint uppercase">{count}</span>
+      </div>
+
+      {trips.length === 0 ? (
+        <div className="mb-10 rounded-2xl border border-dashed border-input-border p-8 text-center">
+          <p className="mb-1 text-[15px] text-ink">{emptyLine}</p>
+          {emptyHint && <p className="text-[13px] text-muted">{emptyHint}</p>}
+        </div>
+      ) : (
+        <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {trips.map((t) => (
+            <div key={t.id} className="overflow-hidden rounded-2xl border border-border bg-card">
+              <div className="relative h-[168px]">
+                <TripCover
+                  place={firstPlace(t.destination, t.name)}
+                  tint={tintFor(t.id)}
+                  placeCount={`${t.placeCount} place${t.placeCount === 1 ? "" : "s"}`}
+                  size="card"
+                />
+                <div className="absolute top-2.5 right-2.5">
+                  <SaveTripButton tripId={t.id} initialSaved={t.saved} />
+                </div>
+              </div>
+              <div className="p-4">
+                <p className="text-[15px] text-ink">{t.name}</p>
+                <p className="mt-0.5 font-mono text-[11px] text-muted uppercase">
+                  {[t.destination, t.monthYear].filter(Boolean).join(" · ")}
+                </p>
+                {t.tripType && (
+                  <span className="mt-2 mb-1 inline-block rounded-full bg-[#F4F0F5] px-2.5 py-1 font-mono text-[9.5px] tracking-[0.1em] text-[#6E5A7A] uppercase">
+                    {t.tripType}
+                  </span>
+                )}
+                <div className="mt-2 flex items-center justify-between gap-2">
+                  {t.ownerUsername ? (
+                    <Link
+                      href={`/planner/u/${t.ownerUsername}`}
+                      className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-body hover:text-accent"
+                    >
+                      <span
+                        className="flex h-5 w-5 flex-none items-center justify-center rounded-full text-[9px] text-cream"
+                        style={{ background: "var(--color-accent)" }}
+                      >
+                        {initialsOf(t.ownerName)}
+                      </span>
+                      <span className="truncate">{t.ownerName}</span>
+                    </Link>
+                  ) : (
+                    <span className="text-[12.5px] text-body">{t.ownerName}</span>
+                  )}
+                  <span className="flex-none text-[12px] text-muted">
+                    {t.placeCount} place{t.placeCount === 1 ? "" : "s"}
+                  </span>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
 export function ExploreView({
-  friendChips,
-  fofChips,
   friendsTrips,
   fofTrips,
+  publicTrips,
   navInitial,
   navUsername,
   navTripsCount,
   signOutAction,
 }: {
-  friendChips: FriendChip[];
-  fofChips: FriendChip[];
   friendsTrips: TripCard[];
   fofTrips: TripCard[];
+  publicTrips: TripCard[];
   navInitial: string;
   navUsername: string | null;
   navTripsCount: number;
@@ -177,8 +261,8 @@ export function ExploreView({
   const [scope, setScope] = useState<"friends" | "fof">("friends");
   const [query, setQuery] = useState("");
   const [committedQuery, setCommittedQuery] = useState("");
+  const [tripTypeFilter, setTripTypeFilter] = useState<string>(ALL_TRIP_TYPES);
 
-  const chips = scope === "friends" ? friendChips : fofChips;
   const trips = scope === "friends" ? friendsTrips : fofTrips;
 
   const filteredTrips = useMemo(() => {
@@ -189,8 +273,14 @@ export function ExploreView({
     );
   }, [trips, committedQuery]);
 
+  const typeFilteredTrips = useMemo(
+    () => (tripTypeFilter === ALL_TRIP_TYPES ? publicTrips : publicTrips.filter((t) => t.tripType === tripTypeFilter)),
+    [publicTrips, tripTypeFilter]
+  );
+
   const openGuide = openGuideId ? GUIDES.find((g) => g.id === openGuideId) ?? null : null;
-  const matchingGuides = filter === "Your friends" ? [] : GUIDES.filter((g) => g.type === filter);
+  const matchingGuides =
+    filter === FRIENDS_TRIPS_TAB || filter === TRIP_TYPE_TAB ? [] : GUIDES.filter((g) => g.type === filter);
   const heroGuide = matchingGuides[0] ?? null;
   const restGuides = matchingGuides.slice(1);
 
@@ -226,7 +316,7 @@ export function ExploreView({
             </div>
 
             <div className="mb-10 flex flex-wrap gap-2">
-              {[...GUIDE_TYPES, "Your friends" as const].map((label) => (
+              {[...GUIDE_TYPES, TRIP_TYPE_TAB, FRIENDS_TRIPS_TAB].map((label) => (
                 <button
                   key={label}
                   type="button"
@@ -240,7 +330,49 @@ export function ExploreView({
               ))}
             </div>
 
-            {filter === "Your friends" ? (
+            {filter === TRIP_TYPE_TAB ? (
+              <>
+                <h2 className="mb-3 max-w-[640px] text-[30px] leading-[1.08] font-display tracking-tight text-ink">
+                  Trips like the one you are planning
+                </h2>
+                <p className="mb-6 max-w-[600px] text-[14.5px] leading-relaxed text-body">
+                  Every public trip, grouped by what kind of trip it was. Pick a type and see how other people ran it.
+                </p>
+
+                <div className="mb-9 flex flex-wrap gap-2">
+                  {[ALL_TRIP_TYPES, ...TRIP_TYPES].map((t) => {
+                    const count = t === ALL_TRIP_TYPES ? publicTrips.length : publicTrips.filter((p) => p.tripType === t).length;
+                    const on = tripTypeFilter === t;
+                    return (
+                      <button
+                        key={t}
+                        type="button"
+                        onClick={() => setTripTypeFilter(t)}
+                        className={`flex items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-[13.5px] transition-colors ${
+                          on ? "border-ink bg-ink text-cream" : "border-input-border bg-card text-body"
+                        }`}
+                      >
+                        <span>{t}</span>
+                        <span className={`font-mono text-[10.5px] ${on ? "text-cream/70" : "text-faint"}`}>{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <TripsGrid
+                  trips={typeFilteredTrips}
+                  title={tripTypeFilter === ALL_TRIP_TYPES ? "All public trips" : `${tripTypeFilter} trips`}
+                  subtitle={
+                    tripTypeFilter === ALL_TRIP_TYPES
+                      ? "Every public trip, newest first."
+                      : `Public ${tripTypeFilter.toLowerCase()} trips, newest first.`
+                  }
+                  count={`${typeFilteredTrips.length} trip${typeFilteredTrips.length === 1 ? "" : "s"}`}
+                  emptyLine={tripTypeFilter === ALL_TRIP_TYPES ? "No trips here yet." : `No public ${tripTypeFilter.toLowerCase()} trips yet.`}
+                  emptyHint="Try another type, or make one of your own trips public."
+                />
+              </>
+            ) : filter === FRIENDS_TRIPS_TAB ? (
               <>
                 <h2 className="mb-3 max-w-[640px] text-[30px] leading-[1.08] font-display tracking-tight text-ink">
                   Where your friends have actually been
@@ -295,112 +427,13 @@ export function ExploreView({
                   </button>
                 </div>
 
-                {chips.length > 0 && (
-                  <div className="mb-10">
-                    <div className="mb-3 flex items-baseline justify-between">
-                      <p className="font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
-                        {scope === "friends" ? "Friends who travel" : "Friends of friends who travel"}
-                      </p>
-                      <Link href="/planner/friends" className="text-[13px] text-body hover:text-accent">
-                        All friends &rarr;
-                      </Link>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                      {chips.slice(0, 8).map((f) => {
-                        const inner = (
-                          <>
-                            <div
-                              className="flex h-8 w-8 flex-none items-center justify-center rounded-full text-[11px] text-cream"
-                              style={{ background: "var(--color-accent)" }}
-                            >
-                              {initialsOf(f.name)}
-                            </div>
-                            <div>
-                              <div className="text-[13.5px] text-ink-body">{f.name}</div>
-                              <div className="text-[11.5px] text-faint">
-                                {f.tripCount} trip{f.tripCount === 1 ? "" : "s"}
-                              </div>
-                            </div>
-                          </>
-                        );
-                        return f.username ? (
-                          <Link
-                            key={f.id}
-                            href={`/planner/u/${f.username}`}
-                            className="flex items-center gap-2.5 rounded-full border border-border bg-card py-1.5 pr-4 pl-1.5 hover:border-input-border"
-                          >
-                            {inner}
-                          </Link>
-                        ) : (
-                          <div key={f.id} className="flex items-center gap-2.5 rounded-full border border-border bg-card py-1.5 pr-4 pl-1.5">
-                            {inner}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                <div className="mb-3 flex items-baseline justify-between">
-                  <div>
-                    <h2 className="mb-1 font-display text-[26px] tracking-tight text-ink">From your friends</h2>
-                    <p className="text-[14px] text-muted">Public trips from people you follow, newest first.</p>
-                  </div>
-                  <span className="font-mono text-[11px] tracking-[0.08em] text-faint uppercase">
-                    {filteredTrips.length} trip{filteredTrips.length === 1 ? "" : "s"}
-                  </span>
-                </div>
-
-                {filteredTrips.length === 0 ? (
-                  <p className="mb-10 text-[14px] text-muted">
-                    {committedQuery ? "Nothing matches that search." : "Nothing public here yet."}
-                  </p>
-                ) : (
-                  <div className="mb-10 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-                    {filteredTrips.map((t) => (
-                      <div key={t.id} className="overflow-hidden rounded-2xl border border-border bg-card">
-                        <div className="relative h-[168px]">
-                          <TripCover
-                            place={firstPlace(t.destination, t.name)}
-                            tint={tintFor(t.id)}
-                            placeCount={`${t.placeCount} place${t.placeCount === 1 ? "" : "s"}`}
-                            size="card"
-                          />
-                          <div className="absolute top-2.5 right-2.5">
-                            <SaveTripButton tripId={t.id} initialSaved={t.saved} />
-                          </div>
-                        </div>
-                        <div className="p-4">
-                          <p className="text-[15px] text-ink">{t.name}</p>
-                          <p className="mt-0.5 mb-3 font-mono text-[11px] text-muted uppercase">
-                            {[t.destination, t.monthYear].filter(Boolean).join(" · ")}
-                          </p>
-                          <div className="flex items-center justify-between gap-2">
-                            {t.ownerUsername ? (
-                              <Link
-                                href={`/planner/u/${t.ownerUsername}`}
-                                className="flex min-w-0 items-center gap-1.5 text-[12.5px] text-body hover:text-accent"
-                              >
-                                <span
-                                  className="flex h-5 w-5 flex-none items-center justify-center rounded-full text-[9px] text-cream"
-                                  style={{ background: "var(--color-accent)" }}
-                                >
-                                  {initialsOf(t.ownerName)}
-                                </span>
-                                <span className="truncate">{t.ownerName}</span>
-                              </Link>
-                            ) : (
-                              <span className="text-[12.5px] text-body">{t.ownerName}</span>
-                            )}
-                            <span className="flex-none text-[12px] text-muted">
-                              {t.placeCount} place{t.placeCount === 1 ? "" : "s"}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                <TripsGrid
+                  trips={filteredTrips}
+                  title="From your friends"
+                  subtitle="Public trips from people you follow, newest first."
+                  count={`${filteredTrips.length} trip${filteredTrips.length === 1 ? "" : "s"}`}
+                  emptyLine={committedQuery ? "Nothing matches that search." : "Nothing public here yet."}
+                />
 
                 <div className="flex items-center justify-between gap-4 rounded-2xl border border-dashed border-input-border p-6">
                   <div>

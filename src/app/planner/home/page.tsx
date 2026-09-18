@@ -201,13 +201,13 @@ export default async function HomePage() {
         <TextItInBar smsNumber={smsNumber} />
 
         <section>
-          <div className="mb-1.5 flex items-baseline justify-between gap-4">
-            <p className="font-mono text-[11px] tracking-[0.14em] text-muted uppercase">Trending right now</p>
+          <div className="mb-2 flex items-baseline justify-between gap-4">
+            <h2 className="font-display text-[38px] leading-[1.06] tracking-tight text-ink">Trending right now</h2>
             <Link href="/planner/explore" className="text-[14px] text-body hover:text-accent">
               All cities &rarr;
             </Link>
           </div>
-          <p className="mb-4.5 text-[14.5px] text-muted">
+          <p className="mb-5.5 max-w-[44em] text-[16.5px] leading-[1.55] text-ink-body text-pretty">
             Three cities people are planning most this month. Each one opens an itinerary we built.
           </p>
           <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-3">
@@ -216,7 +216,7 @@ export default async function HomePage() {
                 key={c.guide}
                 href={`/planner/explore?guide=${c.guide}`}
                 className="flex flex-col gap-2.5 rounded-2xl px-5.5 py-5.5 pb-5"
-                style={{ background: c.wash, border: `1px solid ${c.line}` }}
+                style={{ background: "#F2F0F5", border: "1px solid #E2DEE7" }}
               >
                 <div className="flex items-center justify-between gap-2.5">
                   <span
@@ -232,11 +232,11 @@ export default async function HomePage() {
                     {c.rank}
                   </span>
                 </div>
-                <span className="font-display text-[30px] leading-[1.1] text-ink">{c.name}</span>
+                <span className="font-display text-[40px] leading-[1.04] tracking-[-0.015em] text-ink">{c.name}</span>
                 <span className="text-[14.5px] leading-[1.55] text-body text-pretty">{c.why}</span>
                 <span
-                  className="mt-1.5 font-mono text-[10.5px] tracking-[0.08em] uppercase"
-                  style={{ color: c.ink }}
+                  className="mt-4 border-t pt-3.5 font-mono text-[15px] font-medium tracking-[0.04em] text-ink uppercase"
+                  style={{ borderColor: c.line }}
                 >
                   {c.itinerary} &rarr;
                 </span>
