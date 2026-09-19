@@ -8,6 +8,7 @@ import { CopyJoinCode } from "../CopyJoinCode";
 import { celebrateDecisionClosed } from "@/lib/planner/confetti";
 import type { DateCoverageDay, DateProposal } from "@/lib/planner/dates";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
+import { DATE_FLAG_REASONS, type DateFlagReason } from "@/lib/supabase/planner-types";
 
 const AVATAR_COLORS = DAY_COLORS;
 
@@ -91,7 +92,9 @@ export function DatesBoard({
   lockedStart,
   lockedEnd,
   flagNote,
+  flagReason,
   flaggedAt,
+  flaggedByName,
   proposal,
   coverage,
   totalMembers,
@@ -108,7 +111,9 @@ export function DatesBoard({
   lockedStart: string | null;
   lockedEnd: string | null;
   flagNote: string | null;
+  flagReason: string | null;
   flaggedAt: string | null;
+  flaggedByName: string | null;
   proposal: DateProposal | null;
   coverage: DateCoverageDay[];
   totalMembers: number;
@@ -122,6 +127,7 @@ export function DatesBoard({
   const [locking, setLocking] = useState(false);
   const [showFlag, setShowFlag] = useState(false);
   const [flagDraft, setFlagDraft] = useState("");
+  const [flagReasonPick, setFlagReasonPick] = useState<DateFlagReason | null>(null);
   const [flagging, setFlagging] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showManual, setShowManual] = useState(false);
@@ -232,7 +238,7 @@ export function DatesBoard({
     const res = await fetch(`/api/v2/trips/${tripId}/dates/flag`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ note: flagDraft }),
+      body: JSON.stringify({ note: flagDraft, reason: flagReasonPick }),
     });
     setFlagging(false);
     if (!res.ok) {
@@ -241,6 +247,7 @@ export function DatesBoard({
     }
     setShowFlag(false);
     setFlagDraft("");
+    setFlagReasonPick(null);
     router.refresh();
   }
 
@@ -423,7 +430,7 @@ export function DatesBoard({
                 {!isOwner
                   ? "The trip owner can confirm or reopen it either way"
                   : flaggedAt
-                    ? `Flagged: "${flagNote}"`
+                    ? `Flagged by ${flaggedByName ?? "someone"}: ${flagReason ?? ""}${flagReason && flagNote ? " — " : ""}${flagNote ?? ""}`
                     : "Nobody has flagged these dates"}
               </span>
             </div>
@@ -442,22 +449,53 @@ export function DatesBoard({
             </div>
           )}
           {isFull && showFlag && (
-            <div className="mt-4 flex flex-col gap-2.5 border-t border-warm-border pt-4">
-              <textarea
+            <div className="mt-4 flex flex-col gap-3.5 border-t border-warm-border pt-4">
+              <div>
+                <p className="mb-1 text-[16px] text-ink-body">What doesn&rsquo;t work?</p>
+                <p className="text-[14px] text-muted">The group sees this on the dates, so nobody re-asks.</p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {DATE_FLAG_REASONS.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setFlagReasonPick((cur) => (cur === r ? null : r))}
+                    className={`rounded-full border px-4 py-2 text-[14px] ${
+                      flagReasonPick === r ? "border-ink bg-ink text-cream" : "border-input-border bg-card text-ink-body"
+                    }`}
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+              <input
+                type="text"
                 value={flagDraft}
                 onChange={(e) => setFlagDraft(e.target.value)}
-                placeholder="What's off about it?"
-                rows={2}
-                className="w-full resize-y rounded-xl border border-input-border bg-card px-4 py-3 text-[14.5px] text-ink outline-none focus:border-ink"
+                placeholder="Add a detail, like which days are the problem"
+                className="w-full rounded-xl border border-input-border bg-card px-4 py-3 text-[15px] text-ink outline-none focus:border-ink"
               />
-              <button
-                type="button"
-                onClick={sendFlag}
-                disabled={flagging}
-                className="self-start rounded-full border border-input-border bg-card px-5 py-2 text-[13.5px] text-ink hover:border-ink disabled:opacity-50"
-              >
-                {flagging ? "Sending…" : "Send"}
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  onClick={sendFlag}
+                  disabled={flagging}
+                  className="rounded-full bg-ink px-5.5 py-2.5 text-[14.5px] text-cream hover:bg-accent disabled:opacity-50"
+                >
+                  {flagging ? "Sending…" : "Raise it with the group"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowFlag(false);
+                    setFlagDraft("");
+                    setFlagReasonPick(null);
+                  }}
+                  className="rounded-full border border-input-border bg-card px-5 py-2.5 text-[14.5px] text-ink hover:border-ink"
+                >
+                  Never mind
+                </button>
+              </div>
             </div>
           )}
         </div>

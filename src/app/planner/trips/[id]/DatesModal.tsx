@@ -14,7 +14,9 @@ interface DatesPayload {
   lockedStart: string | null;
   lockedEnd: string | null;
   flagNote: string | null;
+  flagReason: string | null;
   flaggedAt: string | null;
+  flaggedByName: string | null;
   proposal: DateProposal | null;
   coverage: DateCoverageDay[];
   totalMembers: number;
@@ -86,7 +88,9 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
                 lockedStart={data.lockedStart}
                 lockedEnd={data.lockedEnd}
                 flagNote={data.flagNote}
+                flagReason={data.flagReason}
                 flaggedAt={data.flaggedAt}
+                flaggedByName={data.flaggedByName}
                 proposal={data.proposal}
                 coverage={data.coverage}
                 totalMembers={data.totalMembers}

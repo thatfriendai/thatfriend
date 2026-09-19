@@ -844,3 +844,25 @@ begin
       ));
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- planner_trips.dates_flag_reason — a quick-pick category alongside the
+-- existing freeform dates_flag_note, per the design's "What doesn't work?"
+-- chips. Still one flag per trip at a time (same as dates_flagged_by/_at/
+-- _note above) — the design's own data model is singular too (a single
+-- flagReason/flagged boolean), not a real multi-person flag list, so this
+-- doesn't need a new table.
+-- ---------------------------------------------------------------------------
+alter table planner_trips add column if not exists dates_flag_reason text;
+
+do $$
+begin
+  if not exists (
+    select 1 from pg_constraint where conname = 'planner_trips_dates_flag_reason_check'
+  ) then
+    alter table planner_trips add constraint planner_trips_dates_flag_reason_check
+      check (dates_flag_reason is null or dates_flag_reason in (
+        'Work conflict', 'Flights too expensive', 'Too short', 'Family thing'
+      ));
+  end if;
+end $$;
