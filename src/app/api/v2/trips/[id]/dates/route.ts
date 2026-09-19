@@ -58,6 +58,9 @@ export async function GET(
   }));
 
   const myMarks = marks.filter((m) => m.user_id === user.id).map((m) => m.date);
+  const flaggedByName = trip.dates_flagged_by
+    ? (roster.find((m) => m.userId === trip.dates_flagged_by)?.label ?? "Someone")
+    : null;
 
   return NextResponse.json({
     tripName: trip.name,
@@ -69,7 +72,9 @@ export async function GET(
     lockedStart: trip.start_date,
     lockedEnd: trip.end_date,
     flagNote: trip.dates_flag_note,
+    flagReason: trip.dates_flag_reason,
     flaggedAt: trip.dates_flagged_at,
+    flaggedByName,
     proposal,
     coverage,
     totalMembers: roster.length,

@@ -32,6 +32,15 @@ export const TRIP_TYPES: TripType[] = [
   "Just a trip",
 ];
 
+export type DateFlagReason = "Work conflict" | "Flights too expensive" | "Too short" | "Family thing";
+
+export const DATE_FLAG_REASONS: DateFlagReason[] = [
+  "Work conflict",
+  "Flights too expensive",
+  "Too short",
+  "Family thing",
+];
+
 export interface PlannerUser {
   id: string;
   name: string | null;
@@ -120,6 +129,7 @@ export interface PlannerTrip {
   dates_flagged_by: string | null;
   dates_flagged_at: string | null;
   dates_flag_note: string | null;
+  dates_flag_reason: string | null;
   share_token: string | null;
   twilio_conversation_sid: string | null;
   preferences_skipped_at: string | null;

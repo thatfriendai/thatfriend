@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
+import { DATE_FLAG_REASONS, type DateFlagReason } from "@/lib/supabase/planner-types";
 
 export async function POST(
   request: Request,
@@ -24,6 +25,7 @@ export async function POST(
 
   const body = await request.json().catch(() => ({}));
   const note = typeof body.note === "string" ? body.note.trim().slice(0, 500) : null;
+  const reason: DateFlagReason | null = DATE_FLAG_REASONS.includes(body.reason) ? body.reason : null;
 
   const { data: trip, error } = await admin
     .from("planner_trips")
@@ -31,6 +33,7 @@ export async function POST(
       dates_flagged_by: user.id,
       dates_flagged_at: new Date().toISOString(),
       dates_flag_note: note || null,
+      dates_flag_reason: reason,
     })
     .eq("id", tripId)
     .select("*")
