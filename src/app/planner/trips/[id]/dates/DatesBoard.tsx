@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { AvailabilityCalendar } from "@/components/planner/AvailabilityCalendar";
 import { CopyJoinCode } from "../CopyJoinCode";
+import { celebrateDecisionClosed } from "@/lib/planner/confetti";
 import type { DateCoverageDay, DateProposal } from "@/lib/planner/dates";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 
@@ -138,6 +140,14 @@ export function DatesBoard({
   const isSolo = !isFull && iHaveAnswered && answeredCount <= 1;
   const isPartial = !isFull && !isSolo && answeredCount > 0;
 
+  const daysUntilStart = useMemo(() => {
+    if (!datesLockedAt || !lockedStart) return null;
+    const todayIso = new Date().toISOString().slice(0, 10);
+    if (lockedStart < todayIso) return null;
+    const ms = new Date(lockedStart + "T00:00:00").getTime() - new Date(todayIso + "T00:00:00").getTime();
+    return Math.round(ms / 86400000);
+  }, [datesLockedAt, lockedStart]);
+
   async function nudgeAvailability() {
     setNudging(true);
     setNudgeResult(null);
@@ -182,6 +192,7 @@ export function DatesBoard({
       setError("Could not lock these dates.");
       return;
     }
+    celebrateDecisionClosed();
     router.refresh();
   }
 
@@ -199,6 +210,7 @@ export function DatesBoard({
       setError("Could not lock these dates.");
       return;
     }
+    celebrateDecisionClosed();
     router.refresh();
   }
 
@@ -451,16 +463,32 @@ export function DatesBoard({
         </div>
       )}
 
-      {datesLockedAt && isOwner && (
-        <div className="mb-10">
-          <button
-            type="button"
-            onClick={unlock}
-            disabled={locking}
-            className="font-mono text-[11px] tracking-[0.08em] text-muted uppercase hover:text-ink disabled:opacity-50"
-          >
-            {locking ? "Reopening…" : "Reopen and change dates"}
-          </button>
+      {datesLockedAt && lockedStart && (
+        <div className="mb-10 rounded-2xl border border-ink bg-card p-6.5">
+          <span className="font-mono text-[10.5px] tracking-[0.1em] text-muted uppercase">Next for the group</span>
+          <div className="mt-3.5 flex flex-wrap items-center gap-3">
+            <Link
+              href={`/planner/trips/${tripId}#stays`}
+              className="rounded-full bg-ink px-5.5 py-2.5 text-[14.5px] text-cream hover:bg-accent"
+            >
+              Decide where you stay
+            </Link>
+            {isOwner && (
+              <button
+                type="button"
+                onClick={unlock}
+                disabled={locking}
+                className="rounded-full border border-input-border bg-card px-5 py-2.5 text-[14.5px] text-ink hover:border-ink disabled:opacity-50"
+              >
+                {locking ? "Reopening…" : "Reopen the dates"}
+              </button>
+            )}
+            {daysUntilStart !== null && (
+              <span className="text-[13.5px] text-muted">
+                {daysUntilStart === 0 ? "Starts today" : `${daysUntilStart} day${daysUntilStart === 1 ? "" : "s"} until you leave`}
+              </span>
+            )}
+          </div>
         </div>
       )}
 
