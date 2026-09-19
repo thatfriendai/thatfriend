@@ -5,6 +5,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { computeDateProposal } from "@/lib/planner/dates";
 import { DatesBoard } from "./DatesBoard";
 
+const smsNumber = process.env.TWILIO_SMS_NUMBER ?? null;
+
 function labelOf(person: { name: string | null; email: string | null } | null) {
   return person?.name || person?.email?.split("@")[0] || "Someone";
 }
@@ -62,6 +64,8 @@ export default async function DatesPage({
         tripId={tripId}
         tripName={trip.name}
         isOwner={membership.role === "owner"}
+        joinCode={trip.join_code}
+        smsNumber={smsNumber}
         datesLockedAt={trip.dates_locked_at}
         lockedStart={trip.start_date}
         lockedEnd={trip.end_date}
