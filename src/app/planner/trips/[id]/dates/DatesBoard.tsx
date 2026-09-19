@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 import { AvailabilityCalendar } from "@/components/planner/AvailabilityCalendar";
+import { CopyJoinCode } from "../CopyJoinCode";
 import type { DateCoverageDay, DateProposal } from "@/lib/planner/dates";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 
@@ -64,6 +65,8 @@ export function DatesBoard({
   tripId,
   tripName,
   isOwner,
+  joinCode,
+  smsNumber,
   datesLockedAt,
   lockedStart,
   lockedEnd,
@@ -78,6 +81,8 @@ export function DatesBoard({
   tripId: string;
   tripName: string;
   isOwner: boolean;
+  joinCode: string | null;
+  smsNumber: string | null;
   datesLockedAt: string | null;
   lockedStart: string | null;
   lockedEnd: string | null;
@@ -223,6 +228,15 @@ export function DatesBoard({
             people have answered, the best stretch proposes itself.
           </p>
         </>
+      )}
+
+      {!datesLockedAt && totalMembers < 2 && (
+        <div className="mb-10">
+          <p className="mb-3 text-[15px] text-body">
+            Only you are marked in so far — get the rest of the group in before locking anything.
+          </p>
+          <CopyJoinCode tripId={tripId} code={joinCode} smsNumber={smsNumber} />
+        </div>
       )}
 
       {!datesLockedAt && isOwner && (

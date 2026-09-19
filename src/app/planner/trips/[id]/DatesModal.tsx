@@ -7,6 +7,8 @@ import type { DateCoverageDay, DateProposal } from "@/lib/planner/dates";
 interface DatesPayload {
   tripName: string;
   isOwner: boolean;
+  joinCode: string | null;
+  smsNumber: string | null;
   datesLockedAt: string | null;
   lockedStart: string | null;
   lockedEnd: string | null;
@@ -76,6 +78,8 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
                 tripId={tripId}
                 tripName={data.tripName}
                 isOwner={data.isOwner}
+                joinCode={data.joinCode}
+                smsNumber={data.smsNumber}
                 datesLockedAt={data.datesLockedAt}
                 lockedStart={data.lockedStart}
                 lockedEnd={data.lockedEnd}

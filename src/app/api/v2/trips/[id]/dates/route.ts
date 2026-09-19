@@ -62,6 +62,8 @@ export async function GET(
   return NextResponse.json({
     tripName: trip.name,
     isOwner: membership.role === "owner",
+    joinCode: trip.join_code,
+    smsNumber: process.env.TWILIO_SMS_NUMBER ?? null,
     datesLockedAt: trip.dates_locked_at,
     lockedStart: trip.start_date,
     lockedEnd: trip.end_date,
