@@ -31,6 +31,23 @@ function formatShort(iso: string) {
   return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+function dayCount(start: string, end: string) {
+  const ms = new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime();
+  return Math.round(ms / 86400000) + 1;
+}
+
+// "Nina" / "Nina and Tom" / "Nina, Tom and Priya" — no Oxford comma, matches
+// the rest of the app's list copy (e.g. nudge.ts's group-text names).
+function joinNames(names: string[]) {
+  if (names.length === 0) return "";
+  if (names.length === 1) return names[0];
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+function firstName(label: string) {
+  return label.split(/\s+/)[0];
+}
+
 function bucket(count: number, total: number) {
   if (count <= 0) return 0;
   if (count >= total) return 4;
@@ -65,6 +82,7 @@ export function DatesBoard({
   tripId,
   tripName,
   isOwner,
+  myUserId,
   joinCode,
   smsNumber,
   datesLockedAt,
@@ -81,6 +99,7 @@ export function DatesBoard({
   tripId: string;
   tripName: string;
   isOwner: boolean;
+  myUserId: string;
   joinCode: string | null;
   smsNumber: string | null;
   datesLockedAt: string | null;
@@ -106,9 +125,31 @@ export function DatesBoard({
   const [showManual, setShowManual] = useState(false);
   const [manualStart, setManualStart] = useState("");
   const [manualEnd, setManualEnd] = useState("");
+  const [nudging, setNudging] = useState(false);
+  const [nudgeResult, setNudgeResult] = useState<string | null>(null);
 
   const months = useMemo(() => buildHeatmapMonths(coverage), [coverage]);
   const answeredCount = answered.filter((a) => a.answeredAt).length;
+  const notAnswered = answered.filter((a) => !a.answeredAt && a.userId !== myUserId);
+  const notAnsweredNames = joinNames(notAnswered.map((a) => firstName(a.label)));
+
+  const iHaveAnswered = myMarks.length > 0;
+  const isFull = Boolean(proposal && proposal.score >= totalMembers);
+  const isSolo = !isFull && iHaveAnswered && answeredCount <= 1;
+  const isPartial = !isFull && !isSolo && answeredCount > 0;
+
+  async function nudgeAvailability() {
+    setNudging(true);
+    setNudgeResult(null);
+    const res = await fetch(`/api/v2/trips/${tripId}/nudge`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ stage: "availability", mode: "individual" }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setNudging(false);
+    setNudgeResult(data.error ?? (data.sentCount !== undefined ? "sent" : null));
+  }
 
   async function saveMarks() {
     setSavingMarks(true);
@@ -200,22 +241,40 @@ export function DatesBoard({
       {datesLockedAt && lockedStart && lockedEnd ? (
         <>
           <h1 className="mb-3 text-4xl leading-[1.08] font-display tracking-tight text-ink">
-            Dates are locked: {formatRange(lockedStart, lockedEnd)}.
+            Dates confirmed: {formatRange(lockedStart, lockedEnd)}.
           </h1>
           <p className="mb-8 max-w-xl text-base leading-relaxed text-body">
             The itinerary is building itself around these days now.
           </p>
         </>
-      ) : proposal ? (
+      ) : isFull ? (
         <>
           <h1 className="mb-3 text-4xl leading-[1.08] font-display tracking-tight text-ink">
-            {proposal.score >= totalMembers
-              ? `Everyone marked what worked. One stretch worked for all ${totalMembers}.`
-              : `Not everyone overlaps yet. Here's what works for the most.`}
+            One stretch works for all {totalMembers} of you.
           </h1>
           <p className="mb-8 max-w-xl text-base leading-relaxed text-body">
-            Nobody had to agree to a date. They marked the days they were
-            free and the overlap did the rest.
+            Nobody agreed on a date — the overlap did it.
+          </p>
+        </>
+      ) : isPartial ? (
+        <>
+          <h1 className="mb-3 text-4xl leading-[1.08] font-display tracking-tight text-ink">
+            {answeredCount} of {totalMembers} added their dates.
+          </h1>
+          <p className="mb-8 max-w-xl text-base leading-relaxed text-body">
+            {notAnsweredNames
+              ? `Waiting on ${notAnsweredNames}. The overlap updates as they answer.`
+              : "The overlap updates as more people answer."}
+          </p>
+        </>
+      ) : isSolo ? (
+        <>
+          <h1 className="mb-3 text-4xl leading-[1.08] font-display tracking-tight text-ink">
+            You added your dates.
+          </h1>
+          <p className="mb-8 max-w-xl text-base leading-relaxed text-body">
+            Add your friends and their days stack on top of yours. The
+            overlap picks the dates.
           </p>
         </>
       ) : (
@@ -230,25 +289,46 @@ export function DatesBoard({
         </>
       )}
 
-      {!datesLockedAt && totalMembers < 2 && (
+      {!datesLockedAt && isSolo && (
         <div className="mb-10">
-          <p className="mb-3 text-[15px] text-body">
-            Only you are marked in so far — get the rest of the group in before locking anything.
-          </p>
           <CopyJoinCode tripId={tripId} code={joinCode} smsNumber={smsNumber} />
+        </div>
+      )}
+
+      {!datesLockedAt && isPartial && (
+        <div className="mb-10 flex flex-wrap items-center gap-3">
+          <button
+            type="button"
+            onClick={nudgeAvailability}
+            disabled={nudging || notAnswered.length === 0}
+            className="rounded-full bg-ink px-5.5 py-2.5 text-[14.5px] text-cream hover:bg-accent disabled:opacity-50"
+          >
+            {nudging ? "Nudging…" : `Nudge ${notAnsweredNames || "the group"}`}
+          </button>
+          <span className="font-mono text-[12.5px] text-muted">
+            {nudgeResult === "sent" ? "They get the same link again" : nudgeResult ?? ""}
+          </span>
         </div>
       )}
 
       {!datesLockedAt && isOwner && (
         <div className="mb-10">
           {!showManual ? (
-            <button
-              type="button"
-              onClick={() => setShowManual(true)}
-              className="text-[13.5px] text-muted underline hover:text-accent"
-            >
-              Already confirmed your dates elsewhere? Skip collecting availability
-            </button>
+            <div className="flex items-center gap-4 rounded-2xl border border-border bg-card p-6.5">
+              <div className="min-w-0 flex-1">
+                <p className="mb-1 text-[18px] text-ink-body">Already know the dates?</p>
+                <p className="text-[15px] leading-relaxed text-body">
+                  Skip collecting availability and set them yourself. You can always reopen it later.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowManual(true)}
+                className="flex-none rounded-full border border-ink bg-card px-5.5 py-2.5 text-[14.5px] text-ink hover:bg-ink hover:text-cream"
+              >
+                Set the dates myself
+              </button>
+            </div>
           ) : (
             <div className="rounded-2xl border border-border bg-card p-6.5">
               <p className="mb-3.5 text-[15px] text-body">
@@ -276,7 +356,7 @@ export function DatesBoard({
                   disabled={locking || !manualStart || !manualEnd}
                   className="rounded-full bg-ink px-5.5 py-2.5 text-[14.5px] text-cream hover:bg-accent disabled:opacity-50"
                 >
-                  {locking ? "Locking…" : "Lock these dates"}
+                  {locking ? "Confirming…" : "Confirm these dates"}
                 </button>
                 <button
                   type="button"
@@ -295,40 +375,61 @@ export function DatesBoard({
         <div className="mb-10 rounded-2xl border border-warm-border bg-warm-bg p-6.5">
           <div className="mb-2 flex items-center justify-between">
             <span className="font-mono text-[11px] tracking-[0.1em] text-muted uppercase">
-              Ready to lock
+              {isFull ? "Ready to confirm" : isPartial ? "Best overlap so far" : "Your days"}
             </span>
           </div>
           <p className="mb-2 text-2xl font-display text-ink">
             {formatRange(proposal.start_date, proposal.end_date)}
           </p>
           <p className="mb-4 text-[15px] leading-relaxed text-body">
-            {proposal.score >= totalMembers
-              ? `All ${totalMembers} of you are free across these days.`
-              : `This ${proposal.label} of you.`}
+            {isFull
+              ? `All ${totalMembers} of you are free these ${dayCount(proposal.start_date, proposal.end_date)} days. Confirm them and the trip stops asking about dates — flights, stays and the itinerary all build on them. Anyone can still reopen it.`
+              : isPartial
+                ? `These ${dayCount(proposal.start_date, proposal.end_date)} days work for the ${proposal.score} who answered. They can still move.`
+                : "The days you marked. This narrows once your friends mark theirs."}
           </p>
-          <div className="flex flex-wrap items-center gap-3">
-            {isOwner && (
+          {isFull && (
+            <div className="flex flex-wrap items-center gap-3">
+              {isOwner && (
+                <button
+                  type="button"
+                  onClick={lockProposal}
+                  disabled={locking}
+                  className="rounded-full bg-ink px-5.5 py-2.5 text-[14.5px] text-cream hover:bg-accent disabled:opacity-50"
+                >
+                  {locking ? "Confirming…" : "Confirm these dates"}
+                </button>
+              )}
               <button
                 type="button"
-                onClick={lockProposal}
-                disabled={locking}
+                onClick={() => setShowFlag((v) => !v)}
+                className="rounded-full border border-input-border bg-card px-5 py-2.5 text-[14.5px] text-ink hover:border-ink"
+              >
+                Raise a flag
+              </button>
+              <span className="text-[13px] text-muted">
+                {!isOwner
+                  ? "The trip owner can confirm or reopen it either way"
+                  : flaggedAt
+                    ? `Flagged: "${flagNote}"`
+                    : "Nobody has flagged these dates"}
+              </span>
+            </div>
+          )}
+          {isPartial && (
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                onClick={nudgeAvailability}
+                disabled={nudging || notAnswered.length === 0}
                 className="rounded-full bg-ink px-5.5 py-2.5 text-[14.5px] text-cream hover:bg-accent disabled:opacity-50"
               >
-                {locking ? "Locking…" : "Looks right"}
+                {nudging ? "Nudging…" : `Nudge ${notAnsweredNames || "the group"}`}
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setShowFlag((v) => !v)}
-              className="rounded-full border border-input-border bg-card px-5 py-2.5 text-[14.5px] text-ink hover:border-ink"
-            >
-              Raise a flag
-            </button>
-            {!isOwner && (
-              <span className="text-[13px] text-muted">The trip owner can lock or unlock it either way</span>
-            )}
-          </div>
-          {showFlag && (
+              <span className="text-[13px] text-muted">Confirming opens once everyone has answered</span>
+            </div>
+          )}
+          {isFull && showFlag && (
             <div className="mt-4 flex flex-col gap-2.5 border-t border-warm-border pt-4">
               <textarea
                 value={flagDraft}
@@ -358,15 +459,9 @@ export function DatesBoard({
             disabled={locking}
             className="font-mono text-[11px] tracking-[0.08em] text-muted uppercase hover:text-ink disabled:opacity-50"
           >
-            {locking ? "Unlocking…" : "Unlock and change dates"}
+            {locking ? "Reopening…" : "Reopen and change dates"}
           </button>
         </div>
-      )}
-
-      {flaggedAt && !datesLockedAt && (
-        <p className="mb-8 text-[14px] text-muted">
-          A flag was raised{flagNote ? `: “${flagNote}”` : "."}
-        </p>
       )}
 
       {error && <p className="mb-6 text-sm text-red-700">{error}</p>}
