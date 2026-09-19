@@ -64,6 +64,7 @@ export default async function DatesPage({
         tripId={tripId}
         tripName={trip.name}
         isOwner={membership.role === "owner"}
+        myUserId={user.id}
         joinCode={trip.join_code}
         smsNumber={smsNumber}
         datesLockedAt={trip.dates_locked_at}
