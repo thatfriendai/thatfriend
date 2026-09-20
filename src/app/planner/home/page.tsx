@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { computeHomeAttention, computeTripsToRate } from "@/lib/planner/homeAttention";
@@ -108,6 +109,7 @@ export default async function HomePage() {
     });
 
   const smsNumber = process.env.TWILIO_SMS_NUMBER ?? null;
+  const isIOS = /iPhone|iPad|iPod/i.test((await headers()).get("user-agent") ?? "");
 
   const firstName = (user.name || user.email || "there").split(/[\s@]/)[0];
   const label = user.name || user.email || "?";
@@ -198,7 +200,7 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <TextItInBar smsNumber={smsNumber} />
+        <TextItInBar smsNumber={smsNumber} isIOS={isIOS} />
 
         <section>
           <div className="mb-2 flex items-baseline justify-between gap-4">

@@ -19,6 +19,20 @@ export interface FollowingLists {
   followerCount: number;
 }
 
+export interface ProfilePersonRow {
+  id: string;
+  name: string;
+  username: string | null;
+  publicTripCount: number;
+  /** Does this person and the profile owner follow each other? */
+  mutual: boolean;
+}
+
+export interface PeopleLists {
+  followers: ProfilePersonRow[];
+  following: ProfilePersonRow[];
+}
+
 function countBy<T>(rows: T[], key: (row: T) => string) {
   const counts = new Map<string, number>();
   for (const row of rows) {
@@ -121,5 +135,59 @@ export async function buildFollowingLists(admin: SupabaseClient, userId: string)
     following: followingIds.map(toPerson).sort((a, b) => b.publicTripCount - a.publicTripCount),
     travelledWith: travelledWithIds.map(toPerson),
     followerCount: followerIds.length,
+  };
+}
+
+/**
+ * The full followers/following lists for the profile page's people panel
+ * (header stat buttons -> Followers/Following tabs). Unlike
+ * buildFollowingLists, this isn't relative to "you" — "mutual" here means
+ * the profile owner and that person follow each other, regardless of who's
+ * looking at the page.
+ */
+export async function buildPeopleLists(admin: SupabaseClient, profileUserId: string): Promise<PeopleLists> {
+  const [{ data: followerRows }, { data: followingRows }] = await Promise.all([
+    admin.from("planner_follows").select("follower_id").eq("followee_id", profileUserId),
+    admin.from("planner_follows").select("followee_id").eq("follower_id", profileUserId),
+  ]);
+
+  const followerIds = (followerRows ?? []).map((r) => r.follower_id as string);
+  const followingIds = (followingRows ?? []).map((r) => r.followee_id as string);
+  const followerSet = new Set(followerIds);
+  const followingSet = new Set(followingIds);
+  const allIds = [...new Set([...followerIds, ...followingIds])];
+
+  const [{ data: userRows }, { data: memberRows }] = await Promise.all([
+    allIds.length ? admin.from("planner_users").select("id, name, username").in("id", allIds) : Promise.resolve({ data: [] }),
+    allIds.length
+      ? admin.from("planner_memberships").select("user_id, planner_trips(is_public)").in("user_id", allIds)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const nameById = new Map(
+    (userRows ?? []).map((u) => [u.id as string, { name: u.name as string | null, username: u.username as string | null }])
+  );
+  const publicTripCountByUser = new Map<string, number>();
+  for (const m of memberRows ?? []) {
+    const trip = m.planner_trips as unknown as { is_public: boolean } | null;
+    if (!trip?.is_public) continue;
+    const uid = m.user_id as string;
+    publicTripCountByUser.set(uid, (publicTripCountByUser.get(uid) ?? 0) + 1);
+  }
+
+  function toPerson(id: string, mutual: boolean): ProfilePersonRow {
+    const u = nameById.get(id);
+    return {
+      id,
+      name: u?.name || u?.username || "Someone",
+      username: u?.username ?? null,
+      publicTripCount: publicTripCountByUser.get(id) ?? 0,
+      mutual,
+    };
+  }
+
+  return {
+    followers: followerIds.map((id) => toPerson(id, followingSet.has(id))),
+    following: followingIds.map((id) => toPerson(id, followerSet.has(id))),
   };
 }

@@ -58,9 +58,9 @@ export default async function DatesPage({
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b border-border bg-card px-7 py-4">
-        <Link href={`/planner/trips/${tripId}`} className="text-[14px] text-body hover:text-accent">
-          &larr; {trip.name}
+      <header className="flex items-center justify-between border-b border-border bg-card px-7 py-5">
+        <Link href={`/planner/trips/${tripId}`} className="flex items-center gap-2 text-[17px] font-medium text-ink hover:text-accent">
+          <span aria-hidden>&larr;</span> {trip.name}
         </Link>
       </header>
       <DatesBoard
