@@ -866,3 +866,29 @@ begin
       ));
   end if;
 end $$;
+
+-- ---------------------------------------------------------------------------
+-- planner_backfilled_countries — the public profile map's "Add somewhere
+-- you've been" picker. Travel from before someone joined That Friend: a
+-- country plus the cities they can recall and roughly when, with no trip
+-- and no ratings behind it. Rendered on the map in a fainter shade than
+-- countries with real ratings, and superseded by real ratings if the
+-- country later gets some (see countryFromAddress-based grouping in
+-- src/lib/planner/travelMap.ts, which takes precedence in the UI).
+-- country_code is the ISO 3166-1 numeric code, unpadded, matching the
+-- world-atlas topojson feature ids the map already keys off of.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_backfilled_countries (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references planner_users (id) on delete cascade,
+  country_code text not null,
+  country_name text not null,
+  cities text[] not null default '{}',
+  travelled_when text,
+  created_at timestamptz not null default now(),
+  unique (user_id, country_code)
+);
+create index if not exists planner_backfilled_countries_user_idx on planner_backfilled_countries (user_id);
+
+alter table planner_backfilled_countries enable row level security;
+grant all on planner_backfilled_countries to anon, authenticated, service_role;

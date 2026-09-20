@@ -2,9 +2,13 @@ import { notFound } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { listFriends } from "@/lib/planner/follows";
-import { buildFollowingLists } from "@/lib/planner/followingLists";
+import { buildPeopleLists } from "@/lib/planner/followingLists";
 import { listVisits } from "@/lib/planner/ratingCapture";
+import { buildTravelMap, countrySet } from "@/lib/planner/travelMap";
+import { listBackfilledCountries } from "@/lib/planner/backfillCountries";
 import { ProfileView, type RatingCardData, type TripCardData, type VisitedPlaceRow } from "./ProfileView";
+import type { ProfilePersonRow } from "./PeoplePanel";
+import type { LiveTrip } from "./ProfileMap";
 
 function formatDates(start: string | null, end: string | null) {
   if (!start) return null;
@@ -17,6 +21,22 @@ function formatDates(start: string | null, end: string | null) {
 
 function formatMonthYear(dateStr: string) {
   return new Date(dateStr).toLocaleDateString(undefined, { month: "short", year: "numeric" }).toUpperCase();
+}
+
+/** Non-uppercase month/year ("Sep 2026") for the map's trip-summary lines, which read as prose rather than a mono label. */
+function monthYearLabel(dateStr: string | null) {
+  if (!dateStr) return null;
+  return new Date(dateStr + "T00:00:00").toLocaleDateString(undefined, { month: "short", year: "numeric" });
+}
+
+function liveDayLabel(start: string, end: string, todayStr: string) {
+  const DAY = 86400000;
+  const s = new Date(start + "T00:00:00").getTime();
+  const e = new Date(end + "T00:00:00").getTime();
+  const t = new Date(todayStr + "T00:00:00").getTime();
+  const totalDays = Math.round((e - s) / DAY) + 1;
+  const dayIndex = Math.min(totalDays, Math.max(1, Math.round((t - s) / DAY) + 1));
+  return `Day ${dayIndex} of ${totalDays}`;
 }
 
 function countBy<T>(rows: T[], key: (row: T) => string) {
@@ -58,20 +78,14 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   const thirtyDaysAgo = new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
 
   // Phase 1: everything here depends only on profileUser.id/viewer.id, not
-  // on each other — one round trip instead of four-plus sequential ones.
-  const [
-    { data: memberships },
-    { count: followersCount },
-    { startedFollowingYou, following, travelledWith },
-    friendsResult,
-    viewerCountResult,
-  ] = await Promise.all([
+  // on each other — one round trip instead of several sequential ones.
+  const [{ data: memberships }, people, backfilledCountries, friendsResult, viewerCountResult] = await Promise.all([
     admin
       .from("planner_memberships")
       .select("trip_id, planner_trips(id, name, destination, start_date, end_date, is_public)")
       .eq("user_id", profileUser.id),
-    admin.from("planner_follows").select("*", { count: "exact", head: true }).eq("followee_id", profileUser.id),
-    buildFollowingLists(admin, profileUser.id),
+    buildPeopleLists(admin, profileUser.id),
+    listBackfilledCountries(admin, profileUser.id),
     viewer && !isSelf
       ? Promise.all([
           admin
@@ -130,29 +144,36 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
   const publicTripIds = publicTrips.map((t) => t.id);
   const privateTripCount = allTrips.length - publicTrips.length;
   const destinationByTripId = new Map(allTrips.map((t) => [t.id, t.destination]));
+  const tripInfoById = new Map(allTrips.map((t) => [t.id, { title: t.name, monthYear: monthYearLabel(t.start_date) }]));
 
   const today = new Date().toISOString().slice(0, 10);
   const nextTrip =
     publicTrips
       .filter((t) => t.start_date && (!t.end_date || t.end_date >= today))
       .sort((a, b) => (a.start_date ?? "9999").localeCompare(b.start_date ?? "9999"))[0] ?? null;
+  const liveTrip =
+    publicTrips.find((t) => t.start_date && t.end_date && t.start_date <= today && today <= t.end_date) ?? null;
   const ratingScopeTripIds = isSelf ? allTrips.map((t) => t.id) : publicTripIds;
 
-  // Phase 2: none of these four depend on each other — every one of them
-  // is derivable from phase 1's results alone — so they run as one round
-  // trip instead of up to four sequential ones.
+  const peopleIds = [...new Set([...people.followers.map((p) => p.id), ...people.following.map((p) => p.id)])];
+
+  // Phase 2: none of these depend on each other or on anything besides
+  // phase 1's results, so they run as one round trip too.
   const [
     [{ data: placeRows }, { data: memberRows }],
     viewerMembershipResult,
     { data: ratingRows },
-    { data: viewerFollowRows },
+    viewerFollowsPeopleResult,
+    viewerOwnRatingResult,
   ] = await Promise.all([
     publicTripIds.length > 0
       ? Promise.all([
-          admin.from("planner_places").select("trip_id").in("trip_id", publicTripIds),
+          admin.from("planner_places").select("trip_id, lat, lng").in("trip_id", publicTripIds),
           admin.from("planner_memberships").select("trip_id").in("trip_id", publicTripIds),
         ])
-      : Promise.resolve([{ data: [] as { trip_id: string }[] }, { data: [] as { trip_id: string }[] }]),
+      : Promise.resolve<
+          [{ data: { trip_id: string; lat: number | null; lng: number | null }[] }, { data: { trip_id: string }[] }]
+        >([{ data: [] }, { data: [] }]),
     !isSelf && viewer && nextTrip
       ? admin.from("planner_memberships").select("trip_id").eq("trip_id", nextTrip.id).eq("user_id", viewer.id).maybeSingle()
       : Promise.resolve(null),
@@ -166,32 +187,38 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
           .in("trip_id", ratingScopeTripIds)
           .order("rating", { ascending: false })
       : Promise.resolve({ data: [] }),
-    !isSelf && viewer && following.length > 0
-      ? admin
-          .from("planner_follows")
-          .select("followee_id")
-          .eq("follower_id", viewer.id)
-          .in(
-            "followee_id",
-            following.map((f) => f.id)
-          )
+    !isSelf && viewer && peopleIds.length > 0
+      ? admin.from("planner_follows").select("followee_id").eq("follower_id", viewer.id).in("followee_id", peopleIds)
+      : Promise.resolve({ data: [] }),
+    !isSelf && viewer
+      ? admin.from("planner_place_ratings").select("planner_places(address)").eq("user_id", viewer.id)
       : Promise.resolve({ data: [] }),
   ]);
 
   const placeCountByTrip = countBy(placeRows ?? [], (r) => r.trip_id as string);
   const memberCountByTrip = countBy(memberRows ?? [], (r) => r.trip_id as string);
   const canAskToJoinNextTrip = !isSelf && viewer && nextTrip ? !viewerMembershipResult?.data : false;
-  const viewerFollowsSet = new Set((viewerFollowRows ?? []).map((r) => r.followee_id as string));
 
-  const trips: TripCardData[] = publicTrips.map((t) => ({
-    id: t.id,
-    name: t.name,
-    destination: t.destination,
-    dateRange: formatDates(t.start_date, t.end_date),
-    placeCount: placeCountByTrip.get(t.id) ?? 0,
-    travellerCount: memberCountByTrip.get(t.id) ?? 0,
-    canAskToJoin: canAskToJoinNextTrip && t.id === nextTrip?.id,
-  }));
+  const livePinByTrip = new Map<string, { lat: number; lng: number }>();
+  for (const p of placeRows ?? []) {
+    const tripId = p.trip_id as string;
+    if (livePinByTrip.has(tripId)) continue;
+    if (typeof p.lat === "number" && typeof p.lng === "number") livePinByTrip.set(tripId, { lat: p.lat, lng: p.lng });
+  }
+  const livePin = liveTrip ? livePinByTrip.get(liveTrip.id) : null;
+  const live: LiveTrip | null =
+    liveTrip && livePin && liveTrip.start_date && liveTrip.end_date
+      ? {
+          city: liveTrip.destination || liveTrip.name,
+          dayLabel: liveDayLabel(liveTrip.start_date, liveTrip.end_date, today),
+          lat: livePin.lat,
+          lng: livePin.lng,
+        }
+      : null;
+
+  const viewerFollowsPeopleSet = isSelf
+    ? new Set(people.following.map((f) => f.id))
+    : new Set((viewerFollowsPeopleResult.data ?? []).map((r) => r.followee_id as string));
 
   const feed: RatingCardData[] = (ratingRows ?? [])
     .map((r) => {
@@ -210,6 +237,7 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
         id: r.id as string,
         placeId: place.id,
         tripId: r.trip_id as string,
+        tripName: tripInfoById.get(r.trip_id as string)?.title ?? "a trip",
         name: place.name,
         kind: place.kind,
         rating: r.rating as number,
@@ -224,6 +252,38 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       };
     })
     .filter((r): r is RatingCardData => r !== null);
+
+  const herTravelMap = buildTravelMap(
+    feed.map((r) => ({
+      tripId: r.tripId,
+      tripTitle: r.tripName,
+      tripMonthYear: tripInfoById.get(r.tripId)?.monthYear ?? null,
+      name: r.name,
+      kind: r.kind,
+      rating: r.rating,
+      address: r.address,
+      fallbackCity: r.location,
+    }))
+  );
+
+  // Real coordinates for the map's "cities with rated places" pin layer —
+  // one pin per rated place, not deduplicated by city, since a handful of
+  // overlapping pins in the same city reads fine at this zoom level.
+  const pins = feed
+    .filter((r): r is RatingCardData & { lat: number; lng: number } => r.lat !== null && r.lng !== null)
+    .map((r) => ({ lat: r.lat, lng: r.lng }));
+
+  const mine = !isSelf && viewer
+    ? {
+        codes: [
+          ...countrySet(
+            (viewerOwnRatingResult.data ?? []).map(
+              (r) => (r.planner_places as unknown as { address: string | null } | null)?.address ?? null
+            )
+          ),
+        ],
+      }
+    : null;
 
   // Unrated visits feed the zero-rating fallback list (any viewer, only
   // when there's nothing rated yet) and the owner-only "rate your places"
@@ -253,14 +313,33 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     });
   }
 
-  const followingRows = following.map((f) => ({
-    id: f.id,
-    name: f.name,
-    username: f.username,
-    publicTripCount: f.publicTripCount,
-    followsOwnerBack: f.followsYouBack,
-    viewerFollowsInitial: isSelf ? true : viewerFollowsSet.has(f.id),
-  }));
+  const feedByTrip = new Map<string, RatingCardData[]>();
+  for (const r of feed) {
+    const list = feedByTrip.get(r.tripId) ?? [];
+    list.push(r);
+    feedByTrip.set(r.tripId, list);
+  }
+
+  const trips: TripCardData[] = publicTrips.map((t) => {
+    const rated = feedByTrip.get(t.id) ?? [];
+    return {
+      id: t.id,
+      name: t.name,
+      destination: t.destination,
+      dateRange: formatDates(t.start_date, t.end_date),
+      placeCount: placeCountByTrip.get(t.id) ?? 0,
+      travellerCount: memberCountByTrip.get(t.id) ?? 0,
+      canAskToJoin: canAskToJoinNextTrip && t.id === nextTrip?.id,
+      live: liveTrip?.id === t.id,
+      liveLabel: liveTrip?.id === t.id ? live?.dayLabel ?? null : null,
+      ratedTotal: rated.length,
+      rated: rated.slice(0, 3).map((r) => ({ name: r.name, kind: r.kind, rating: r.rating })),
+    };
+  });
+
+  function toPersonRow(p: { id: string; name: string; username: string | null; publicTripCount: number; mutual: boolean }): ProfilePersonRow {
+    return { ...p, viewerFollowsInitial: viewerFollowsPeopleSet.has(p.id) };
+  }
 
   const label = profileUser.name || `@${profileUser.username}`;
   const firstName = (profileUser.name || profileUser.username || "they").split(" ")[0];
@@ -277,7 +356,8 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       isSelf={isSelf}
       publicTripCount={publicTrips.length}
       ratedCount={feed.length}
-      followersCount={followersCount ?? 0}
+      followersCount={people.followers.length}
+      followingCount={people.following.length}
       mutualFriendsCount={mutualFriendsCount}
       isFollowingInitial={isFollowing}
       viewerSignedIn={Boolean(viewer)}
@@ -288,10 +368,14 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
       recentViewerCount={recentViewerCount}
       trips={trips}
       privateTripCount={privateTripCount}
-      following={followingRows}
-      startedFollowingYou={isSelf ? startedFollowingYou : []}
-      travelledWith={isSelf ? travelledWith : []}
+      followers={people.followers.map(toPersonRow)}
+      following={people.following.map(toPersonRow)}
       viewerCanFollow={Boolean(viewer)}
+      herTravelMap={herTravelMap}
+      mineTravelMap={mine}
+      liveTrip={live}
+      backfilledCountries={backfilledCountries}
+      mapPins={pins}
     />
   );
 }

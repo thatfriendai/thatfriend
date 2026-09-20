@@ -133,6 +133,17 @@ body {
     transform: none;
   }
 }
+/* The pulsing "live trip" dot on the public profile's map (ProfileMap.tsx). */
+@keyframes tfPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.3;
+  }
+  50% {
+    transform: scale(3.2);
+    opacity: 0;
+  }
+}
 @keyframes tfFall {
   0% {
     opacity: 0;
