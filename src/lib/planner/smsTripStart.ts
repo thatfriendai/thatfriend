@@ -80,17 +80,16 @@ type JoinOutcome =
   | { outcome: "error"; error: string };
 
 /**
- * The text-message equivalent of clicking a join link — resolves a
- * join_code straight to a membership, no link or app visit required.
+ * The shared "make this user a member of this trip, over SMS" path — used
+ * both by a typed join_code (below, once it's resolved to a trip id) and by
+ * a bare "1"/"START" reply to a per-phone invite (src/app/api/v2/twilio),
+ * which already knows the trip id directly and has no code to resolve.
  */
-export async function joinTripByCode(admin: SupabaseClient, user: PlannerUserLite, rawCode: string): Promise<JoinOutcome> {
-  const code = rawCode.trim().toUpperCase();
-  if (!code) return { outcome: "not_found" };
-
+export async function joinTripById(admin: SupabaseClient, user: PlannerUserLite, tripId: string): Promise<JoinOutcome> {
   const { data: trip } = await admin
     .from("planner_trips")
     .select("id, name, twilio_conversation_sid")
-    .eq("join_code", code)
+    .eq("id", tripId)
     .maybeSingle();
   if (!trip) return { outcome: "not_found" };
 
@@ -116,9 +115,9 @@ export async function joinTripByCode(admin: SupabaseClient, user: PlannerUserLit
   }
 
   if (user.phone) {
-    // Closes the funnel for a per-invite link (src/app/j/[token]) if this
-    // join came from one — matches on (trip, phone) whether they tapped the
-    // link or just typed the code in from a screenshot/forward.
+    // Closes the funnel for a per-invite link/reply (src/app/j/[token],
+    // or a bare "1"/"START") if this join came from one — matches on
+    // (trip, phone) regardless of which path got them here.
     await admin
       .from("planner_trip_invites")
       .update({ joined_at: new Date().toISOString() })
@@ -128,4 +127,18 @@ export async function joinTripByCode(admin: SupabaseClient, user: PlannerUserLit
   }
 
   return { outcome: "joined", tripName: trip.name };
+}
+
+/**
+ * The text-message equivalent of clicking a join link — resolves a
+ * join_code straight to a membership, no link or app visit required.
+ */
+export async function joinTripByCode(admin: SupabaseClient, user: PlannerUserLite, rawCode: string): Promise<JoinOutcome> {
+  const code = rawCode.trim().toUpperCase();
+  if (!code) return { outcome: "not_found" };
+
+  const { data: trip } = await admin.from("planner_trips").select("id").eq("join_code", code).maybeSingle();
+  if (!trip) return { outcome: "not_found" };
+
+  return joinTripById(admin, user, trip.id);
 }

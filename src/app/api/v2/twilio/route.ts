@@ -8,7 +8,7 @@ import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib
 import { classifyIntent } from "@/lib/planner/inboundIntent";
 import { answerTripQuestion } from "@/lib/planner/tripQA";
 import { sendNudge } from "@/lib/planner/nudge";
-import { createTripFromText, joinTripByCode } from "@/lib/planner/smsTripStart";
+import { createTripFromText, joinTripByCode, joinTripById } from "@/lib/planner/smsTripStart";
 import { recordConsentEvent, handleOptKeywordFromBody, type ConsentMethod } from "@/lib/planner/consent";
 
 // "hello LISBON4K", "hi LISBON4K", "join LISBON4K" — deterministic, not
@@ -92,6 +92,35 @@ export async function POST(request: Request) {
   // follow suit. Best-effort: a failed update here shouldn't block the reply.
   if (isWhatsApp && !user.whatsapp_opt_in) {
     await admin.from("planner_users").update({ whatsapp_opt_in: true }).eq("id", user.id);
+  }
+
+  // Bare "1" or "START" replying to a pending per-phone invite (see
+  // src/app/api/v2/trips/[id]/invites/route.ts) joins that trip directly —
+  // the lowest-friction accept, scoped to whoever the invite was actually
+  // sent to (a forwarded screenshot won't resolve here, since the invite
+  // row is keyed on the recipient's own phone). Checked before the STOP/
+  // START opt-in handling below, which would otherwise swallow "start" as
+  // a bare re-opt-in and never join them to anything.
+  if (body && /^(?:1|start)$/i.test(body) && user.phone) {
+    const { data: pendingInvite } = await admin
+      .from("planner_trip_invites")
+      .select("id, trip_id, clicked_at")
+      .eq("phone", toE164(user.phone))
+      .is("joined_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (pendingInvite) {
+      const method: ConsentMethod = pendingInvite.clicked_at ? "link_tap" : "join_code";
+      await recordConsentEvent(admin, user, method, pendingInvite.trip_id);
+      const joined = await joinTripById(admin, user, pendingInvite.trip_id);
+      if (joined.outcome === "joined") return reply(`You're in — welcome to "${joined.tripName}". Forward a link or place anytime.`);
+      if (joined.outcome === "already_member") return reply(`You're already in "${joined.tripName}".`);
+      // not_found/error here would mean the invite's trip vanished under
+      // us — fall through to normal handling rather than dead-ending.
+    }
   }
 
   // STOP/START as a plain message body — Twilio's Advanced Opt-Out normally

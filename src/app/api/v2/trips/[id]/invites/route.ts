@@ -165,7 +165,12 @@ export async function POST(
     }
 
     const link = `${siteUrl}/j/${token}`;
-    const message = `${organizerName} invited you to "${trip.name}" on That Friend: ${link}\nOr reply JOIN ${joinCode} to join by text. Reply STOP to opt out.`;
+    // Leads with the reply, not the link — replying "1" or "START" is the
+    // lowest-friction accept (resolved via this invite's phone, handled in
+    // src/app/api/v2/twilio/route.ts). The link stays as the tap-through
+    // alternative, and JOIN <code> below still works for a forwarded
+    // screenshot, where the reply-based path can't resolve to anyone.
+    const message = `${organizerName} invites you to "${trip.name}" on That Friend. Reply START (or just 1) to get updates and text with us — or tap: ${link}\nOr reply JOIN ${joinCode}. Reply STOP to opt out.`;
     try {
       await sendSmsText(phone, message);
       phoneResults.push({ phone, status: "sent" });
