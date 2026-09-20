@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { signOut } from "@/app/planner/actions";
 import { CopyInviteLink } from "./CopyInviteLink";
 import { CopyJoinCode } from "./CopyJoinCode";
+import { InviteFriendByPhone } from "./InviteFriendByPhone";
 import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
 import { DecisionsSection } from "./decisions/DecisionsSection";
@@ -355,6 +356,7 @@ export default async function PlannerTripPage({
             ))}
           </div>
           <div className="mt-4 flex flex-col gap-3">
+            <InviteFriendByPhone tripId={id} />
             {roster.length <= 1 && joinInvite && (
               <div>
                 <p className="mb-2 text-[14px] text-body">Send this link to bring your travelers in.</p>

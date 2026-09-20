@@ -328,8 +328,7 @@ export function NewTripForm({
           </button>
         </div>
         <p className="mt-2.5 text-[13.5px] text-muted">
-          Email gets a link. A number gets it on WhatsApp, and turns on the
-          bot for them.
+          Email gets a link. A number gets a text — they can reply 1 to join.
         </p>
       </div>
 
