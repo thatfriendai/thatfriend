@@ -2,7 +2,7 @@ import "server-only";
 import countries from "world-countries";
 
 export interface CountryRef {
-  /** ISO 3166-1 numeric code, unpadded — matches world-atlas topojson feature ids. */
+  /** ISO 3166-1 numeric code, zero-padded to 3 digits ("076") — matches world-atlas topojson feature ids exactly, which keep the leading zero as part of the id string rather than treating it as a number. */
   code: string;
   name: string;
   region: string;
@@ -12,8 +12,8 @@ const BY_CODE = new Map<string, CountryRef>();
 const BY_NAME = new Map<string, string>();
 
 for (const c of countries) {
-  const code = String(Number(c.ccn3));
-  if (!code || code === "0" || code === "NaN") continue;
+  const code = c.ccn3;
+  if (!code) continue;
   const ref: CountryRef = { code, name: c.name.common, region: c.region };
   BY_CODE.set(code, ref);
   for (const n of [c.name.common, c.name.official, ...(c.altSpellings ?? [])]) {
