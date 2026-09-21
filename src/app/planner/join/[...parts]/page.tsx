@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,8 +13,26 @@ import { JoinTripButton } from "@/components/planner/JoinTripButton";
  * put on the share sheet: the trip preview, one line saying texts are part
  * of it, one button. Tapping is joining and consenting in one action.
  */
-export default async function JoinPage({ params }: { params: Promise<{ token: string }> }) {
-  const { token } = await params;
+// /j/<token> and /j/istanbul/<token> both land here — the slug is only
+// there so the link reads well in a text; the last segment is the token.
+function tokenFrom(params: { parts: string[] }): string {
+  return params.parts[params.parts.length - 1] ?? "";
+}
+
+/** The link preview in iMessage/WhatsApp — "Idil invites you to Istanbul" — so the bare URL isn't all a friend sees. */
+export async function generateMetadata({ params }: { params: Promise<{ parts: string[] }> }): Promise<Metadata> {
+  const token = tokenFrom(await params);
+  const admin = createAdminClient();
+  const invite = await resolveInviteToken(admin, token);
+  const preview = invite ? await loadJoinPreview(admin, invite.tripId) : null;
+  if (!preview) return { title: "That Friend" };
+  const title = `${preview.ownerName} invites you to ${preview.tripName}`;
+  const description = [preview.dateRange, "Tap to join on That Friend"].filter(Boolean).join(" · ");
+  return { title, description, openGraph: { title, description, siteName: "That Friend" } };
+}
+
+export default async function JoinPage({ params }: { params: Promise<{ parts: string[] }> }) {
+  const token = tokenFrom(await params);
   const admin = createAdminClient();
 
   const invite = await resolveInviteToken(admin, token);

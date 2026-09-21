@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateToken, generateJoinCode } from "./tokens";
+import { slugify } from "./slug";
 import { findOrCreatePlannerUserByPhone } from "./plannerUser";
 import { toE164, isUSPhone } from "./phone";
 import { sendSmsText } from "@/lib/twilio/send";
@@ -111,13 +112,13 @@ export async function invitePhoneToTrip(
   if (inviteError) return { phone, status: "error" };
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-  const link = `${siteUrl}/j/${token}`;
+  const link = `${siteUrl}/j/${slugify(trip.destination ?? trip.name)}/${token}`;
   // Replying "1" is the whole accept — it's one tap in the thread the invite
   // arrived in, and proves the phone. Joining is what opts them in to trip
   // texts, so the message says so in the same breath. The link is the
   // tap-through alternative (src/app/j/[token]) for someone who'd rather
   // see the trip first.
-  const message = `${organizerName} added you to "${trip.name}" on That Friend. Reply 1 to join — you'll get texts about the trip — or take a look first: ${link}\nReply STOP to opt out.`;
+  const message = `${organizerName} invites you to "${trip.name}" on That Friend. Reply 1 to join — you'll get texts about the trip — or take a look first: ${link}\nReply STOP to opt out.`;
   try {
     await sendSmsText(phone, message);
     return { phone, status: "sent" };

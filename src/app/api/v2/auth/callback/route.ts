@@ -52,7 +52,8 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.redirect(
-    `${origin}${plannerUser.username ? "/planner/home" : "/planner/profile?welcome=1"}`
-  );
+  // Same rule as phone sign-in: only a bare account (no name, no username)
+  // is walked through profile setup; everyone else lands on the main page.
+  const needsProfile = !plannerUser.username && !plannerUser.name;
+  return NextResponse.redirect(`${origin}${needsProfile ? "/planner/profile?welcome=1" : "/planner/home"}`);
 }

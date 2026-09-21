@@ -12,15 +12,19 @@ import { useState } from "react";
 export function InviteButton({
   url,
   tripName,
-  organizerFirstName,
+  organizerName,
 }: {
   url: string;
   tripName: string;
-  organizerFirstName: string;
+  organizerName: string;
 }) {
   const [copied, setCopied] = useState(false);
 
-  const text = `${organizerFirstName} added you to the ${tripName} trip on That Friend`;
+  // The sentence and the link travel together in `text` — iOS Messages
+  // keeps only `url` when both are passed, and a bare link is what a
+  // friend then sees. The page's own Open Graph title carries the same
+  // line into the link preview.
+  const text = `${organizerName} invites you to the ${tripName} trip on That Friend: ${url}`;
 
   async function copy() {
     try {
@@ -37,7 +41,7 @@ export function InviteButton({
     // first client render agree on the markup.
     if (typeof navigator.share !== "function") return copy();
     try {
-      await navigator.share({ title: tripName, text, url });
+      await navigator.share({ title: `Join ${tripName}`, text });
     } catch (e) {
       // A dismissed sheet rejects with AbortError — nothing to do. Anything
       // else (a browser that lies about supporting share) falls back to copy.

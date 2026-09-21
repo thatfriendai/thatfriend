@@ -27,6 +27,7 @@ import { ensureDays } from "@/lib/planner/days";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 import { formatPhoneDisplay, toE164 } from "@/lib/planner/phone";
 import { generateToken } from "@/lib/planner/tokens";
+import { slugify } from "@/lib/planner/slug";
 import { computeAttention } from "@/lib/planner/attention";
 import type { PlannerItineraryItem, ResourceType } from "@/lib/supabase/planner-types";
 
@@ -412,9 +413,9 @@ export default async function PlannerTripPage({
           <div className="mt-4 flex flex-col gap-3">
             {inviteLinkToken && (
               <InviteButton
-                url={`${siteUrl}/planner/join/${inviteLinkToken}`}
+                url={`${siteUrl}/join/${slugify(trip.destination ?? trip.name)}/${inviteLinkToken}`}
                 tripName={trip.destination ?? trip.name}
-                organizerFirstName={(user.name || "A friend").split(" ")[0]}
+                organizerName={user.name || "A friend"}
               />
             )}
             <details className="group rounded-2xl border border-border-soft bg-transparent">
