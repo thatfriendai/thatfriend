@@ -24,8 +24,6 @@ export async function createSessionForPhone(
   admin: SupabaseClient,
   phone: string
 ): Promise<{ authUserId: string } | { error: string }> {
-  const email = syntheticEmailFor(phone);
-
   const { data: plannerUser } = await admin
     .from("planner_users")
     .select("id, auth_user_id")
@@ -33,6 +31,18 @@ export async function createSessionForPhone(
     .maybeSingle();
 
   let authUserId = plannerUser?.auth_user_id ?? null;
+
+  // The magic link has to be minted for whichever email the linked auth
+  // account actually carries. Someone who signed up by email/Google and
+  // later attached this phone has a real email there, not the synthetic
+  // one — minting for the synthetic address would create a second auth
+  // user, and getPlannerUser would then build a blank duplicate account
+  // around it on the very next request.
+  let email = syntheticEmailFor(phone);
+  if (authUserId) {
+    const { data: linked } = await admin.auth.admin.getUserById(authUserId);
+    if (linked.user?.email) email = linked.user.email;
+  }
 
   if (!authUserId) {
     const { data: created, error: createError } = await admin.auth.admin.createUser({

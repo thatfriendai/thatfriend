@@ -92,7 +92,7 @@ function NavLink({
   return (
     <a
       href={href}
-      className={`flex items-center px-3 py-2 text-[13.5px] transition-colors ${
+      className={`flex flex-none items-center whitespace-nowrap px-3 py-2 text-[13.5px] transition-colors ${
         active ? "text-ink" : "text-muted hover:text-ink"
       }`}
       style={{ borderBottom: active ? "2px solid var(--color-accent)" : "2px solid transparent" }}
@@ -103,7 +103,8 @@ function NavLink({
 }
 
 function initialsOf(name: string) {
-  return name.split(/\s+/).map((p) => p[0]).join("").slice(0, 2).toUpperCase();
+  const letters = name.split(/\s+/).map((p) => p.replace(/[^\p{L}]/gu, "")[0] ?? "").join("").slice(0, 2).toUpperCase();
+  return letters || "?";
 }
 
 export function WorkspaceTopBar({
@@ -156,15 +157,19 @@ export function WorkspaceTopBar({
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-card">
-      <div className="flex flex-wrap items-center gap-y-2 px-5 py-3 sm:px-7">
+      {/* Wordmark · trip name · actions on one row at desktop width. On a
+          phone the trip name and its dates/travellers line take the whole
+          second row — there isn't room for a truncated name, a wrapping
+          meta line, "+ Add" and the avatar all beside each other. */}
+      <div className="flex flex-wrap items-center gap-y-2 px-4 py-2.5 sm:px-7 sm:py-3">
         <Link href="/planner/home" className="flex-none text-xl font-display text-ink">
           &ldquo;that friend&rdquo;
         </Link>
         <div className="mx-4 hidden h-5 w-px bg-border sm:block" />
-        <div className="flex min-w-0 flex-1 items-center gap-2.5">
+        <div className="order-last flex min-w-0 basis-full items-center gap-2.5 sm:order-none sm:flex-1 sm:basis-auto">
           <div className="min-w-0 flex-1">
             <TripNameField tripId={tripId} initialName={tripName} />
-            <p className="mt-0.5 font-mono text-[11px] text-muted">
+            <p className="mt-0.5 truncate font-mono text-[11px] text-muted">
               {dateRange ?? "Dates not set"} &middot; {travellerCount}{" "}
               {travellerCount === 1 ? "traveller" : "travellers"}
             </p>
@@ -251,7 +256,7 @@ export function WorkspaceTopBar({
         </div>
       </div>
 
-      <div className="flex items-center overflow-x-auto px-5 sm:px-7">
+      <div className="flex items-center overflow-x-auto px-2 [scrollbar-width:none] sm:px-7 [&::-webkit-scrollbar]:hidden">
         <HelpTip id="nav-trip101" what={NAV_TIPS.trip101.what} todo={NAV_TIPS.trip101.todo}>
           <NavLink href="#trip101" active={active === "trip101" || active === null}>
             Trip 101

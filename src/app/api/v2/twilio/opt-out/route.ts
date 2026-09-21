@@ -4,16 +4,16 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPublicWebhookUrl } from "@/lib/twilio/client";
 import { normalizePhoneDigits } from "@/lib/planner/phone";
 import { findPlannerUserByPhone } from "@/lib/planner/plannerUser";
-import { recordConsentEvent } from "@/lib/planner/consent";
+import { applyOptKeyword } from "@/lib/planner/consent";
 
 /**
- * Twilio Messaging Service "Opt-Out Callback" — the reliable STOP/START
- * mechanism, since Advanced Opt-Out (on by default for a Messaging Service)
- * can intercept the keyword before it ever reaches the two message webhooks
- * (src/app/api/v2/twilio/route.ts, .../twilio/conversation/route.ts), which
- * only get a defensive, best-effort check. This URL has to be set manually
- * under the Messaging Service's Integration > Opt-Out Callback in the
- * Twilio console — nothing in code wires that up.
+ * Mirrors a STOP/START that Twilio's Advanced Opt-Out already handled,
+ * delivered with OptOutType set. The Messaging Service's inbound webhook
+ * should point at src/app/api/v2/twilio/route.ts (see
+ * scripts/configure-twilio-webhooks.mjs), which handles OptOutType itself
+ * AND every ordinary text — this route is kept as a safe target only: it
+ * answers nothing, so if the console is ever pointed here again by
+ * mistake, ordinary texts would be silently dropped, not mis-answered.
  */
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -39,11 +39,7 @@ export async function POST(request: Request) {
   const user = await findPlannerUserByPhone(admin, fromDigits).catch(() => null);
   if (!user) return NextResponse.json({ ok: true });
 
-  if (optOutType === "STOP") {
-    await admin.from("planner_users").update({ notify_sms: false }).eq("id", user.id);
-  } else {
-    await recordConsentEvent(admin, user, "inbound_reply");
-  }
+  await applyOptKeyword(admin, user, optOutType === "STOP" ? "stop" : "start");
 
   return NextResponse.json({ ok: true });
 }

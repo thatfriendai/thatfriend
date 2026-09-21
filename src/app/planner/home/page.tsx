@@ -200,7 +200,7 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <TextItInBar smsNumber={smsNumber} isIOS={isIOS} />
+        <TextItInBar smsNumber={smsNumber} isIOS={isIOS} hasTextedBefore={Boolean(user.sms_opted_in_at)} />
 
         <section>
           <div className="mb-2 flex items-baseline justify-between gap-4">

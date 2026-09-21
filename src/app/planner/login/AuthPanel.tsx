@@ -38,9 +38,9 @@ function tabClass(on: boolean) {
   }`;
 }
 
-export function AuthPanel({ token }: { token?: string }) {
+export function AuthPanel({ token, defaultMode = "email" }: { token?: string; defaultMode?: Mode }) {
   const router = useRouter();
-  const [mode, setMode] = useState<Mode>("email");
+  const [mode, setMode] = useState<Mode>(defaultMode);
   const [cred, setCred] = useState("");
   const [step, setStep] = useState<Step | null>(null);
   const [name, setName] = useState("");

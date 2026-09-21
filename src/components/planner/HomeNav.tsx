@@ -46,19 +46,22 @@ export function HomeNav({
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-card">
-      <div className="mx-auto flex h-[66px] max-w-[1180px] items-center gap-6.5 px-8">
-        <Link href="/planner/home" className="flex-none text-[23px] tracking-tight font-display text-ink">
+      {/* One row on desktop. On a phone the three pills, "Start a trip" and
+          the avatar can't share 390px with the wordmark, so the pills drop
+          to their own row underneath instead of overlapping. */}
+      <div className="mx-auto flex max-w-[1180px] flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 sm:h-[66px] sm:flex-nowrap sm:gap-6.5 sm:px-8 sm:py-0">
+        <Link href="/planner/home" className="flex-none text-[21px] tracking-tight font-display text-ink sm:text-[23px]">
           &ldquo;that friend&rdquo;
         </Link>
 
-        <nav className="flex min-w-0 flex-1 items-center gap-1">
+        <nav className="order-last -mx-1 flex basis-full items-center gap-1 overflow-x-auto pt-1 pb-0.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden sm:order-none sm:mx-0 sm:min-w-0 sm:flex-1 sm:basis-auto sm:overflow-visible sm:p-0">
           {items.map((item) => {
             const active = isActive(item);
             return (
               <Link
                 key={item.id}
                 href={item.href}
-                className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-2 text-[14.5px] transition-colors ${
+                className={`inline-flex flex-none items-center gap-1.5 whitespace-nowrap rounded-full px-3.5 py-2 text-[14.5px] transition-colors ${
                   active ? "bg-ink text-cream" : "text-body hover:bg-surface-sunk"
                 }`}
               >
@@ -77,10 +80,10 @@ export function HomeNav({
           })}
         </nav>
 
-        <div className="flex flex-none items-center gap-3">
+        <div className="ml-auto flex flex-none items-center gap-2.5 sm:ml-0 sm:gap-3">
           <Link
             href="/planner/trips/new"
-            className="rounded-full bg-ink px-5 py-2.5 text-[14.5px] text-cream hover:bg-accent"
+            className="whitespace-nowrap rounded-full bg-ink px-4 py-2 text-[14px] text-cream hover:bg-accent sm:px-5 sm:py-2.5 sm:text-[14.5px]"
           >
             Start a trip
           </Link>

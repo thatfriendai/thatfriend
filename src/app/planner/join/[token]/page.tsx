@@ -1,91 +1,60 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPlannerUser } from "@/lib/planner/session";
+import { resolveInviteToken } from "@/lib/planner/joinLink";
+import { loadJoinPreview } from "@/lib/planner/joinPreview";
+import { JoinTripPreview } from "@/components/planner/JoinTripPreview";
+import { JoinTripButton } from "@/components/planner/JoinTripButton";
 
-export default async function JoinPage({
-  params,
-}: {
-  params: Promise<{ token: string }>;
-}) {
+/**
+ * Step 2 of the invite flow, from the trip-wide share link the organizer
+ * put on the share sheet: the trip preview, one line saying texts are part
+ * of it, one button. Tapping is joining and consenting in one action.
+ */
+export default async function JoinPage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const admin = createAdminClient();
 
-  const { data: invite } = await admin
-    .from("planner_invites")
-    .select("trip_id")
-    .eq("token", token)
-    .maybeSingle();
-
+  const invite = await resolveInviteToken(admin, token);
   if (!invite) notFound();
 
-  // trip and members both only need invite.trip_id, not each other.
-  const [{ data: trip }, { data: members }] = await Promise.all([
-    admin.from("planner_trips").select("name, destination, start_date, end_date, created_by").eq("id", invite.trip_id).maybeSingle(),
-    admin.from("planner_memberships").select("planner_users(name, email)").eq("trip_id", invite.trip_id),
-  ]);
+  const [preview, user] = await Promise.all([loadJoinPreview(admin, invite.tripId), getPlannerUser()]);
+  if (!preview) notFound();
 
-  if (!trip) notFound();
-
-  const { data: owner } = await admin
-    .from("planner_users")
-    .select("name, email")
-    .eq("id", trip.created_by)
-    .maybeSingle();
-
-  const ownerName = owner?.name || owner?.email?.split("@")[0] || "Someone";
-  const memberNames = (members ?? [])
-    .map((m) => {
-      const u = m.planner_users as unknown as { name: string | null; email: string | null } | null;
-      return u?.name || u?.email?.split("@")[0];
-    })
-    .filter((n): n is string => Boolean(n));
-
-  const dateRange =
-    trip.start_date && trip.end_date
-      ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" })}`
-      : trip.start_date
-        ? new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric" })
-        : null;
+  let alreadyMember = false;
+  if (user) {
+    const { data: membership } = await admin
+      .from("planner_memberships")
+      .select("trip_id")
+      .eq("trip_id", invite.tripId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+    alreadyMember = Boolean(membership);
+  }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between px-8 py-6 sm:px-14">
-        <span className="text-xl font-display text-ink">&ldquo;that friend&rdquo;</span>
-        <p className="text-sm text-muted">
-          Already have an account?{" "}
-          <Link href="/planner/login" className="text-ink underline">
-            Sign in
+    <JoinTripPreview
+      ownerName={preview.ownerName}
+      tripName={preview.tripName}
+      destination={preview.destination}
+      dateRange={preview.dateRange}
+      memberNames={preview.memberNames}
+      signedIn={Boolean(user)}
+    >
+      {alreadyMember ? (
+        <div className="flex flex-col gap-3">
+          <p className="text-[15px] text-body">You&rsquo;re already in.</p>
+          <Link
+            href={`/planner/trips/${invite.tripId}`}
+            className="flex items-center justify-center rounded-full bg-ink px-7 py-4 text-[16px] text-cream hover:bg-accent"
+          >
+            Open {preview.tripName}
           </Link>
-        </p>
-      </header>
-
-      <div className="mx-auto my-auto w-full max-w-[620px] px-6 py-10 pb-20">
-        <p className="mb-5 font-mono text-[11.5px] tracking-[0.14em] text-muted uppercase">
-          {ownerName} invited you
-        </p>
-        <h1 className="mb-4 text-5xl leading-[1.04] font-display tracking-tight text-ink">
-          {trip.name}
-        </h1>
-        <div className="mb-8 flex flex-wrap items-center gap-4.5">
-          {dateRange && <p className="text-[16.5px] text-body">{dateRange}</p>}
-          {memberNames.length > 0 && (
-            <>
-              {dateRange && <span className="h-1 w-1 rounded-full bg-input-border" />}
-              <p className="text-[15px] text-body">
-                {memberNames.slice(0, 4).join(", ")}
-                {memberNames.length > 0 ? " are in" : ""}
-              </p>
-            </>
-          )}
         </div>
-
-        <Link
-          href={`/planner/login?token=${token}`}
-          className="flex items-center justify-center rounded-full bg-ink px-7 py-4 text-[16px] text-cream hover:bg-accent"
-        >
-          Sign in to see the plan, notes and map
-        </Link>
-      </div>
-    </div>
+      ) : (
+        <JoinTripButton token={token} tripName={preview.tripName} signedIn={Boolean(user)} />
+      )}
+    </JoinTripPreview>
   );
 }

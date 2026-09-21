@@ -7,14 +7,30 @@ import { toE164, isUSPhone } from "@/lib/planner/phone";
 
 const CODE_TTL_MS = 10 * 60 * 1000;
 
+async function phoneForInviteToken(token: string): Promise<string | null> {
+  const { data } = await createAdminClient()
+    .from("planner_trip_invites")
+    .select("phone, expires_at")
+    .eq("token", token)
+    .maybeSingle();
+  if (!data || new Date(data.expires_at) < new Date()) return null;
+  return data.phone;
+}
+
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
   const rawPhone = typeof body.phone === "string" ? body.phone.trim() : "";
-  const phone = rawPhone ? toE164(rawPhone) : "";
   const token = typeof body.token === "string" ? body.token : "";
+  // A per-phone invite link (src/app/j/[token]) sends only its token — the
+  // number it was texted to is looked up here rather than put in the page.
+  const phone = rawPhone ? toE164(rawPhone) : token && !email ? ((await phoneForInviteToken(token)) ?? "") : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const waOptIn = body.whatsapp_opt_in === true;
+
+  if (!phone && !email && token) {
+    return NextResponse.json({ error: "That invite isn't valid anymore." }, { status: 404 });
+  }
 
   if (phone && !email) {
     if (!isUSPhone(phone)) {

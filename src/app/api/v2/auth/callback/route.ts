@@ -2,11 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
-import { addParticipantToConversation } from "@/lib/twilio/conversations";
-import { toE164 } from "@/lib/planner/phone";
-import { autoFriendTripMembers } from "@/lib/planner/follows";
 import { completePendingEmailLink } from "@/lib/planner/emailLink";
-import { sendSmsText } from "@/lib/twilio/send";
+import { acceptInviteToken } from "@/lib/planner/joinLink";
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
@@ -46,55 +43,12 @@ export async function GET(request: Request) {
   }
 
   if (token) {
-    const { data: invite } = await admin
-      .from("planner_invites")
-      .select("id, trip_id")
-      .eq("token", token)
-      .maybeSingle();
-
-    if (invite) {
-      await admin
-        .from("planner_memberships")
-        .upsert(
-          { trip_id: invite.trip_id, user_id: plannerUser.id, role: "member" },
-          { onConflict: "trip_id,user_id", ignoreDuplicates: true }
-        );
-      await admin
-        .from("planner_invites")
-        .update({ accepted_by: plannerUser.id })
-        .eq("id", invite.id);
-      await autoFriendTripMembers(admin, invite.trip_id, plannerUser.id);
-
-      if (plannerUser.phone) {
-        const { data: invitedTrip } = await admin
-          .from("planner_trips")
-          .select("twilio_conversation_sid")
-          .eq("id", invite.trip_id)
-          .maybeSingle();
-        if (invitedTrip?.twilio_conversation_sid) {
-          await addParticipantToConversation(
-            invitedTrip.twilio_conversation_sid,
-            toE164(plannerUser.phone)
-          ).catch(() => {
-            // Best-effort — they can still be synced into the group thread later.
-          });
-        }
-
-        // Same one-time consent ask as the phone sign-in accept flow (see
-        // verify-phone/route.ts) — this is the email/OAuth equivalent, and
-        // it's the only other place a phone-having member can join without
-        // the organizer invite-SMS having already served as the ask.
-        if (!plannerUser.sms_opted_in_at) {
-          await sendSmsText(
-            toE164(plannerUser.phone),
-            "Reply JOIN to get trip updates from That Friend. Reply STOP anytime to opt out."
-          ).catch(() => {
-            // Best-effort — they're a real member either way.
-          });
-        }
-      }
-
-      return NextResponse.redirect(`${origin}/planner/trips/${invite.trip_id}/preferences`);
+    // Same one tap as the phone path (src/app/api/v2/auth/verify-phone):
+    // the join page's button was the consent, acceptInviteToken records it
+    // if this account has a phone, and there's no follow-up "reply JOIN".
+    const accepted = await acceptInviteToken(admin, plannerUser, token);
+    if (accepted.outcome === "joined" || accepted.outcome === "already_member") {
+      return NextResponse.redirect(`${origin}/planner/trips/${accepted.tripId}`);
     }
   }
 

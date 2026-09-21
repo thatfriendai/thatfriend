@@ -1,12 +1,23 @@
 import { formatPhoneDisplay } from "@/lib/planner/phone";
 
-export function TextItInBar({ smsNumber, isIOS }: { smsNumber: string | null; isIOS: boolean }) {
+export function TextItInBar({
+  smsNumber,
+  isIOS,
+  hasTextedBefore,
+}: {
+  smsNumber: string | null;
+  isIOS: boolean;
+  hasTextedBefore: boolean;
+}) {
   // A blank compose window leaves a new texter staring at an empty box with
-  // no idea what to send — prefill something that reads like a real first
-  // message and, once sent, is itself what flips their consent on (see
-  // recordConsentEvent in src/lib/planner/consent.ts: any inbound text
-  // counts). Same iOS-vs-other "&body=" quirk as src/app/j/[token].
-  const draft = "Hi, I'd like to start texting with That Friend!";
+  // no idea what to send — prefill something that reads like a text a
+  // person would really type, not a form submission. The reply to it does
+  // the work of finding out what's going on (src/lib/planner/smsVoice.ts).
+  // Once sent, it's also what flips their consent on (recordConsentEvent in
+  // src/lib/planner/consent.ts: any inbound text counts). Someone who's
+  // texted before just gets "hey" — no need to introduce themselves twice.
+  // Same iOS-vs-other "&body=" quirk as src/app/j/[token].
+  const draft = hasTextedBefore ? "hey" : "hey, first time using that friend";
   const smsHref = smsNumber
     ? isIOS
       ? `sms:${smsNumber}&body=${encodeURIComponent(draft)}`
