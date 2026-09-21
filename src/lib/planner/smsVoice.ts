@@ -28,6 +28,15 @@ export function firstTimeGreetingReply() {
   return `hey! ${ONE_QUESTION}`;
 }
 
+/** A greeting from someone holding an invite they haven't accepted yet — the one thing worth pointing at. */
+export function invitedGreetingReply(organizerFirstName: string, tripName: string) {
+  return `hey! ${organizerFirstName} invited you to ${tripName} — reply 1 and you're in.`;
+}
+
+export function thanksReply() {
+  return `anytime.`;
+}
+
 /** A greeting from someone already on a trip — straight to task, no orienting. */
 export function returningGreetingReply(tripName: string) {
   return `hey! what've you got for ${tripName}? a link, a place, a question — anything works.`;
