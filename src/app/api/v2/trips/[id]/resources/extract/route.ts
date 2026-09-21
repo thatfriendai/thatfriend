@@ -83,21 +83,26 @@ export async function POST(
       // its real category and coordinates now rather than letting the LLM
       // guess the kind from almost no text, and reuse them at confirm time
       // instead of geocoding the same place twice.
-      if (page.mapsPlaceName) {
-        const { data: trip } = await admin.from("planner_trips").select("destination").eq("id", tripId).maybeSingle();
-        const query = trip?.destination ? `${page.mapsPlaceName}, ${trip.destination}` : page.mapsPlaceName;
-        // Only kind/lat/lng/address are used here — the confirm step re-geocodes
-        // for the real photo, so skip the extra Photo billing on this call.
-        const geo = await geocodePlace(query, { wantPhoto: false });
+      // The link's own address/coordinates are the truth here — appending
+      // the trip's city to a bare name forced same-named places elsewhere
+      // onto the trip's map. Only kind/lat/lng/address are used here — the
+      // confirm step re-geocodes for the real photo, so skip the extra
+      // Photo billing on this call.
+      if (page.mapsPlace) {
+        const geo = await geocodePlace(page.mapsPlace.query, { wantPhoto: false });
         if (geo) {
           const kind = kindFromGoogleTypes(geo.types);
-          candidates = candidates.map((c) => ({
-            ...c,
-            ...(kind ? { kind } : {}),
-            lat: geo.lat,
-            lng: geo.lng,
-            address: geo.address,
-          }));
+          const first = candidates[0];
+          candidates = [
+            {
+              name: page.mapsPlace.name,
+              kind: kind ?? first?.kind ?? "Other",
+              note: first?.note ?? "",
+              lat: geo.lat,
+              lng: geo.lng,
+              address: geo.address,
+            },
+          ];
         }
       }
     }

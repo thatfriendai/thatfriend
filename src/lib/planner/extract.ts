@@ -8,6 +8,8 @@ export interface ExtractedPlace {
   name: string;
   kind: string;
   note: string;
+  /** Set when the source pinned the exact place (a Maps link): geocode this, not the bare name, and never nudge it toward the trip city. */
+  geocodeQuery?: string;
 }
 
 const KIND_NAMES: string[] = KIND_OPTIONS.map((k) => k.kind);

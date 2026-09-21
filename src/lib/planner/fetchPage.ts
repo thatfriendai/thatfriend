@@ -10,8 +10,24 @@ import "server-only";
 // (`/maps/place/Time+Out+Market+Lisboa/@lat,lng,zoom`) and a query form
 // (`/maps?q=Uchi+Miami,+252+NW+25th+St,...`) — both are handled here.
 const MAPS_PLACE_PATH_RE = /\/maps\/place\/([^/@]+)/;
+const MAPS_AT_COORDS_RE = /@(-?\d+(?:\.\d+)?),(-?\d+(?:\.\d+)?)/;
 
-function extractMapsPlaceName(resolvedUrl: string): string | null {
+/**
+ * A shared Maps link identifies one exact place, and the resolved URL
+ * usually says exactly where: the query form carries the full address
+ * ("Diner, 85 Broadway, Brooklyn, NY 11249"), the path form the map's
+ * coordinates. `query` keeps all of that for geocoding — searching the
+ * bare name with a nudge toward the trip's city is how "Diner" in
+ * Brooklyn became a Diner in Sultanahmet.
+ */
+export interface MapsPlace {
+  name: string;
+  query: string;
+  lat?: number;
+  lng?: number;
+}
+
+function extractMapsPlace(resolvedUrl: string): MapsPlace | null {
   let url: URL;
   try {
     url = new URL(resolvedUrl);
@@ -23,17 +39,45 @@ function extractMapsPlaceName(resolvedUrl: string): string | null {
   const pathMatch = url.pathname.match(MAPS_PLACE_PATH_RE);
   if (pathMatch) {
     const name = decodeURIComponent(pathMatch[1].replace(/\+/g, " ")).trim();
-    if (name) return name;
+    if (name) {
+      const coords = url.pathname.match(MAPS_AT_COORDS_RE);
+      return coords
+        ? { name, query: name, lat: Number(coords[1]), lng: Number(coords[2]) }
+        : { name, query: name };
+    }
   }
 
-  // The query form's "q" is "Name, Address..." — keep just the name.
   const q = url.searchParams.get("q");
   if (q) {
     const name = q.split(",")[0].trim();
-    if (name) return name;
+    if (name) return { name, query: q.replace(/\s+/g, " ").trim() };
   }
 
   return null;
+}
+
+function isTikTokUrl(url: URL): boolean {
+  return /(^|\.)tiktok\.com$/i.test(url.hostname);
+}
+
+/**
+ * TikTok serves a plain fetch an empty app shell — but its public oEmbed
+ * returns the caption as the title, which is where people put the place
+ * ("📍Lacivert Restaurant #istanbul"). Same idea as YouTube below.
+ */
+async function fetchTikTokOEmbed(url: string): Promise<{ title: string; imageUrl?: string } | null> {
+  try {
+    const res = await fetch(`https://www.tiktok.com/oembed?url=${encodeURIComponent(url)}`, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    if (typeof data.title !== "string" || !data.title.trim()) return null;
+    const author = typeof data.author_name === "string" ? ` (@${data.author_name})` : "";
+    return { title: `${data.title.trim()}${author}`, imageUrl: typeof data.thumbnail_url === "string" ? data.thumbnail_url : undefined };
+  } catch {
+    return null;
+  }
 }
 
 function isYouTubeUrl(url: URL): boolean {
@@ -142,7 +186,7 @@ function findPreviewImage(html: string, pageUrl: string): string | null {
  */
 export async function fetchPageText(
   url: string
-): Promise<{ text: string; label: string; mapsPlaceName?: string; imageUrl?: string } | null> {
+): Promise<{ text: string; label: string; mapsPlace?: MapsPlace; imageUrl?: string } | null> {
   let parsed: URL;
   try {
     parsed = new URL(url);
@@ -150,6 +194,13 @@ export async function fetchPageText(
     return null;
   }
   if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
+
+  if (isTikTokUrl(parsed)) {
+    const oembed = await fetchTikTokOEmbed(parsed.toString());
+    if (oembed) {
+      return { text: `Video caption: ${oembed.title}`, label: oembed.title.slice(0, 120), imageUrl: oembed.imageUrl };
+    }
+  }
 
   if (isYouTubeUrl(parsed)) {
     const oembed = await fetchYouTubeOEmbed(parsed.toString());
@@ -170,9 +221,9 @@ export async function fetchPageText(
     });
     if (!res.ok) return null;
 
-    const mapsName = extractMapsPlaceName(res.url || parsed.toString());
-    if (mapsName) {
-      return { text: `Place: ${mapsName}`, label: mapsName.slice(0, 80), mapsPlaceName: mapsName };
+    const mapsPlace = extractMapsPlace(res.url || parsed.toString());
+    if (mapsPlace) {
+      return { text: `Place: ${mapsPlace.query}`, label: mapsPlace.name.slice(0, 80), mapsPlace };
     }
 
     const html = await res.text();

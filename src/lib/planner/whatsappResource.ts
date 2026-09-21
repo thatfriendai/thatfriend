@@ -30,6 +30,8 @@ interface AddResult {
   duplicates: string[];
   farAway: { name: string; address: string | null }[];
   alreadyAdded?: boolean;
+  /** A link that was kept in Resources but named no place — worth saying so, since the sender expects something on the map. */
+  savedLinkOnly?: boolean;
 }
 
 /**
@@ -87,6 +89,14 @@ export async function addResourceFromWhatsAppText(
       extractText = page.text;
       label = page.label;
       candidates = await extractPlacesFromText(extractText);
+      // A Maps link is one exact place — keep the model's kind guess, but
+      // make sure the name is the real one and geocoding uses the full
+      // address from the link rather than the name plus a city nudge.
+      if (page.mapsPlace) {
+        const { name, query } = page.mapsPlace;
+        const first = candidates[0];
+        candidates = [{ name, kind: first?.kind ?? "Other", note: first?.note ?? "", geocodeQuery: query }];
+      }
     } else {
       label = deriveLabelFromUrl(trimmed);
     }
@@ -134,6 +144,7 @@ async function persistCandidates(
   if (candidates.length === 0) {
     if (type === "link" && sourceUrl) {
       await admin.from("planner_resources").insert({ trip_id: tripId, type, label, source_url: sourceUrl, added_by: userId });
+      return { places: [], resourceLabel: label, duplicates: [], farAway: [], savedLinkOnly: true };
     }
     return { places: [], resourceLabel: label, duplicates: [], farAway: [] };
   }
@@ -182,7 +193,9 @@ async function persistCandidates(
       : null;
   const bias = destGeo ? { lat: destGeo.lat, lng: destGeo.lng } : undefined;
   const geocodedCandidates = await Promise.all(
-    newCandidates.map((c) => geocodePlace(c.name, { wantPhoto, bias }))
+    newCandidates.map((c) =>
+      c.geocodeQuery ? geocodePlace(c.geocodeQuery, { wantPhoto }) : geocodePlace(c.name, { wantPhoto, bias })
+    )
   );
 
   const farAway: { name: string; address: string | null }[] = [];

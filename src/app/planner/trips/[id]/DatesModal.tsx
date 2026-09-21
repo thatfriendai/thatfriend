@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { DatesBoard } from "./dates/DatesBoard";
+import { SlowLoadNotice } from "@/components/planner/SlowLoadNotice";
 import type { DateCoverageDay, DateProposal } from "@/lib/planner/dates";
 
 interface DatesPayload {
@@ -25,10 +27,19 @@ interface DatesPayload {
 }
 
 export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRangeLabel: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<DatesPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Anything decided in here (dates locked, availability marked) changes
+  // what the page behind it shows — "The plan so far" builds its days from
+  // the locked range — so closing always re-renders the page underneath.
+  function close() {
+    setOpen(false);
+    router.refresh();
+  }
 
   async function openModal() {
     setOpen(true);
@@ -57,7 +68,7 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
       {open && (
         <div
           className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/30 px-4 py-10"
-          onClick={() => setOpen(false)}
+          onClick={close}
         >
           <div
             className="w-full max-w-[900px] rounded-2xl border border-border bg-card"
@@ -66,7 +77,7 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
             <div className="flex items-center justify-end px-6 pt-5">
               <button
                 type="button"
-                onClick={() => setOpen(false)}
+                onClick={close}
                 aria-label="Close"
                 className="flex-none rounded-full border border-input-border bg-card px-2.5 py-1 text-[13px] text-muted hover:border-ink hover:text-ink"
               >
@@ -74,7 +85,11 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
               </button>
             </div>
 
-            {loading && <p className="px-9 pb-9 text-[14.5px] text-muted">Loading…</p>}
+            {loading && (
+              <div className="px-9 pb-9">
+                <SlowLoadNotice inline message="Pulling up everyone's dates" />
+              </div>
+            )}
             {error && <p className="px-9 pb-9 text-[14.5px] text-red-700">{error}</p>}
             {data && (
               <DatesBoard

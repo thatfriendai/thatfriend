@@ -285,6 +285,7 @@ export async function POST(request: Request) {
   if (result.places.length === 0) {
     if (result.alreadyAdded) return reply(say.alreadySavedReply());
     if (result.duplicates.length > 0) return reply(say.alreadyOnMapReply(tripName, result.duplicates));
+    if (result.savedLinkOnly) return reply(say.linkSavedNoPlaceReply(tripName));
     return silent();
   }
 

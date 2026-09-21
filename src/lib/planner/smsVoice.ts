@@ -142,6 +142,11 @@ export function placesAddedReply(
   return `added to ${tripName}!${dupNote}${farNote}`;
 }
 
+/** A video/article link got kept, but nothing in it named a place. */
+export function linkSavedNoPlaceReply(tripName: string) {
+  return `saved that to ${tripName}, but i couldn't tell which place it is — text me the name and i'll put it on the map.`;
+}
+
 export function alreadySavedReply() {
   return `already had that one — nothing new to add.`;
 }
