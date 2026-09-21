@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { listFriends } from "@/lib/planner/follows";
 import { getNavCounts } from "@/lib/planner/navCounts";
 import { signOut } from "@/app/planner/actions";
+import { GUIDES } from "@/lib/planner/guides";
 import { ExploreView, type TripCard } from "./ExploreView";
 
 function initialsOf(name: string) {
@@ -49,7 +50,19 @@ export default async function ExplorePage() {
   const friendIds = friends.map((f) => f.id);
   const friendIdSet = new Set(friendIds);
 
-  const fofLists = await Promise.all(friendIds.map((id) => listFriends(admin, id)));
+  const [fofLists, { data: interactionRows }] = await Promise.all([
+    Promise.all(friendIds.map((id) => listFriends(admin, id))),
+    friendIds.length
+      ? admin
+          .from("planner_guide_interactions")
+          .select("guide_id, user_id, kind")
+          .in(
+            "guide_id",
+            GUIDES.map((g) => g.id)
+          )
+          .in("user_id", friendIds)
+      : Promise.resolve({ data: [] as { guide_id: string; user_id: string; kind: string }[] }),
+  ]);
   const fofMap = new Map<string, { id: string; name: string | null; username: string | null }>();
   for (const list of fofLists) {
     for (const f of list) {
@@ -65,6 +78,33 @@ export default async function ExplorePage() {
   for (const f of friendsOfFriends) nameById.set(f.id, { name: f.name, username: f.username });
 
   const savedTripIds = new Set((savedRows ?? []).map((r) => r.trip_id as string));
+
+  // "Jonah opened this" / "Nobody in your circle has opened this yet" —
+  // scoped to direct friends only, never friends of friends, matching
+  // "your circle" in the copy.
+  const interactionsByGuide = new Map<string, { user_id: string; kind: string }[]>();
+  for (const row of interactionRows ?? []) {
+    const list = interactionsByGuide.get(row.guide_id as string) ?? [];
+    list.push({ user_id: row.user_id as string, kind: row.kind as string });
+    interactionsByGuide.set(row.guide_id as string, list);
+  }
+  const guideFriendLines: Record<string, string> = {};
+  for (const guide of GUIDES) {
+    const rows = interactionsByGuide.get(guide.id) ?? [];
+    const userIds = [...new Set(rows.map((r) => r.user_id))];
+    if (userIds.length === 0) {
+      guideFriendLines[guide.id] = "Nobody in your circle has opened this yet.";
+      continue;
+    }
+    const verb = rows.some((r) => r.kind === "clone") ? "copied" : "opened";
+    if (userIds.length === 1) {
+      const who = nameById.get(userIds[0]);
+      const firstName = (who?.name || who?.username || "A friend").split(" ")[0];
+      guideFriendLines[guide.id] = `${firstName} ${verb} this.`;
+    } else {
+      guideFriendLines[guide.id] = `${userIds.length} friends have ${verb} this.`;
+    }
+  }
 
   async function fetchTripCards(ownerIds: string[]): Promise<TripCard[]> {
     if (ownerIds.length === 0) return [];
@@ -150,6 +190,8 @@ export default async function ExplorePage() {
         friendsTrips={friendsTrips}
         fofTrips={fofTrips}
         publicTrips={publicTrips}
+        guideFriendLines={guideFriendLines}
+        savedCount={savedTripIds.size}
         navInitial={initialsOf(viewer.name || viewer.email || "?")}
         navUsername={viewer.username}
         navTripsCount={tripsCount}

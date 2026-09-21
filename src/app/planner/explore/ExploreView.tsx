@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { HomeNav } from "@/components/planner/HomeNav";
 import { TripCover } from "@/components/planner/TripCover";
 import { tintFor } from "@/lib/planner/cover";
@@ -235,6 +235,8 @@ export function ExploreView({
   friendsTrips,
   fofTrips,
   publicTrips,
+  guideFriendLines,
+  savedCount,
   navInitial,
   navUsername,
   navTripsCount,
@@ -243,6 +245,8 @@ export function ExploreView({
   friendsTrips: TripCard[];
   fofTrips: TripCard[];
   publicTrips: TripCard[];
+  guideFriendLines: Record<string, string>;
+  savedCount: number;
   navInitial: string;
   navUsername: string | null;
   navTripsCount: number;
@@ -294,9 +298,23 @@ export function ExploreView({
       <HomeNav initial={navInitial} username={navUsername} tripsCount={navTripsCount} signOutAction={signOutAction} />
 
       <div className="mx-auto max-w-[1180px] px-6 py-10 pb-28 sm:px-10">
+        <div className="mb-8 flex flex-wrap items-center gap-4 border-b border-border pb-3.5">
+          <div className="flex items-center gap-1 rounded-full border border-border bg-card p-1">
+            <span className="rounded-full bg-ink px-5 py-2 text-[14.5px] text-cream">Explore</span>
+            <Link
+              href="/planner/trips?tab=saved"
+              className="rounded-full px-5 py-2 text-[14.5px] text-body hover:bg-surface-sunk"
+            >
+              Trips &amp; saved &middot; {savedCount}
+            </Link>
+          </div>
+          <span className="text-[13.5px] text-muted">Friends&rsquo; real itineraries, with the places they rated</span>
+        </div>
+
         {openGuide ? (
           <GuideDetail
             guide={openGuide}
+            friendLine={guideFriendLines[openGuide.id]}
             showAllPlaces={showAllPlaces}
             onToggleAllPlaces={() => setShowAllPlaces((v) => !v)}
             onBack={() => setOpenGuideId(null)}
@@ -480,6 +498,7 @@ export function ExploreView({
                           {heroGuide.credit}
                         </div>
                       )}
+                      <p className="text-[13.5px] text-muted">{guideFriendLines[heroGuide.id]}</p>
                       <div className="mt-auto flex flex-wrap items-center gap-2.5 pt-3">
                         <button
                           type="button"
@@ -507,7 +526,19 @@ export function ExploreView({
                           <p className="font-mono text-[10px] tracking-[0.08em] text-faint uppercase">
                             {g.city} · {g.places.length} places
                           </p>
-                          <div className="mt-auto flex items-center gap-2 pt-2">
+                          <div className="mt-auto flex items-center gap-2 border-t border-border-soft pt-2.5">
+                            {g.byline && (
+                              <span
+                                className="flex h-5.5 w-5.5 flex-none items-center justify-center rounded-full text-[9.5px] text-cream"
+                                style={{ background: TYPE_COLORS[g.type] }}
+                              >
+                                {initialsOf(g.byline)}
+                              </span>
+                            )}
+                            <span className="min-w-0 flex-1 truncate text-[13px] text-body">{g.credit}</span>
+                          </div>
+                          <p className="text-[13px] text-muted">{guideFriendLines[g.id]}</p>
+                          <div className="flex items-center gap-2 pt-1">
                             <button
                               type="button"
                               onClick={() => openGuideDetail(g.id)}
@@ -540,12 +571,14 @@ export function ExploreView({
 
 function GuideDetail({
   guide,
+  friendLine,
   showAllPlaces,
   onToggleAllPlaces,
   onBack,
   backLabel,
 }: {
   guide: Guide;
+  friendLine: string;
   showAllPlaces: boolean;
   onToggleAllPlaces: () => void;
   onBack: () => void;
@@ -553,6 +586,10 @@ function GuideDetail({
 }) {
   const hasMore = guide.places.length > 8;
   const visiblePlaces = showAllPlaces || !hasMore ? guide.places : guide.places.slice(0, 6);
+
+  useEffect(() => {
+    fetch(`/api/v2/guides/${guide.id}/view`, { method: "POST" }).catch(() => {});
+  }, [guide.id]);
 
   return (
     <div className="max-w-[960px]">
@@ -654,6 +691,7 @@ function GuideDetail({
             <p className="mb-1.5 text-[16px] text-ink">Make it a real trip</p>
             <p className="mb-3.5 text-[13.5px] leading-relaxed text-body">{guide.cloneNote}</p>
             <CloneGuideButton guideId={guide.id} label="Copy into a trip" fullWidth />
+            <p className="mt-2.5 text-[13px] text-muted">{friendLine}</p>
           </div>
         </div>
       </div>

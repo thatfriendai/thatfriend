@@ -892,3 +892,24 @@ create index if not exists planner_backfilled_countries_user_idx on planner_back
 
 alter table planner_backfilled_countries enable row level security;
 grant all on planner_backfilled_countries to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- planner_guide_interactions — powers each guide's "Jonah opened this" /
+-- "Nobody in your circle has opened this yet" line on Explore. guide_id is
+-- a static id from src/lib/planner/guides.ts, not a foreign key — guides
+-- live in code, not the database. One row per (guide, user, kind); the
+-- unique constraint means recording a repeat open or clone is a harmless
+-- no-op rather than something callers need to check for first.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_guide_interactions (
+  id uuid primary key default gen_random_uuid(),
+  guide_id text not null,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  kind text not null check (kind in ('open', 'clone')),
+  created_at timestamptz not null default now(),
+  unique (guide_id, user_id, kind)
+);
+create index if not exists planner_guide_interactions_guide_idx on planner_guide_interactions (guide_id);
+
+alter table planner_guide_interactions enable row level security;
+grant all on planner_guide_interactions to anon, authenticated, service_role;

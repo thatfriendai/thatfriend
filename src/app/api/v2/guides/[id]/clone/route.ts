@@ -41,6 +41,13 @@ export async function POST(
 
   await admin.from("planner_memberships").insert({ trip_id: newTrip.id, user_id: user.id, role: "owner" });
 
+  // Best-effort — feeds other users' "Jonah copied this" line, but a
+  // failure here shouldn't undo the trip that was just created.
+  void admin
+    .from("planner_guide_interactions")
+    .upsert({ guide_id: guideId, user_id: user.id, kind: "clone" }, { onConflict: "guide_id,user_id,kind", ignoreDuplicates: true })
+    .then(undefined, () => {});
+
   await admin.from("planner_places").insert(
     guide.places.map((p, i) => {
       const { x, y } = hashPercent(`${newTrip.id}:${i}`);
