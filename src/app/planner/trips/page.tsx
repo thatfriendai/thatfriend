@@ -54,7 +54,7 @@ export default async function PlannerTripsPage() {
       .from("planner_memberships")
       .select("role, planner_trips(id, name, destination, start_date, end_date, created_at)")
       .eq("user_id", user.id),
-    admin.from("planner_trip_saves").select("trip_id").eq("user_id", user.id),
+    admin.from("planner_trip_saves").select("trip_id, created_at").eq("user_id", user.id),
     admin.from("planner_saved_places").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
   ]);
 
@@ -153,11 +153,18 @@ export default async function PlannerTripsPage() {
 
   const yoursRows = currentRows.filter((r) => r.role === "owner").map((r) => buildRow(r.trip, r.role));
   const invitedRows = currentRows.filter((r) => r.role !== "owner").map((r) => buildRow(r.trip, r.role));
-  const needingCount = yoursRows.filter((r) => r.needs).length;
-  const lead =
-    needingCount === 0
+
+  const needingYours = yoursRows.filter((r) => r.needs).length;
+  const yoursLead =
+    needingYours === 0
       ? "Nothing is waiting on you right now."
-      : `${needingCount} trip${needingCount === 1 ? "" : "s"} need${needingCount === 1 ? "s" : ""} something from you.`;
+      : `${needingYours} trip${needingYours === 1 ? "" : "s"} need${needingYours === 1 ? "s" : ""} something from you.`;
+
+  const needingInvited = invitedRows.filter((r) => r.needs).length;
+  const invitedLead =
+    needingInvited === 0
+      ? "Nothing is waiting on you right now."
+      : `${needingInvited} trip${needingInvited === 1 ? "" : "s"} ${needingInvited === 1 ? "is" : "are"} waiting on your answer.`;
 
   const pastTrips: PastTripRow[] = pastRows.map((r) => {
     const travelers = (membersByTrip.get(r.trip.id) ?? []).length || undefined;
@@ -183,17 +190,35 @@ export default async function PlannerTripsPage() {
     ),
   ];
 
-  const [{ data: ownerRows }, { data: sourceTripRows }] = await Promise.all([
+  const [{ data: ownerRows }, { data: sourceTripRows }, { data: savedTripPlaceRows }] = await Promise.all([
     ownerIdsToLookUp.length
       ? admin.from("planner_users").select("id, name, username").in("id", ownerIdsToLookUp)
       : Promise.resolve({ data: [] }),
     sourceTripIdsToLookUp.length
       ? admin.from("planner_trips").select("id, destination").in("id", sourceTripIdsToLookUp)
       : Promise.resolve({ data: [] }),
+    savedTripIds.length
+      ? admin.from("planner_places").select("trip_id").in("trip_id", savedTripIds)
+      : Promise.resolve({ data: [] as { trip_id: string }[] }),
   ]);
 
   const ownerNameById = new Map((ownerRows ?? []).map((o) => [o.id as string, o.name || o.username || "Someone"]));
   const sourceDestinationByTripId = new Map((sourceTripRows ?? []).map((t) => [t.id as string, t.destination as string | null]));
+  const placeCountBySavedTrip = new Map<string, number>();
+  for (const p of savedTripPlaceRows ?? []) {
+    placeCountBySavedTrip.set(p.trip_id as string, (placeCountBySavedTrip.get(p.trip_id as string) ?? 0) + 1);
+  }
+  const savedAtByTrip = new Map((tripSaveRows ?? []).map((r) => [r.trip_id as string, r.created_at as string]));
+
+  function savedLabel(tripId: string): string {
+    const savedAt = savedAtByTrip.get(tripId);
+    if (!savedAt) return "Saved";
+    const days = daysSince(savedAt.slice(0, 10), today);
+    if (days <= 0) return "Saved today";
+    if (days === 1) return "Saved 1 day ago";
+    if (days < 14) return `Saved ${days} days ago`;
+    return `Saved in ${new Date(savedAt).toLocaleDateString(undefined, { month: "short" })}`;
+  }
 
   const savedTrips = (savedTripRows ?? []).map((t) => ({
     id: t.id as string,
@@ -201,7 +226,13 @@ export default async function PlannerTripsPage() {
     destination: t.destination as string | null,
     dateRange: formatDates(t.start_date as string | null, t.end_date as string | null),
     ownerName: ownerNameById.get(t.created_by as string) ?? "Someone",
+    placesCount: placeCountBySavedTrip.get(t.id as string) ?? 0,
+    savedLabel: savedLabel(t.id as string),
   }));
+  const savedLead =
+    savedTrips.length === 0
+      ? "Nothing saved yet."
+      : `${savedTrips.length} trip${savedTrips.length === 1 ? "" : "s"} you kept from other people.`;
 
   const savedPlaces = (savedPlaceRows ?? []).map((p) => ({
     id: p.id as string,
@@ -251,7 +282,9 @@ export default async function PlannerTripsPage() {
 
       <div className="mx-auto max-w-[1180px] px-6 py-11 pb-24 sm:px-8">
         <TripsAndSavedView
-          lead={lead}
+          yoursLead={yoursLead}
+          invitedLead={invitedLead}
+          savedLead={savedLead}
           yoursRows={yoursRows}
           invitedRows={invitedRows}
           pastTrips={pastTrips}
