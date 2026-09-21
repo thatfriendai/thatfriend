@@ -1,12 +1,38 @@
 "use client";
 
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { kindColor } from "@/lib/planner/itinerary";
+import { DAY_COLORS, kindColor } from "@/lib/planner/itinerary";
 import { TripCover } from "@/components/planner/TripCover";
 import { tintFor } from "@/lib/planner/cover";
 import { CopyTripButton } from "@/app/planner/u/[username]/CopyTripButton";
 import { AddToItineraryButton } from "./AddToItineraryButton";
+
+export interface TripRowData {
+  id: string;
+  name: string;
+  sub: string;
+  dateLabel: string;
+  hasDate: boolean;
+  startDate: string | null;
+  createdAt: string;
+  travelers: number;
+  answered: number;
+  status: string;
+  needs: boolean;
+  urgency: number;
+  cta: string;
+  people: { name: string; initials: string }[];
+}
+
+export interface PastTripRow {
+  id: string;
+  name: string;
+  destination: string | null;
+  dateLabel: string;
+  statusLabel: string;
+}
 
 export interface SavedTripRow {
   id: string;
@@ -36,6 +62,69 @@ export interface OwnTripForPicker {
   id: string;
   name: string;
   days: { id: string; label: string }[];
+}
+
+type Tab = "yours" | "invited" | "saved";
+type Sort = "urgency" | "date" | "added";
+
+const SORTS: { id: Sort; label: string }[] = [
+  { id: "urgency", label: "Needs you" },
+  { id: "date", label: "Trip date" },
+  { id: "added", label: "Recently added" },
+];
+
+function sortRows(rows: TripRowData[], sort: Sort): TripRowData[] {
+  const list = rows.slice();
+  if (sort === "urgency") return list.sort((a, b) => b.urgency - a.urgency);
+  if (sort === "date") {
+    return list.sort((a, b) => {
+      if (a.hasDate !== b.hasDate) return a.hasDate ? -1 : 1;
+      if (!a.startDate || !b.startDate) return 0;
+      return a.startDate.localeCompare(b.startDate);
+    });
+  }
+  return list.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+}
+
+function TripRow({ row }: { row: TripRowData }) {
+  const dotColor = row.needs ? "var(--color-accent)" : row.travelers === 1 ? "var(--color-ink-ghost)" : "var(--color-positive)";
+  return (
+    <Link
+      href={`/planner/trips/${row.id}`}
+      className="grid grid-cols-1 items-center gap-2 border-b border-border-soft py-5 hover:bg-card sm:grid-cols-[4px_1.5fr_0.9fr_1fr_auto] sm:gap-5"
+    >
+      <span className="hidden h-9.5 w-1 flex-none rounded-full sm:block" style={{ background: row.needs ? "var(--color-accent)" : "transparent" }} />
+      <div className="min-w-0">
+        <p className="font-display text-[25px] leading-tight text-ink">{row.name}</p>
+        {row.sub && <p className="mt-0.5 text-[14px] text-muted">{row.sub}</p>}
+      </div>
+      <p className="font-mono text-[12.5px] tracking-[0.02em] text-ink-soft">{row.dateLabel}</p>
+      <div className="flex min-w-0 items-center gap-2.5 text-[14.5px]">
+        <span className="h-1.5 w-1.5 flex-none rounded-full" style={{ background: dotColor }} />
+        <span style={{ color: row.needs ? "var(--color-accent)" : "var(--color-ink-soft)" }}>{row.status}</span>
+      </div>
+      <div className="flex items-center gap-3.5 sm:justify-self-end">
+        <div className="flex">
+          {row.people.map((p, i) => (
+            <div
+              key={i}
+              title={p.name}
+              className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-canvas text-[10.5px] text-cream"
+              style={{ background: DAY_COLORS[i % DAY_COLORS.length], marginLeft: i ? -9 : 0 }}
+            >
+              {p.initials}
+            </div>
+          ))}
+        </div>
+        <span
+          className="text-[14.5px] whitespace-nowrap"
+          style={{ color: row.needs ? "var(--color-accent)" : "var(--color-ink-soft)" }}
+        >
+          {row.cta}
+        </span>
+      </div>
+    </Link>
+  );
 }
 
 function StripePhoto({ id, place }: { id: string; place: string }) {
@@ -85,20 +174,26 @@ function RemovePlaceButton({ id, onRemoved }: { id: string; onRemoved: () => voi
 }
 
 export function TripsAndSavedView({
-  children,
+  lead,
+  yoursRows,
+  invitedRows,
+  pastTrips,
   savedTrips: initialSavedTrips,
   savedPlaces: initialSavedPlaces,
   ownTripsForPicker,
-  ownTripCount,
 }: {
-  children: ReactNode;
+  lead: string;
+  yoursRows: TripRowData[];
+  invitedRows: TripRowData[];
+  pastTrips: PastTripRow[];
   savedTrips: SavedTripRow[];
   savedPlaces: SavedPlaceRow[];
   ownTripsForPicker: OwnTripForPicker[];
-  ownTripCount: number;
 }) {
   const searchParams = useSearchParams();
-  const [tab, setTab] = useState<"yours" | "saved">(searchParams.get("tab") === "saved" ? "saved" : "yours");
+  const initialTab = searchParams.get("tab");
+  const [tab, setTab] = useState<Tab>(initialTab === "saved" ? "saved" : initialTab === "invited" ? "invited" : "yours");
+  const [sort, setSort] = useState<Sort>("urgency");
   const [savedTrips, setSavedTrips] = useState(initialSavedTrips);
   const [savedPlaces, setSavedPlaces] = useState(initialSavedPlaces);
   const [undo, setUndo] = useState<{ place: SavedPlaceRow; createdPlaceId: string; tripId: string; dayLabel: string | null } | null>(
@@ -146,43 +241,133 @@ export function TripsAndSavedView({
     }
   }
 
+  const activeRows = tab === "invited" ? invitedRows : yoursRows;
+  const sortedRows = useMemo(() => sortRows(activeRows, sort), [activeRows, sort]);
+
   return (
     <div>
-      <div className="mb-9 flex gap-2">
-        <button
-          type="button"
-          onClick={() => setTab("yours")}
-          className={`rounded-full px-4 py-1.5 text-[13.5px] ${
-            tab === "yours" ? "bg-accent text-on-accent" : "border border-input-border bg-card text-ink"
-          }`}
-        >
-          Yours &middot; {ownTripCount}
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab("saved")}
-          className={`rounded-full px-4 py-1.5 text-[13.5px] ${
-            tab === "saved" ? "bg-accent text-on-accent" : "border border-input-border bg-card text-ink"
-          }`}
-        >
-          Saved &middot; {savedTrips.length}
-        </button>
+      <p className="mb-2.5 font-mono text-[11px] tracking-[0.14em] text-faint uppercase">Trips</p>
+      <h1 className="mb-7 max-w-[18em] font-display text-[38px] leading-[1.08] tracking-tight text-ink">{lead}</h1>
+
+      <div className="mb-1 flex flex-wrap items-center gap-4 border-b border-border pb-3.5">
+        <div className="flex gap-1">
+          {(
+            [
+              { id: "yours" as const, label: "Yours", count: yoursRows.length },
+              { id: "invited" as const, label: "Invited", count: invitedRows.length },
+              { id: "saved" as const, label: "Saved", count: savedTrips.length },
+            ]
+          ).map((t) => {
+            const on = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                onClick={() => setTab(t.id)}
+                className="mr-3.5 inline-flex items-center gap-1.5 border-b-2 bg-transparent py-1.5 text-[15.5px]"
+                style={{ borderColor: on ? "var(--color-ink)" : "transparent", color: on ? "var(--color-ink)" : "var(--color-muted)" }}
+              >
+                {t.label}
+                <span className="font-mono text-[11px]" style={{ color: on ? "var(--color-ink-faint)" : "var(--color-ink-ghost)" }}>
+                  {t.count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+
+        {tab !== "saved" && (
+          <div className="ml-auto flex items-center gap-2">
+            <span className="font-mono text-[10.5px] tracking-[0.1em] text-faint uppercase">Sort</span>
+            {SORTS.map((s) => {
+              const on = sort === s.id;
+              return (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => setSort(s.id)}
+                  className={`rounded-full px-3.5 py-1.5 text-[13.5px] ${on ? "border border-ink bg-card text-ink" : "border border-transparent text-muted"}`}
+                >
+                  {s.label}
+                </button>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {tab === "yours" ? (
-        children
+      {tab !== "saved" ? (
+        <>
+          <div className="mb-5">
+            {sortedRows.length === 0 ? (
+              <div className="mb-5 rounded-2xl border border-border bg-card px-7 py-8">
+                <p className="mb-1.5 font-display text-2xl text-ink">
+                  {tab === "invited" ? "No invitations right now" : "No trips yet"}
+                </p>
+                <p className="max-w-[40em] text-[15px] leading-relaxed text-body">
+                  {tab === "invited"
+                    ? "When someone adds you to a trip, it lands here and That Friend asks you the questions."
+                    : "Name it, add three friends, and let That Friend do the asking."}
+                </p>
+              </div>
+            ) : (
+              sortedRows.map((row) => <TripRow key={row.id} row={row} />)
+            )}
+          </div>
+
+          <div className="mb-13 flex flex-col items-start gap-4 rounded-2xl border border-dashed border-input-border p-7 sm:flex-row sm:items-center sm:justify-between sm:gap-6">
+            <div>
+              <p className="mb-1.5 font-display text-2xl text-ink">The one you keep talking about</p>
+              <p className="text-[15px] text-body">Name it, add three friends, and let That Friend do the asking.</p>
+            </div>
+            <Link
+              href="/planner/trips/new"
+              className="rounded-full border border-input-border bg-card px-6 py-3 text-[15px] whitespace-nowrap text-ink hover:border-ink"
+            >
+              Start a trip
+            </Link>
+          </div>
+
+          <section>
+            <div className="mb-4.5 flex items-baseline gap-4 border-b border-border pb-3">
+              <p className="font-mono text-[11px] tracking-[0.14em] text-muted uppercase">Past</p>
+              <span className="ml-auto text-[13px] text-faint">
+                {pastTrips.length === 0 ? "Nothing yet" : `${pastTrips.length} trip${pastTrips.length === 1 ? "" : "s"}`}
+              </span>
+            </div>
+            {pastTrips.length === 0 ? (
+              <p className="max-w-[40em] px-1 text-[15px] leading-relaxed text-muted">
+                Nothing here yet. A trip moves down here a week after it ends, with everything the group decided still
+                attached.
+              </p>
+            ) : (
+              pastTrips.map((t) => (
+                <Link
+                  key={t.id}
+                  href={`/planner/trips/${t.id}`}
+                  className="grid grid-cols-1 items-center gap-1.5 border-b border-border-soft py-4.5 text-ink hover:bg-card sm:grid-cols-[1.5fr_0.9fr_1fr_auto] sm:gap-5"
+                >
+                  <div>
+                    <p className="font-display text-[22px] leading-tight text-ink-soft">{t.name}</p>
+                    {t.destination && <p className="mt-0.5 text-[14px] text-faint">{t.destination}</p>}
+                  </div>
+                  <p className="font-mono text-[12.5px] text-muted">{t.dateLabel}</p>
+                  <p className="text-[14px] text-muted">{t.statusLabel}</p>
+                  <span className="text-[14px] text-muted sm:justify-self-end">Open &rarr;</span>
+                </Link>
+              ))
+            )}
+          </section>
+        </>
       ) : (
         <>
-          <h1 className="mb-2 text-[42px] leading-[1.06] font-display tracking-tight text-ink">Your trips</h1>
-          <p className="mb-9 text-base text-body">
-            Saved trips sit alongside your own, on your profile. They stay saved if the owner edits them,
-            and disappear only if they go private.
+          <p className="mb-9 max-w-[46em] text-[15px] text-body">
+            Saved trips sit alongside your own. They stay saved if the owner edits them, and disappear only if they go
+            private.
           </p>
 
           {savedTrips.length === 0 ? (
-            <p className="mb-11 text-[14px] text-muted">
-              Nothing saved yet — bookmark a friend&rsquo;s trip from Explore.
-            </p>
+            <p className="mb-11 text-[14px] text-muted">Nothing saved yet — bookmark a friend&rsquo;s trip from Explore.</p>
           ) : (
             <div className="mb-11 overflow-hidden rounded-2xl border border-border bg-card">
               {savedTrips.map((t, i) => (
@@ -262,9 +447,7 @@ export function TripsAndSavedView({
 
       {undo && (
         <div className="fixed bottom-6 left-1/2 z-10 flex -translate-x-1/2 items-center gap-4 rounded-full border border-border bg-ink px-5 py-3 text-cream shadow-lg">
-          <span className="text-[13.5px]">
-            Added to {undo.dayLabel ?? "the trip"}.
-          </span>
+          <span className="text-[13.5px]">Added to {undo.dayLabel ?? "the trip"}.</span>
           <button type="button" onClick={performUndo} className="text-[13.5px] font-medium text-cream underline hover:opacity-80">
             Undo
           </button>
