@@ -102,7 +102,11 @@ export async function POST(request: Request) {
   let needsProfile: boolean;
   if (existing) {
     plannerUserId = existing.id;
-    needsProfile = !existing.username;
+    // Only a genuinely bare account (nothing but a phone — e.g. provisioned
+    // by an organizer's invite) gets the welcome/profile setup. Someone who
+    // already has a name is an existing user, username or not, and goes to
+    // the main page like anyone signing back in.
+    needsProfile = !existing.username && !existing.name;
     if (codeRow.name && !existing.name) {
       await admin.from("planner_users").update({ name: codeRow.name }).eq("id", existing.id);
     }
