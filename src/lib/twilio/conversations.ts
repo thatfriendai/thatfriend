@@ -26,6 +26,26 @@ export async function addParticipantToConversation(conversationSid: string, phon
   }
 }
 
+/**
+ * Whether this phone is currently bound (through our SMS number) to any
+ * active group conversation. When it is, Twilio delivers the person's
+ * texts into that Conversation — and, with the number's own inbound
+ * webhook also configured, to the 1:1 webhook as well. The 1:1 route uses
+ * this to step aside so one text doesn't get two replies.
+ */
+export async function isConversationParticipant(phoneE164: string): Promise<boolean> {
+  const proxy = getSmsFrom();
+  const rows = await createTwilioClient().conversations.v1.participantConversations.list({
+    address: phoneE164,
+    limit: 20,
+  });
+  return rows.some(
+    (row) =>
+      row.conversationState === "active" &&
+      (row.participantMessagingBinding as { proxy_address?: string } | null)?.proxy_address === proxy
+  );
+}
+
 /** Posts an assistant-authored message into a trip's group conversation. */
 export async function sendConversationMessage(conversationSid: string, body: string) {
   await createTwilioClient()

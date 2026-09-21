@@ -1,19 +1,14 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { getPlannerUser } from "@/lib/planner/session";
+import { acceptInviteToken, resolveInviteToken } from "@/lib/planner/joinLink";
 
-export async function GET(
-  _request: Request,
-  { params }: { params: Promise<{ token: string }> }
-) {
+/** Trip preview for an invite token — either kind (see resolveInviteToken). */
+export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const admin = createAdminClient();
 
-  const { data: invite } = await admin
-    .from("planner_invites")
-    .select("trip_id")
-    .eq("token", token)
-    .maybeSingle();
-
+  const invite = await resolveInviteToken(admin, token);
   if (!invite) {
     return NextResponse.json({ error: "This invite link isn't valid." }, { status: 404 });
   }
@@ -21,7 +16,7 @@ export async function GET(
   const { data: trip } = await admin
     .from("planner_trips")
     .select("id, name, destination, start_date, end_date, occasion")
-    .eq("id", invite.trip_id)
+    .eq("id", invite.tripId)
     .maybeSingle();
 
   if (!trip) {
@@ -29,4 +24,23 @@ export async function GET(
   }
 
   return NextResponse.json({ trip });
+}
+
+/**
+ * "Join <trip>" for someone who's already signed in — the tap itself is the
+ * join and the consent (see acceptInviteToken). Anyone not signed in goes
+ * through phone sign-in with the token instead, and verify-phone accepts it
+ * there.
+ */
+export async function POST(_request: Request, { params }: { params: Promise<{ token: string }> }) {
+  const { token } = await params;
+  const user = await getPlannerUser();
+  if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  const admin = createAdminClient();
+  const result = await acceptInviteToken(admin, user, token);
+  if (result.outcome === "not_found") return NextResponse.json({ error: "That invite isn't valid anymore." }, { status: 404 });
+  if (result.outcome === "error") return NextResponse.json({ error: result.error }, { status: 500 });
+
+  return NextResponse.json({ tripId: result.tripId, outcome: result.outcome, redirect: `/planner/trips/${result.tripId}` });
 }

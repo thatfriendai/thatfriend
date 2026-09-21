@@ -100,10 +100,27 @@ export async function handleOptKeywordFromBody(
 ): Promise<OptKeyword> {
   const keyword = detectOptKeyword(body);
   if (!keyword || !user.phone) return null;
+  await applyOptKeyword(admin, user, keyword, tripId);
+  return keyword;
+}
+
+/**
+ * Mirrors a STOP/START the carrier side already acted on into our own
+ * notify_sms gate. Called with Twilio's OptOutType (the Messaging Service
+ * delivers the keyword text with that parameter set when Advanced Opt-Out
+ * handled it — Twilio has already sent its own confirmation and, for STOP,
+ * blocks anything we'd try to send) or with a keyword we spotted in a body
+ * ourselves.
+ */
+export async function applyOptKeyword(
+  admin: SupabaseClient,
+  user: ConsentSubject,
+  keyword: Exclude<OptKeyword, null>,
+  tripId?: string | null
+): Promise<void> {
   if (keyword === "stop") {
     await admin.from("planner_users").update({ notify_sms: false }).eq("id", user.id);
   } else {
     await recordConsentEvent(admin, user, "inbound_reply", tripId);
   }
-  return keyword;
 }

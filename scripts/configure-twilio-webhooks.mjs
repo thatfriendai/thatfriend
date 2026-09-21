@@ -1,9 +1,17 @@
 #!/usr/bin/env node
 /**
- * One-off setup: points the SMS number's inbound webhook and the
- * Conversations Service's onMessageAdded webhook at a base URL (your prod
- * domain, or an ngrok tunnel for local dev). Run again any time that base
- * URL changes.
+ * One-off setup: points the SMS number's inbound webhook, the Messaging
+ * Service's inbound webhook, and the Conversations Service's onMessageAdded
+ * webhook at a base URL (your prod domain, or an ngrok tunnel for local
+ * dev). Run again any time that base URL changes.
+ *
+ * The Messaging Service one matters most: the number belongs to the
+ * service, so the service's "Incoming Messages" setting is what actually
+ * fires — the number's own smsUrl is only a fallback. It must point at
+ * /api/v2/twilio, which handles ordinary texts AND the OptOutType that
+ * Advanced Opt-Out attaches to a STOP/START. (Pointing it at
+ * /api/v2/twilio/opt-out, which only understands OptOutType, silently
+ * drops every ordinary 1:1 text — that happened once.)
  *
  * Usage: node scripts/configure-twilio-webhooks.mjs https://your-domain.com
  */
@@ -51,6 +59,13 @@ async function main() {
     smsMethod: "POST",
   });
   console.log(`Set ${smsNumber}'s inbound webhook -> ${baseUrl}/api/v2/twilio`);
+
+  await client.messaging.v1.services(messagingServiceSid).update({
+    inboundRequestUrl: `${baseUrl}/api/v2/twilio`,
+    inboundMethod: "POST",
+    useInboundWebhookOnNumber: false,
+  });
+  console.log(`Set Messaging Service ${messagingServiceSid}'s inbound webhook -> ${baseUrl}/api/v2/twilio`);
 
   const services = await client.conversations.v1.services.list({ limit: 20 });
   if (services.length === 0) {

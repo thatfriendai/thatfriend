@@ -3,9 +3,10 @@ import { notFound, redirect } from "next/navigation";
 import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { signOut } from "@/app/planner/actions";
-import { CopyInviteLink } from "./CopyInviteLink";
 import { CopyJoinCode } from "./CopyJoinCode";
+import { InviteButton } from "./InviteButton";
 import { InviteFriendByPhone } from "./InviteFriendByPhone";
+import { GroupTextCard } from "./GroupTextCard";
 import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
 import { DecisionsSection } from "./decisions/DecisionsSection";
@@ -13,7 +14,6 @@ import { StaysSection } from "./StaysSection";
 import { buildStayComparison } from "@/lib/planner/stayComparison";
 import { generateStayRead } from "@/lib/planner/stayNarrative";
 import { NudgeButton } from "./NudgeButton";
-import { StartGroupText } from "./StartGroupText";
 import { PreferencesSkipControl } from "./PreferencesSkipControl";
 import { JoinRequests } from "./JoinRequests";
 import { SourcesSection } from "./SourcesSection";
@@ -25,19 +25,22 @@ import { TripVisibilityToggle } from "./TripVisibilityToggle";
 import { TripNameField } from "./TripNameField";
 import { ensureDays } from "@/lib/planner/days";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
-import { formatPhoneDisplay } from "@/lib/planner/phone";
+import { formatPhoneDisplay, toE164 } from "@/lib/planner/phone";
+import { generateToken } from "@/lib/planner/tokens";
 import { computeAttention } from "@/lib/planner/attention";
 import type { PlannerItineraryItem, ResourceType } from "@/lib/supabase/planner-types";
 
 const AVATAR_COLORS = DAY_COLORS;
 
 function initialsOf(name: string) {
-  return name
+  // A phone-only member (invited, no name yet) has no letters to initial.
+  const letters = name
     .split(/\s+/)
-    .map((p) => p[0])
+    .map((p) => p.replace(/[^\p{L}]/gu, "")[0] ?? "")
     .join("")
     .slice(0, 2)
     .toUpperCase();
+  return letters || "?";
 }
 
 export default async function PlannerTripPage({
@@ -65,6 +68,7 @@ export default async function PlannerTripPage({
     { data: resourceRows },
     { data: placeRows },
     { data: decisionRows },
+    { data: pendingInviteRows },
     attention,
   ] = await Promise.all([
     admin.from("planner_memberships").select("role").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
@@ -87,6 +91,15 @@ export default async function PlannerTripPage({
       )
       .eq("trip_id", id)
       .order("created_at", { ascending: false }),
+    // Who's been texted an invite and hasn't joined yet — the "still
+    // pending" half of Who's in, and what keeps the group text locked.
+    admin
+      .from("planner_trip_invites")
+      .select("phone, created_at")
+      .eq("trip_id", id)
+      .is("joined_at", null)
+      .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: true }),
     computeAttention(admin, id, user.id),
   ]);
   if (!membership) notFound();
@@ -188,6 +201,26 @@ export default async function PlannerTripPage({
 
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const smsNumber = process.env.TWILIO_SMS_NUMBER ?? null;
+
+  // The share link is the one thing the Invite button needs; every trip
+  // gets one at creation, but a trip that predates that is minted one here.
+  let inviteLinkToken = joinInvite?.token ?? null;
+  if (!inviteLinkToken) {
+    const token = generateToken();
+    const { error: linkError } = await admin.from("planner_invites").insert({ trip_id: id, token, channel: "link" });
+    if (!linkError) inviteLinkToken = token;
+  }
+
+  // A phone that's since joined (by any path) is a member now, not an
+  // invite — the join marks the row, but guard against the row lagging.
+  const memberPhones = new Set(
+    (members ?? [])
+      .map((m) => (m.planner_users as unknown as { phone: string | null } | null)?.phone)
+      .filter((p): p is string => Boolean(p))
+      .map((p) => toE164(p))
+  );
+  const pendingInvites = (pendingInviteRows ?? []).filter((r) => !memberPhones.has(toE164(r.phone as string)));
+
   const roster = (members ?? []).map((m) => {
     const person = m.planner_users as unknown as {
       name: string | null;
@@ -355,29 +388,56 @@ export default async function PlannerTripPage({
               </div>
             ))}
           </div>
-          <div className="mt-4 flex flex-col gap-3">
-            <InviteFriendByPhone tripId={id} />
-            {roster.length <= 1 && joinInvite && (
-              <div>
-                <p className="mb-2 text-[14px] text-body">Send this link to bring your travelers in.</p>
-                <CopyInviteLink url={`${siteUrl}/planner/join/${joinInvite.token}`} />
-              </div>
-            )}
-            <div>
-              <p className="mb-2 text-[14px] text-body">
-                {roster.length <= 1 ? "Or share this join code." : "Anyone can join anytime with this code."}
-              </p>
-              <CopyJoinCode tripId={id} code={trip.join_code} smsNumber={smsNumber} />
+          {pendingInvites.length > 0 && (
+            <div className="mt-2 flex flex-col gap-2">
+              {pendingInvites.map((invite) => (
+                <div
+                  key={invite.phone as string}
+                  className="flex items-center gap-3 rounded-xl border border-dashed border-input-border bg-transparent px-4 py-3"
+                >
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full border border-dashed border-input-border text-[13px] text-faint">
+                    ?
+                  </div>
+                  <span className="text-[15px] text-body">{formatPhoneDisplay(invite.phone as string)}</span>
+                  <span className="ml-auto font-mono text-[11px] tracking-[0.08em] text-faint uppercase">Invited</span>
+                </div>
+              ))}
             </div>
-            {/* Alone: the only other useful action is getting people in via
-                the tools above. Once someone else has joined, swap to the
-                richer nudge/group-text tools too. */}
-            {roster.length > 1 && (
-              <>
-                <StartGroupText tripId={id} started={Boolean(trip.twilio_conversation_sid)} />
-                <NudgeButton tripId={id} />
-              </>
+          )}
+
+          {/* Step 1 (organizer): one button, native share sheet. Step 3
+              (organizer): the group text, gated on step 2 — each invited
+              traveler's own single tap. Everything in between happens on
+              the friend's phone. */}
+          <div className="mt-4 flex flex-col gap-3">
+            {inviteLinkToken && (
+              <InviteButton
+                url={`${siteUrl}/planner/join/${inviteLinkToken}`}
+                tripName={trip.destination ?? trip.name}
+                organizerFirstName={(user.name || "A friend").split(" ")[0]}
+              />
             )}
+            <details className="group rounded-2xl border border-border-soft bg-transparent">
+              <summary className="cursor-pointer list-none px-4.5 py-3 text-[13.5px] text-muted hover:text-ink">
+                <span className="mr-1.5 inline-block transition-transform group-open:rotate-90">&#9656;</span>
+                Text a number directly, or share a code instead
+              </summary>
+              <div className="flex flex-col gap-4 border-t border-border-soft px-4.5 pt-4 pb-4.5">
+                <InviteFriendByPhone tripId={id} />
+                <div>
+                  <p className="mb-2 text-[14px] text-body">Someone got a screenshot instead of the link? This code works too.</p>
+                  <CopyJoinCode tripId={id} code={trip.join_code} smsNumber={smsNumber} />
+                </div>
+              </div>
+            </details>
+            <GroupTextCard
+              tripId={id}
+              started={Boolean(trip.twilio_conversation_sid)}
+              number={smsNumber ? formatPhoneDisplay(smsNumber) : null}
+              othersJoined={roster.length - 1}
+              pendingCount={pendingInvites.length}
+            />
+            {roster.length > 1 && <NudgeButton tripId={id} />}
           </div>
         </div>
 

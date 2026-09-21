@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { generateToken, generateJoinCode } from "./tokens";
-import { getOrCreateTripConversation, addParticipantToConversation } from "@/lib/twilio/conversations";
+import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { autoFriendTripMembers } from "./follows";
 import { toE164 } from "./phone";
 
@@ -14,15 +14,17 @@ interface PlannerUserLite {
  * Starts a brand-new trip entirely from a text — no app visit needed. Mirrors
  * the web app's own trip-creation route (POST /api/v2/trips): same defaults,
  * same owner membership, same "link" invite — plus a join_code (this is the
- * only creation path that hands one back over SMS) and, since the whole
- * point is a group text, the Conversation is started immediately rather than
- * waiting for someone to click "Start a group text" in the app.
+ * only creation path that hands one back over SMS). The group Conversation
+ * is deliberately NOT started here: it unlocks from the trip page once the
+ * invited travelers have joined (see the "Who's in" section), and starting
+ * it early would also bind the organizer's phone to it, routing their very
+ * next 1:1 text — "here are their numbers" — into the group webhook.
  */
 export async function createTripFromText(
   admin: SupabaseClient,
   user: PlannerUserLite,
   destination: string | null
-): Promise<{ tripName: string; joinCode: string } | { error: string }> {
+): Promise<{ tripId: string; tripName: string; joinCode: string } | { error: string }> {
   const name = destination?.trim() || "New trip";
 
   let joinCode = generateJoinCode(destination);
@@ -58,19 +60,7 @@ export async function createTripFromText(
   await admin.from("planner_memberships").insert({ trip_id: created.id, user_id: user.id, role: "owner" });
   await admin.from("planner_invites").insert({ trip_id: created.id, token: generateToken(), channel: "link" });
 
-  // Best-effort — if this fails, the trip still exists and "Start a group
-  // text" is still available from the app as a fallback.
-  try {
-    await getOrCreateTripConversation(admin, {
-      id: created.id,
-      name: created.name,
-      twilio_conversation_sid: created.twilio_conversation_sid,
-    });
-  } catch {
-    // Swallowed — see comment above.
-  }
-
-  return { tripName: created.name, joinCode };
+  return { tripId: created.id, tripName: created.name, joinCode };
 }
 
 type JoinOutcome =

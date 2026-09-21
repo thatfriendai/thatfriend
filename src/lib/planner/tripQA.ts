@@ -56,12 +56,12 @@ async function answerDayQuestion(
 
   if (!days || days.length === 0) {
     const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-    return `No dates locked in yet, so there's no day-by-day plan. Mark the days that work for you: ${siteUrl}/planner/trips/${tripId}/dates`;
+    return `no dates locked in yet, so there's no day-by-day plan. mark the days that work for you: ${siteUrl}/planner/trips/${tripId}/dates`;
   }
 
   const dayIndex = resolveDayIndex(dayRef, days as PlannerDay[]);
   if (dayIndex === null) {
-    return "Which day did you mean? Try \"day 1\" or a weekday like \"Saturday.\"";
+    return `which day did you mean? "day 1" or a weekday like "saturday" works.`;
   }
 
   const day = days[dayIndex] as PlannerDay;
@@ -71,7 +71,7 @@ async function answerDayQuestion(
     .eq("day_id", day.id)
     .order("position", { ascending: true });
 
-  const label = `Day ${dayIndex + 1} (${formatDayLabel(day.date)}${day.city ? `, ${day.city}` : ""})`;
+  const label = `day ${dayIndex + 1} (${formatDayLabel(day.date)}${day.city ? `, ${day.city}` : ""})`;
   if (!items || items.length === 0) {
     return `${label}: nothing planned yet.`;
   }
@@ -89,7 +89,7 @@ async function answerLodgingCostQuestion(admin: SupabaseClient, tripId: string):
     .maybeSingle();
 
   if (!decision) {
-    return "No lodging decision started for this trip yet.";
+    return "nowhere to stay picked yet — once someone throws in an option, i'll have prices to compare.";
   }
 
   const { data: options } = await admin
@@ -107,14 +107,14 @@ async function answerLodgingCostQuestion(admin: SupabaseClient, tripId: string):
 
   if (decision.status === "closed" && decision.decided_option_id) {
     const decided = (options ?? []).find((o) => o.id === decision.decided_option_id);
-    if (decided) return `"${decided.label}" is decided for "${decision.title}" — ${priceOf(decided)}.`;
+    if (decided) return `you're staying at ${decided.label} — ${priceOf(decided)}.`;
   }
 
   if (!options || options.length === 0) {
-    return `"${decision.title}" hasn't been decided yet, and no options have been added.`;
+    return `nowhere to stay settled yet, and no options in the running so far.`;
   }
   const list = options.map((o) => `${o.label} (${priceOf(o)})`).join(", ");
-  return `"${decision.title}" hasn't been decided yet — options so far: ${list}.`;
+  return `not settled yet — in the running: ${list}.`;
 }
 
 /**
@@ -122,8 +122,8 @@ async function answerLodgingCostQuestion(admin: SupabaseClient, tripId: string):
  * answerLodgingCostQuestion, which only covers the stay decision. Grounded
  * in whatever preferences have actually been submitted (same floor/comfy
  * overlap math as the Convergence view); when nobody's answered anything
- * yet, points at the two real actions that would produce a real number
- * instead of a dead-end.
+ * yet, it's a status reply, not a task — set expectations and get out of
+ * the way, rather than listing the internal things someone could add.
  */
 async function answerBudgetQuestion(admin: SupabaseClient, tripId: string): Promise<string> {
   const { data: prefRows } = await admin
@@ -149,7 +149,7 @@ async function answerBudgetQuestion(admin: SupabaseClient, tripId: string): Prom
 
   if (overlaps.length === 0) {
     if (stayDecision) return answerLodgingCostQuestion(admin, tripId);
-    return "Nothing to go on yet — add a lodging option or a restaurant pick as a decision, or get people to answer preferences, and I can give you a real number.";
+    return "don't have enough yet to give you a real answer — once people start picking places or answering, i'll have something to go on.";
   }
 
   const byKey = new Map(overlaps.map((o) => [o.key, o]));
@@ -161,15 +161,15 @@ async function answerBudgetQuestion(admin: SupabaseClient, tripId: string): Prom
   const flight = byKey.get("flight_max");
   if (flight) pieces.push(`flights around $${flight.floor}-${flight.comfy} round trip`);
 
-  const base = `Based on what's been submitted so far: ${pieces.join(", ")}.`;
+  const base = `from what people have said so far: ${pieces.join(", ")}.`;
   if (stayDecision) return `${base} ${await answerLodgingCostQuestion(admin, tripId)}`;
-  return `${base} Add a lodging option as a decision once you're ready to compare real prices.`;
+  return `${base} once there's a place to stay in the running, i can put a real number on it.`;
 }
 
 async function answerRosterQuestion(admin: SupabaseClient, tripId: string): Promise<string> {
   const { data: trip } = await admin
     .from("planner_trips")
-    .select("join_code")
+    .select("name")
     .eq("id", tripId)
     .maybeSingle();
 
@@ -183,11 +183,7 @@ async function answerRosterQuestion(admin: SupabaseClient, tripId: string): Prom
   }));
 
   if (members.length <= 1) {
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
-    const howToInvite = trip?.join_code
-      ? `Have them text "HELLO ${trip.join_code}" to this number to join.`
-      : `Invite them from the app: ${siteUrl}/planner/trips/${tripId}`;
-    return `Looks like it's just you on this trip so far. ${howToInvite}`;
+    return `looks like it's just you on ${trip?.name ?? "this trip"} so far. text me their numbers and i'll send the invites.`;
   }
 
   const { data: prefRows } = await admin.from("planner_preferences").select("user_id").eq("trip_id", tripId);
@@ -195,10 +191,10 @@ async function answerRosterQuestion(admin: SupabaseClient, tripId: string): Prom
   const notAnswered = members.filter((m) => !answeredIds.has(m.id));
 
   if (notAnswered.length === 0) {
-    return `Yep — all ${members.length} of you have answered preferences.`;
+    return `yep — all ${members.length} of you are in and have answered.`;
   }
   const names = notAnswered.map((m) => m.name?.split(" ")[0] || "someone").join(", ");
-  return `${members.length - notAnswered.length} of ${members.length} have answered preferences — still waiting on ${names}.`;
+  return `${members.length - notAnswered.length} of ${members.length} have answered — still waiting on ${names}.`;
 }
 
 /**
@@ -218,5 +214,5 @@ export async function answerTripQuestion(
   if (topic === "lodging_cost") return answerLodgingCostQuestion(admin, tripId);
   if (topic === "budget") return answerBudgetQuestion(admin, tripId);
   if (topic === "roster") return answerRosterQuestion(admin, tripId);
-  return "I can tell you about the day-by-day plan, budget, lodging cost, or who's confirmed — ask me one of those.";
+  return "i can tell you what's planned for a day, what it's looking like cost-wise, where you're staying, or who's in — ask me one of those.";
 }

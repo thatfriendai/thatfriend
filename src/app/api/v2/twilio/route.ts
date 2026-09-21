@@ -2,24 +2,32 @@ import { NextResponse } from "next/server";
 import twilio from "twilio";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { downloadTwilioMedia, getPublicWebhookUrl } from "@/lib/twilio/client";
+import { isConversationParticipant } from "@/lib/twilio/conversations";
 import { normalizePhoneDigits, toE164 } from "@/lib/planner/phone";
 import { findPlannerUserByPhone } from "@/lib/planner/plannerUser";
 import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib/planner/whatsappResource";
 import { classifyIntent } from "@/lib/planner/inboundIntent";
 import { answerTripQuestion } from "@/lib/planner/tripQA";
 import { sendNudge } from "@/lib/planner/nudge";
-import { createTripFromText, joinTripByCode, joinTripById } from "@/lib/planner/smsTripStart";
-import { recordConsentEvent, handleOptKeywordFromBody, type ConsentMethod } from "@/lib/planner/consent";
+import { createTripFromText, joinTripByCode } from "@/lib/planner/smsTripStart";
+import { acceptPendingInviteByReply } from "@/lib/planner/joinLink";
+import { invitePhoneToTrip, extractPhoneNumbers, looksLikeInviteList } from "@/lib/planner/invitePhone";
+import { recordConsentEvent, handleOptKeywordFromBody, applyOptKeyword, type ConsentMethod } from "@/lib/planner/consent";
+import * as say from "@/lib/planner/smsVoice";
 
 // "hello LISBON4K", "hi LISBON4K", "join LISBON4K" — deterministic, not
 // LLM-classified, since it's an exact code the app itself generated.
 const JOIN_CODE_PATTERN = /^(?:hello|hi|join)\s+([a-z0-9]{4,20})$/i;
 
 /**
- * Plain SMS/MMS webhook — handles anyone who isn't (yet) part of a trip's
- * group conversation. Twilio Conversations claims inbound messages from
- * known group participants before they ever reach this route (see
- * src/app/api/v2/twilio/conversation/route.ts); this only sees 1:1 DMs.
+ * Plain SMS/MMS webhook — the 1:1 thread with That Friend. Anyone bound to
+ * a trip's group Conversation has their texts handled by
+ * src/app/api/v2/twilio/conversation/route.ts instead (Twilio delivers to
+ * both; this route steps aside for them, see below).
+ *
+ * This is also where Twilio's Messaging Service inbound webhook points, so
+ * a STOP/START that Advanced Opt-Out already handled arrives here with
+ * OptOutType set — see scripts/configure-twilio-webhooks.mjs.
  */
 export async function POST(request: Request) {
   const formData = await request.formData();
@@ -60,6 +68,7 @@ export async function POST(request: Request) {
   const fromDigits = normalizePhoneDigits(params.From ?? "");
   const body = (params.Body ?? "").trim();
   const numMedia = Number(params.NumMedia ?? "0");
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
 
   const admin = createAdminClient();
 
@@ -78,13 +87,20 @@ export async function POST(request: Request) {
   try {
     user = await findPlannerUserByPhone(admin, fromDigits);
   } catch {
-    return reply("Something went wrong looking that up — try again in a bit.");
+    return reply(say.lookupFailedReply());
+  }
+
+  // A STOP/START the Messaging Service's Advanced Opt-Out already handled:
+  // Twilio has sent its own confirmation (and for STOP, blocks anything
+  // we'd send), so just mirror the state and say nothing.
+  const optOutType = (params.OptOutType ?? "").toUpperCase();
+  if (optOutType === "STOP" || optOutType === "START") {
+    if (user) await applyOptKeyword(admin, user, optOutType === "STOP" ? "stop" : "start");
+    return silent();
   }
 
   if (!user) {
-    return reply(
-      "Hi! I don't recognize this number yet. Sign in at the web app first — then text me anything and it'll land in your trip."
-    );
+    return reply(say.unknownNumberReply(siteUrl));
   }
 
   // Texting the WhatsApp number is itself the clearest signal of channel
@@ -94,60 +110,55 @@ export async function POST(request: Request) {
     await admin.from("planner_users").update({ whatsapp_opt_in: true }).eq("id", user.id);
   }
 
-  // Bare "1" or "START" replying to a pending per-phone invite (see
-  // src/app/api/v2/trips/[id]/invites/route.ts) joins that trip directly —
-  // the lowest-friction accept, scoped to whoever the invite was actually
-  // sent to (a forwarded screenshot won't resolve here, since the invite
-  // row is keyed on the recipient's own phone). Checked before the STOP/
-  // START opt-in handling below, which would otherwise swallow "start" as
-  // a bare re-opt-in and never join them to anything.
-  if (body && /^(?:1|start)$/i.test(body) && user.phone) {
-    const { data: pendingInvite } = await admin
-      .from("planner_trip_invites")
-      .select("id, trip_id, clicked_at")
-      .eq("phone", toE164(user.phone))
-      .is("joined_at", null)
-      .gt("expires_at", new Date().toISOString())
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
+  // Someone in a trip's group thread: Twilio has also dropped this same
+  // text into that Conversation, whose webhook answers there (and handles
+  // the personal cases — a "1" to an invite, starting a trip — with a 1:1
+  // text of its own). Answering here too is what produced two identical
+  // replies to one question. Best-effort: if Twilio can't be asked, carry
+  // on rather than go silent on someone who may have no thread at all.
+  if (!isWhatsApp && user.phone) {
+    const inGroupThread = await isConversationParticipant(toE164(user.phone)).catch(() => false);
+    if (inGroupThread) return silent();
+  }
 
-    if (pendingInvite) {
-      const method: ConsentMethod = pendingInvite.clicked_at ? "link_tap" : "join_code";
-      await recordConsentEvent(admin, user, method, pendingInvite.trip_id);
-      const joined = await joinTripById(admin, user, pendingInvite.trip_id);
-      if (joined.outcome === "joined") return reply(`You're in — welcome to "${joined.tripName}". Forward a link or place anytime.`);
-      if (joined.outcome === "already_member") return reply(`You're already in "${joined.tripName}".`);
-      // not_found/error here would mean the invite's trip vanished under
-      // us — fall through to normal handling rather than dead-ending.
-    }
+  // Bare "1"/"START" replying to a pending per-phone invite joins that
+  // trip directly. Checked before the STOP/START backstop below, which
+  // would otherwise swallow "start" as a bare re-opt-in and never join
+  // them to anything.
+  if (body) {
+    const accepted = await acceptPendingInviteByReply(admin, user, body);
+    if (accepted?.outcome === "joined") return reply(say.joinedReply(accepted.tripName));
+    if (accepted?.outcome === "already_member") return reply(say.alreadyMemberReply(accepted.tripName));
+    // not_found/error here would mean the invite's trip vanished under
+    // us — fall through to normal handling rather than dead-ending.
   }
 
   // STOP/START as a plain message body — Twilio's Advanced Opt-Out normally
-  // intercepts these before they ever reach here (see
-  // src/app/api/v2/twilio/opt-out/route.ts for the reliable mechanism);
-  // this is only a backstop, checked first so neither word is mistaken for
-  // a join code or resource to save.
+  // intercepts these before they ever reach here (arriving as OptOutType,
+  // handled above); this is only a backstop, checked before anything could
+  // mistake either word for a join code or a resource to save.
   if (body) {
     const optKeyword = await handleOptKeywordFromBody(admin, user, body);
-    if (optKeyword === "stop") {
-      return reply("You won't get texts from That Friend anymore. Reply START anytime to turn them back on.");
-    }
-    if (optKeyword === "start") {
-      return reply("You're opted back in — text away.");
-    }
+    if (optKeyword === "stop") return reply(say.optedOutReply());
+    if (optKeyword === "start") return reply(say.optedBackInReply());
   }
 
   const { data: membership } = await admin
     .from("planner_memberships")
-    .select("trip_id, planner_trips(id, name, twilio_conversation_sid)")
+    .select("trip_id, planner_trips(id, name, destination, join_code, twilio_conversation_sid)")
     .eq("user_id", user.id)
     .order("joined_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
   const trip = membership
-    ? (membership.planner_trips as unknown as { id: string; name: string; twilio_conversation_sid: string | null } | null)
+    ? (membership.planner_trips as unknown as {
+        id: string;
+        name: string;
+        destination: string | null;
+        join_code: string | null;
+        twilio_conversation_sid: string | null;
+      } | null)
     : null;
   const tripName = trip?.name ?? "your trip";
 
@@ -179,35 +190,52 @@ export async function POST(request: Request) {
     await recordConsentEvent(admin, user, "inbound_reply", trip?.id ?? null);
   }
 
-  // These two — joining by code, and starting a brand-new trip — are the
-  // only things that make sense with zero existing memberships, so they're
-  // checked before the "not part of any trips yet" dead end below.
   if (body && !(numMedia > 0)) {
     const joinMatch = body.match(JOIN_CODE_PATTERN);
     if (joinMatch) {
       const joined = await joinTripByCode(admin, user, joinMatch[1]);
-      if (joined.outcome === "joined") return reply(`You're in — welcome to "${joined.tripName}". Forward a link or place anytime.`);
-      if (joined.outcome === "already_member") return reply(`You're already in "${joined.tripName}".`);
-      if (joined.outcome === "not_found") {
-        return reply("That code doesn't match any trip. Double-check it, or ask whoever sent it to resend it.");
-      }
-      return reply(`Hmm, ${joined.error}`);
+      if (joined.outcome === "joined") return reply(say.joinedReply(joined.tripName));
+      if (joined.outcome === "already_member") return reply(say.alreadyMemberReply(joined.tripName));
+      if (joined.outcome === "not_found") return reply(say.joinCodeNotFoundReply());
+      return reply(`hmm, ${joined.error}`);
     }
 
-    const intent = await classifyIntent(body);
+    // "who's coming? text me their numbers" — a text that's mostly phone
+    // numbers is the answer to that, and it goes to the trip they most
+    // recently joined or started. Deterministic, ahead of the classifier.
+    const phones = extractPhoneNumbers(body);
+    if (looksLikeInviteList(body, phones)) {
+      if (!trip) return reply(say.invitesNeedTripReply());
+      const organizerName = await organizerFirstName(admin, user.id);
+      let sent = 0;
+      let alreadyIn = 0;
+      let invalid = 0;
+      for (const phone of phones) {
+        const result = await invitePhoneToTrip(admin, trip, organizerName, phone);
+        if (result.status === "sent" || result.status === "carried_over") sent++;
+        else if (result.status === "already_member") alreadyIn++;
+        else if (result.status === "invalid") invalid++;
+      }
+      return reply(say.invitesSentReply(sent, tripName, alreadyIn, invalid));
+    }
+
+    const intent = await classifyIntent(body, { hasTrips: Boolean(membership) });
+
+    if (intent.kind === "chat") {
+      return reply(trip ? say.returningGreetingReply(tripName) : say.firstTimeGreetingReply());
+    }
 
     if (intent.kind === "start_trip") {
+      // "no idea yet, help me pick" — keep asking the one question, with
+      // somewhere to start, rather than creating a trip called "New trip".
+      if (!intent.destination) return reply(say.pickDestinationReply());
       const started = await createTripFromText(admin, user, intent.destination);
-      if ("error" in started) return reply(`Hmm, ${started.error}`);
-      return reply(
-        `Started "${started.tripName}"! Have your friends text "HELLO ${started.joinCode}" to this number to join — or open the app to add dates, invite by link, and more.`
-      );
+      if ("error" in started) return reply(`hmm, ${started.error}`);
+      return reply(say.tripStartedReply(intent.destination, intent.when));
     }
 
     if (!membership) {
-      return reply(
-        'You\'re signed in, but you\'re not part of any trips yet. Text something like "start a trip to Lisbon" to begin one, or ask a friend for their join code and text "HELLO <code>".'
-      );
+      return reply(say.noTripYetReply());
     }
 
     if (intent.kind === "question") {
@@ -218,22 +246,16 @@ export async function POST(request: Request) {
     if (intent.kind === "nudge" && trip) {
       const nudged = await sendNudge(admin, trip, "preferences", "individual");
       if ("error" in nudged) return reply(nudged.error);
-      return reply(
-        nudged.sentCount === 0
-          ? "Nobody to nudge right now."
-          : `Nudged ${nudged.sentCount} ${nudged.sentCount === 1 ? "person" : "people"} about "${tripName}".`
-      );
+      return reply(say.nudgedReply(nudged.sentCount, tripName));
     }
 
     if (intent.kind === "close_decision") {
-      return reply("Closing a poll by text is coming soon — head to the app to close this one.");
+      return reply(say.closeDecisionSoonReply());
     }
   }
 
   if (!membership) {
-    return reply(
-      'You\'re signed in, but you\'re not part of any trips yet. Text something like "start a trip to Lisbon" to begin one, or ask a friend for their join code and text "HELLO <code>".'
-    );
+    return reply(say.noTripYetReply());
   }
 
   let result: Awaited<ReturnType<typeof addResourceFromWhatsAppText>> | null = null;
@@ -248,35 +270,23 @@ export async function POST(request: Request) {
   } else if (body) {
     result = await addResourceFromWhatsAppText(admin, membership.trip_id, user.id, body);
   } else {
-    return reply("I can only read text, links, and photos right now.");
+    return reply(say.unsupportedMediaReply());
   }
 
   if ("error" in result) {
-    return reply(`Hmm, ${result.error}`);
+    return reply(`hmm, ${result.error}`);
   }
 
   if (result.places.length === 0) {
-    if (result.alreadyAdded) {
-      return reply("Already saved that link — nothing new to add.");
-    }
-    if (result.duplicates.length > 0) {
-      return reply(
-        `Already on the map for "${tripName}": ${result.duplicates.join(", ")}.`
-      );
-    }
+    if (result.alreadyAdded) return reply(say.alreadySavedReply());
+    if (result.duplicates.length > 0) return reply(say.alreadyOnMapReply(tripName, result.duplicates));
     return silent();
   }
 
-  const dupNote =
-    result.duplicates.length > 0
-      ? ` (already had ${result.duplicates.join(", ")}.)`
-      : "";
-  const farNote =
-    result.farAway.length > 0
-      ? " " +
-        result.farAway
-          .map((f) => `Heads up — ${f.name}${f.address ? ` (${f.address})` : ""} doesn't look like it's near "${tripName}". Double check that's the right one.`)
-          .join(" ")
-      : "";
-  return reply(`Added to your trip!${dupNote}${farNote}`);
+  return reply(say.placesAddedReply(tripName, result.duplicates, result.farAway));
+}
+
+async function organizerFirstName(admin: ReturnType<typeof createAdminClient>, userId: string): Promise<string> {
+  const { data } = await admin.from("planner_users").select("name").eq("id", userId).maybeSingle();
+  return data?.name?.split(" ")[0] || "A friend";
 }

@@ -5,14 +5,29 @@ import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { toE164, isUSPhone } from "@/lib/planner/phone";
 import { getPlannerUser } from "@/lib/planner/session";
 import { mergePlannerUsers } from "@/lib/planner/plannerUser";
-import { autoFriendTripMembers } from "@/lib/planner/follows";
-import { sendSmsText } from "@/lib/twilio/send";
+import { acceptInviteToken } from "@/lib/planner/joinLink";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const rawPhone = typeof body.phone === "string" ? body.phone.trim() : "";
-  const phone = rawPhone ? toE164(rawPhone) : "";
   const code = typeof body.code === "string" ? body.code.trim() : "";
+  const inviteToken = typeof body.token === "string" ? body.token : "";
+
+  const admin = createAdminClient();
+
+  // The per-phone invite page (src/app/j/[token]) sends its token instead
+  // of the number — the code row for that number carries the token, so
+  // (token, code) identifies it just as well as (phone, code) does.
+  let phone = rawPhone ? toE164(rawPhone) : "";
+  if (!phone && inviteToken && code) {
+    const { data: tokenRow } = await admin
+      .from("planner_whatsapp_codes")
+      .select("phone")
+      .eq("invite_token", inviteToken)
+      .eq("code", code)
+      .maybeSingle();
+    phone = tokenRow?.phone ?? "";
+  }
 
   if (!phone || !code) {
     return NextResponse.json({ error: "Phone and code are required." }, { status: 400 });
@@ -23,8 +38,6 @@ export async function POST(request: Request) {
       { status: 400 }
     );
   }
-
-  const admin = createAdminClient();
 
   const { data: codeRow } = await admin
     .from("planner_whatsapp_codes")
@@ -81,17 +94,15 @@ export async function POST(request: Request) {
 
   const { data: existing } = await admin
     .from("planner_users")
-    .select("id, name, username, sms_opted_in_at")
+    .select("id, name, username")
     .eq("phone", phone)
     .maybeSingle();
 
   let plannerUserId: string;
   let needsProfile: boolean;
-  let neverTextedIn = true;
   if (existing) {
     plannerUserId = existing.id;
     needsProfile = !existing.username;
-    neverTextedIn = !existing.sms_opted_in_at;
     if (codeRow.name && !existing.name) {
       await admin.from("planner_users").update({ name: codeRow.name }).eq("id", existing.id);
     }
@@ -117,50 +128,19 @@ export async function POST(request: Request) {
   }
 
   if (codeRow.invite_token) {
-    const { data: invite } = await admin
-      .from("planner_invites")
-      .select("id, trip_id")
-      .eq("token", codeRow.invite_token)
+    // The tap on "Join <trip>" that brought them here was the consent
+    // (src/lib/planner/joinLink.ts) — acceptInviteToken records it against
+    // this now-verified phone. No "reply JOIN" text afterwards.
+    const { data: joiningUser } = await admin
+      .from("planner_users")
+      .select("id, phone, notify_sms, sms_opted_in_at")
+      .eq("id", plannerUserId)
       .maybeSingle();
-
-    if (invite) {
-      await admin
-        .from("planner_memberships")
-        .upsert(
-          { trip_id: invite.trip_id, user_id: plannerUserId, role: "member" },
-          { onConflict: "trip_id,user_id", ignoreDuplicates: true }
-        );
-      await admin.from("planner_invites").update({ accepted_by: plannerUserId }).eq("id", invite.id);
-      await autoFriendTripMembers(admin, invite.trip_id, plannerUserId);
-
-      const { data: invitedTrip } = await admin
-        .from("planner_trips")
-        .select("twilio_conversation_sid")
-        .eq("id", invite.trip_id)
-        .maybeSingle();
-      if (invitedTrip?.twilio_conversation_sid) {
-        await addParticipantToConversation(invitedTrip.twilio_conversation_sid, phone).catch(
-          () => {
-            // Best-effort — they can still be synced into the group thread later.
-          }
-        );
+    if (joiningUser) {
+      const accepted = await acceptInviteToken(admin, joiningUser, codeRow.invite_token);
+      if (accepted.outcome === "joined" || accepted.outcome === "already_member") {
+        return NextResponse.json({ redirect: `/planner/trips/${accepted.tripId}` });
       }
-
-      // This web accept flow doesn't itself go through the organizer
-      // invite-SMS (that only fires from the per-phone invite endpoint) —
-      // if this is the first time we've ever had a way to text this
-      // number, that ask has to happen here instead of waiting for a
-      // notify.ts/nudge.ts event to get there first by coincidence.
-      if (neverTextedIn) {
-        await sendSmsText(
-          phone,
-          "Reply JOIN to get trip updates from That Friend. Reply STOP anytime to opt out."
-        ).catch(() => {
-          // Best-effort — they're a real member either way.
-        });
-      }
-
-      return NextResponse.json({ redirect: `/planner/trips/${invite.trip_id}/preferences` });
     }
   }
 

@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { getOrCreateTripConversation, sendConversationMessage } from "@/lib/twilio/conversations";
 import { getSmsFrom } from "@/lib/twilio/client";
+import { groupTextOpener } from "@/lib/planner/smsVoice";
 
 export async function POST(
   request: Request,
@@ -36,10 +37,7 @@ export async function POST(
   try {
     const conversationSid = await getOrCreateTripConversation(admin, trip);
     if (!alreadyStarted) {
-      await sendConversationMessage(
-        conversationSid,
-        `That Friend's here for "${trip.name}" — forward links, notes, or screenshots and they'll land on the map.`
-      );
+      await sendConversationMessage(conversationSid, groupTextOpener(trip.name, user.name?.split(" ")[0] ?? null));
     }
     return NextResponse.json({ conversationSid, number: getSmsFrom() });
   } catch (e) {
