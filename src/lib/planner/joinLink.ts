@@ -78,6 +78,27 @@ export async function acceptInviteToken(admin: SupabaseClient, user: JoiningUser
   return { outcome: joined.outcome, tripId: invite.tripId, tripName: joined.tripName };
 }
 
+/** The most recent invite this phone hasn't acted on yet, with who sent it — for a greeting that points at it. */
+export async function findPendingInvite(
+  admin: SupabaseClient,
+  user: { phone: string | null }
+): Promise<{ tripId: string; tripName: string; organizerFirstName: string } | null> {
+  if (!user.phone) return null;
+  const { data: invite } = await admin
+    .from("planner_trip_invites")
+    .select("trip_id, planner_trips(name, created_by)")
+    .eq("phone", toE164(user.phone))
+    .is("joined_at", null)
+    .gt("expires_at", new Date().toISOString())
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  const trip = invite?.planner_trips as unknown as { name: string; created_by: string } | null;
+  if (!invite || !trip) return null;
+  const { data: owner } = await admin.from("planner_users").select("name").eq("id", trip.created_by).maybeSingle();
+  return { tripId: invite.trip_id, tripName: trip.name, organizerFirstName: owner?.name?.split(" ")[0] || "a friend" };
+}
+
 /**
  * A bare "1" or "START" texted back to a pending invite joins that trip —
  * the lowest-friction accept, scoped to whoever the invite was actually

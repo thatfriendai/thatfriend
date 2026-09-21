@@ -10,7 +10,7 @@ import { classifyIntent } from "@/lib/planner/inboundIntent";
 import { answerTripQuestion } from "@/lib/planner/tripQA";
 import { sendNudge } from "@/lib/planner/nudge";
 import { createTripFromText, joinTripByCode } from "@/lib/planner/smsTripStart";
-import { acceptPendingInviteByReply } from "@/lib/planner/joinLink";
+import { acceptPendingInviteByReply, findPendingInvite } from "@/lib/planner/joinLink";
 import { invitePhoneToTrip, extractPhoneNumbers, looksLikeInviteList } from "@/lib/planner/invitePhone";
 import { recordConsentEvent, handleOptKeywordFromBody, applyOptKeyword, type ConsentMethod } from "@/lib/planner/consent";
 import * as say from "@/lib/planner/smsVoice";
@@ -222,7 +222,12 @@ export async function POST(request: Request) {
     const intent = await classifyIntent(body, { hasTrips: Boolean(membership) });
 
     if (intent.kind === "chat") {
-      return reply(trip ? say.returningGreetingReply(tripName) : say.firstTimeGreetingReply());
+      if (intent.tone === "thanks") return reply(say.thanksReply());
+      if (intent.tone !== "greeting") return silent();
+      if (trip) return reply(say.returningGreetingReply(tripName));
+      const pendingInvite = await findPendingInvite(admin, user);
+      if (pendingInvite) return reply(say.invitedGreetingReply(pendingInvite.organizerFirstName, pendingInvite.tripName));
+      return reply(say.firstTimeGreetingReply());
     }
 
     if (intent.kind === "start_trip") {

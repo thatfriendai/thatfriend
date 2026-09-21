@@ -4,6 +4,7 @@ import { formatDayLabel } from "./itinerary";
 import { BUDGET_FIELDS } from "./preferences";
 import { computeOverlap } from "./convergence";
 import type { PlannerDay } from "@/lib/supabase/planner-types";
+import { formatPhoneDisplay } from "./phone";
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -167,20 +168,19 @@ async function answerBudgetQuestion(admin: SupabaseClient, tripId: string): Prom
 }
 
 async function answerRosterQuestion(admin: SupabaseClient, tripId: string): Promise<string> {
-  const { data: trip } = await admin
-    .from("planner_trips")
-    .select("name")
-    .eq("id", tripId)
-    .maybeSingle();
+  const { data: trip } = await admin.from("planner_trips").select("name").eq("id", tripId).maybeSingle();
 
   const { data: memberRows } = await admin
     .from("planner_memberships")
-    .select("user_id, planner_users(name)")
+    .select("user_id, planner_users(name, phone)")
     .eq("trip_id", tripId);
-  const members = (memberRows ?? []).map((m) => ({
-    id: m.user_id as string,
-    name: (m.planner_users as unknown as { name: string | null } | null)?.name ?? null,
-  }));
+  const members = (memberRows ?? []).map((m) => {
+    const person = m.planner_users as unknown as { name: string | null; phone: string | null } | null;
+    // Someone who joined by phone and hasn't set a name yet is still a
+    // real person on the trip — show the number rather than "someone".
+    const label = person?.name?.split(" ")[0] || (person?.phone ? formatPhoneDisplay(person.phone) : "someone");
+    return { id: m.user_id as string, label };
+  });
 
   if (members.length <= 1) {
     return `looks like it's just you on ${trip?.name ?? "this trip"} so far. text me their numbers and i'll send the invites.`;
@@ -190,11 +190,10 @@ async function answerRosterQuestion(admin: SupabaseClient, tripId: string): Prom
   const answeredIds = new Set((prefRows ?? []).map((p) => p.user_id as string));
   const notAnswered = members.filter((m) => !answeredIds.has(m.id));
 
-  if (notAnswered.length === 0) {
-    return `yep — all ${members.length} of you are in and have answered.`;
-  }
-  const names = notAnswered.map((m) => m.name?.split(" ")[0] || "someone").join(", ");
-  return `${members.length - notAnswered.length} of ${members.length} have answered — still waiting on ${names}.`;
+  const who = `${members.length} of you so far: ${members.map((m) => m.label).join(", ")}.`;
+  if (answeredIds.size === 0) return `${who} nobody's answered preferences yet.`;
+  if (notAnswered.length === 0) return `${who} everyone's answered preferences too.`;
+  return `${who} still waiting on ${notAnswered.map((m) => m.label).join(", ")} to answer preferences.`;
 }
 
 /**

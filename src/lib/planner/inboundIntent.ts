@@ -9,7 +9,7 @@ export type InboundIntent =
   | { kind: "nudge" }
   | { kind: "close_decision"; decisionRef: string | null }
   | { kind: "start_trip"; destination: string | null; when: string | null }
-  | { kind: "chat" };
+  | { kind: "chat"; tone: "greeting" | "thanks" | "other" };
 
 export interface IntentContext {
   /** False for someone who isn't on any trip yet — a bare "lisbon in march" from them is a trip, not a place. */
@@ -41,7 +41,19 @@ function optionalText(value: unknown, max: number): string | null {
   return trimmed.slice(0, max);
 }
 
-function sanitize(input: RawIntent): InboundIntent {
+/**
+ * What kind of chat it is decides whether That Friend says anything back:
+ * a greeting gets greeted, thanks gets "anytime", and everything else
+ * ("running late, start without me", venting) gets left alone — a person
+ * wouldn't answer every one of those with "what've you got for lisbon?".
+ */
+function chatTone(text: string): "greeting" | "thanks" | "other" {
+  if (/^(?:hey|hi|hello|yo|hiya|sup|what'?s up|good (?:morning|afternoon|evening))\b/i.test(text)) return "greeting";
+  if (/\b(?:thanks|thank you|thx|ty|cheers)\b/i.test(text)) return "thanks";
+  return "other";
+}
+
+function sanitize(input: RawIntent, original: string): InboundIntent {
   if (input.kind === "question") {
     const topic =
       input.topic === "day" || input.topic === "lodging_cost" || input.topic === "budget" || input.topic === "roster"
@@ -56,7 +68,7 @@ function sanitize(input: RawIntent): InboundIntent {
   if (input.kind === "start_trip") {
     return { kind: "start_trip", destination: optionalText(input.destination, 80), when: optionalText(input.when, 60) };
   }
-  if (input.kind === "chat") return { kind: "chat" };
+  if (input.kind === "chat") return { kind: "chat", tone: chatTone(original) };
   return { kind: "add_place" };
 }
 
@@ -82,7 +94,7 @@ export async function classifyIntent(text: string, context: IntentContext = { ha
     // src/app/planner/home/TextItInBar.tsx), plus the obvious variants.
     /^(?:hey|hi|hello)?[\s,!.]*(?:(?:it'?s\s+)?(?:my\s+)?first time (?:using|on|with|trying) that friend|(?:i'?d like to |i want to |let'?s )?start texting with that friend)[\s!.,]*$/i.test(trimmed)
   ) {
-    return { kind: "chat" };
+    return { kind: "chat", tone: "greeting" };
   }
 
   try {
@@ -138,7 +150,7 @@ export async function classifyIntent(text: string, context: IntentContext = { ha
 
     const toolUse = message.content.find((b) => b.type === "tool_use");
     if (!toolUse || toolUse.type !== "tool_use") return { kind: "add_place" };
-    return sanitize(toolUse.input as RawIntent);
+    return sanitize(toolUse.input as RawIntent, trimmed);
   } catch {
     return { kind: "add_place" };
   }
