@@ -234,6 +234,8 @@ export async function POST(request: Request) {
 
   if (result.places.length === 0 && result.alreadyAdded) {
     await sendConversationMessage(conversationSid, say.alreadySavedReply());
+  } else if (result.places.length === 0 && result.savedLinkOnly) {
+    await sendConversationMessage(conversationSid, say.linkSavedNoPlaceReply(trip.name));
   } else if (result.places.length > 0) {
     await sendConversationMessage(conversationSid, say.placesAddedReply(trip.name, [], result.farAway));
   }

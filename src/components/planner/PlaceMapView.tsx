@@ -12,6 +12,29 @@ type Geocoded = PlannerPlace & { lat: number; lng: number };
  * without lat/lng (never geocoded, or the "can't find it" manual fallback)
  * are simply omitted from the map rather than shown at a fake position.
  */
+const CLUSTER_MILES = 75;
+
+function median(values: number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function milesApart(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
+  const toRad = (d: number) => (d * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 3958.8 * 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+}
+
+function clusterAroundMedian<T extends { lat: number; lng: number }>(points: T[]): T[] {
+  if (points.length < 3) return points;
+  const center = { lat: median(points.map((p) => p.lat)), lng: median(points.map((p) => p.lng)) };
+  const near = points.filter((p) => milesApart(center, p) <= CLUSTER_MILES);
+  return near.length > 0 ? near : points;
+}
+
 export function PlaceMapView({
   apiKey,
   places,
@@ -63,8 +86,13 @@ export function PlaceMapView({
       mapInstance.current.panTo({ lat: focused.lat, lng: focused.lng });
       mapInstance.current.setZoom(15);
     } else if (geocoded.length > 0) {
+      // Fit the trip's cluster, not every pin: one place saved in the wrong
+      // city (a forwarded link from home) would otherwise zoom the map out
+      // to a whole-region view with no streets on it. Anything more than
+      // ~75 miles from the median point is left out of the fit — it's
+      // still on the map, just off-screen until you pan.
       const bounds = new google.maps.LatLngBounds();
-      geocoded.forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }));
+      clusterAroundMedian(geocoded).forEach((p) => bounds.extend({ lat: p.lat, lng: p.lng }));
       mapInstance.current.fitBounds(bounds, 40);
     }
   }, [geocoded, selectedId]);

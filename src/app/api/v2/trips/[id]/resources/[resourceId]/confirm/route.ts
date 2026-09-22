@@ -112,8 +112,11 @@ export async function POST(
 
       // Always looked up, even when a Maps link already gave us lat/lng —
       // this is also where the real photo and Google place id come from.
+      // A candidate that already carries an address (a Maps link) is looked
+      // up by that, so the result is the same place and not a namesake
+      // nearer the trip's city.
       const geo = await geocodePlace(
-        trip?.destination ? `${name}, ${trip.destination}` : name,
+        address ? `${name}, ${address}` : trip?.destination ? `${name}, ${trip.destination}` : name,
         { wantPhoto }
       );
       if (lat == null || lng == null) {
