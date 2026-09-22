@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DatesBoard } from "./dates/DatesBoard";
 import { SlowLoadNotice } from "@/components/planner/SlowLoadNotice";
@@ -28,6 +28,7 @@ interface DatesPayload {
 
 export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRangeLabel: string }) {
   const router = useRouter();
+  const fetchRef = useRef<Promise<DatesPayload> | null>(null);
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<DatesPayload | null>(null);
@@ -38,20 +39,43 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
   // the locked range — so closing always re-renders the page underneath.
   function close() {
     setOpen(false);
+    // What's shown is now stale (dates may have been marked or locked) —
+    // drop it so the next open re-reads, and re-render the page behind.
+    setData(null);
+    fetchRef.current = null;
     router.refresh();
+  }
+
+  // Warmed on hover/touch, before the tap lands: the fetch is a few
+  // hundred ms of round trips, and starting it early usually means the
+  // modal has its data by the time it opens. Kicked off at most once, and
+  // never awaited here — openModal awaits the same promise.
+  function prefetch() {
+    if (!fetchRef.current) {
+      fetchRef.current = fetch(`/api/v2/trips/${tripId}/dates`).then((res) => {
+        if (!res.ok) throw new Error("Could not load dates.");
+        return res.json();
+      });
+      // A failed warm-up shouldn't surface as an unhandled rejection —
+      // openModal awaits the same promise and reports it properly there.
+      fetchRef.current.catch(() => {});
+    }
+    return fetchRef.current;
   }
 
   async function openModal() {
     setOpen(true);
-    setLoading(true);
     setError(null);
-    const res = await fetch(`/api/v2/trips/${tripId}/dates`);
-    setLoading(false);
-    if (!res.ok) {
+    if (data) return;
+    setLoading(true);
+    try {
+      setData(await prefetch());
+    } catch {
+      // Let the next open try again rather than staying stuck on the error.
+      fetchRef.current = null;
       setError("Could not load dates.");
-      return;
     }
-    setData(await res.json());
+    setLoading(false);
   }
 
   return (
@@ -59,6 +83,9 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
       <button
         type="button"
         onClick={openModal}
+        onMouseEnter={prefetch}
+        onTouchStart={prefetch}
+        onFocus={prefetch}
         className="flex items-center gap-1.5 rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink hover:border-ink"
       >
         <span className="font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Dates</span>

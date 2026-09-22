@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 
-type Status = "idle" | "sending" | "sent" | "carried_over" | "already_member" | "invalid" | "error";
+type Status = "idle" | "sending" | "sent" | "sent_returning" | "already_member" | "invalid" | "error";
 
 const STATUS_COPY: Record<Exclude<Status, "idle" | "sending">, string> = {
   sent: "Invite sent — they'll get a text and can reply 1 to join.",
-  carried_over: "Added — they'd already opted in on another trip.",
+  sent_returning: "Invite sent — they've used That Friend before, so it's a short one.",
   already_member: "They're already on this trip.",
   invalid: "That doesn't look like a valid US number.",
   error: "Something went wrong — try again.",
@@ -29,7 +29,7 @@ export function InviteFriendByPhone({ tripId }: { tripId: string }) {
     const result = data.phoneResults?.[0] as { status?: Status } | undefined;
     const resultStatus = result?.status ?? "error";
     setStatus(resultStatus);
-    if (resultStatus === "sent" || resultStatus === "carried_over") setPhone("");
+    if (resultStatus === "sent" || resultStatus === "sent_returning") setPhone("");
   }
 
   return (
@@ -61,7 +61,7 @@ export function InviteFriendByPhone({ tripId }: { tripId: string }) {
         </button>
       </div>
       {status !== "idle" && status !== "sending" && (
-        <p className={`mt-2 text-[13px] ${status === "sent" || status === "carried_over" ? "text-body" : "text-red-700"}`}>
+        <p className={`mt-2 text-[13px] ${status === "sent" || status === "sent_returning" ? "text-body" : "text-red-700"}`}>
           {STATUS_COPY[status]}
         </p>
       )}

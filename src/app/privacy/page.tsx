@@ -55,7 +55,7 @@ export default function PrivacyPage() {
           Privacy Policy
         </h1>
         <p className="mb-12 text-[14.5px] text-muted">
-          Effective: September 17, 2026 &middot; Applies to: web app &amp;
+          Effective: September 22, 2026 &middot; Applies to: web app &amp;
           mobile app
         </p>
 
@@ -144,8 +144,8 @@ export default function PrivacyPage() {
             whether that number already belongs to a That Friend account. If
             it does, we send that person a direct trip invite instead of a
             sign-up link, so a returning user doesn&rsquo;t have to verify
-            their number again. This may let the organizer know that person
-            already uses That Friend. We don&rsquo;t share any other
+            their number or agree to texts again. This may let the organizer
+            know that person already uses That Friend. We don&rsquo;t share any other
             profile, trip, or contact information about that person with the
             organizer, and we don&rsquo;t add that person to the trip or
             make their information visible to the group, unless and until
@@ -360,6 +360,15 @@ export default function PrivacyPage() {
             you decide whether to join, and your name and other information
             isn&rsquo;t shared with that trip&rsquo;s members until you
             accept.
+          </p>
+          <p>
+            If you already agreed to texts from us on an earlier trip, that
+            invite is shorter and doesn&rsquo;t ask you to agree again,
+            because your existing choice still stands. It doesn&rsquo;t put
+            you on the new trip, and it doesn&rsquo;t sign you up for that
+            trip&rsquo;s reminders or group messages &mdash; those start only
+            once you join. If you have replied STOP, we don&rsquo;t text you
+            at all, including invites, until you reply START.
           </p>
           <p>
             <strong className="text-ink">We do not share or sell your

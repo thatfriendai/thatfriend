@@ -1,15 +1,8 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { computeDateProposal } from "@/lib/planner/dates";
+import { loadDatesView } from "@/lib/planner/datesView";
 import { DatesBoard } from "./DatesBoard";
-
-const smsNumber = process.env.TWILIO_SMS_NUMBER ?? null;
-
-function labelOf(person: { name: string | null; email: string | null } | null) {
-  return person?.name || person?.email?.split("@")[0] || "Someone";
-}
 
 export default async function DatesPage({
   params,
@@ -17,71 +10,37 @@ export default async function DatesPage({
   params: Promise<{ id: string }>;
 }) {
   const { id: tripId } = await params;
-  const user = await getPlannerUser();
-  if (!user) redirect("/planner/login");
-
-  const admin = createAdminClient();
-
-  // None of these four depend on each other — one round trip instead of
-  // four sequential ones.
-  const [{ data: membership }, { data: trip }, { data: members }, { data: markRows }] = await Promise.all([
-    admin.from("planner_memberships").select("role").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
-    admin.from("planner_trips").select("*").eq("id", tripId).maybeSingle(),
-    admin.from("planner_memberships").select("user_id, planner_users(name, email)").eq("trip_id", tripId),
-    admin.from("planner_availability_marks").select("user_id, date, created_at").eq("trip_id", tripId),
-  ]);
-  if (!membership) notFound();
-  if (!trip) notFound();
-
-  const roster = (members ?? []).map((m) => ({
-    userId: m.user_id,
-    label: labelOf(m.planner_users as unknown as { name: string | null; email: string | null } | null),
-  }));
-
-  const marks = markRows ?? [];
-  const { proposal, coverage } = computeDateProposal(marks, roster.length);
-
-  const answeredAt = new Map<string, string>();
-  for (const m of marks) {
-    const existing = answeredAt.get(m.user_id);
-    if (!existing || m.created_at < existing) answeredAt.set(m.user_id, m.created_at);
-  }
-  const answered = roster.map((m) => ({
-    ...m,
-    answeredAt: answeredAt.get(m.userId) ?? null,
-  }));
-
-  const myMarks = marks.filter((m) => m.user_id === user.id).map((m) => m.date);
-  const flaggedByName = trip.dates_flagged_by
-    ? (roster.find((m) => m.userId === trip.dates_flagged_by)?.label ?? "Someone")
-    : null;
+  const result = await loadDatesView(createAdminClient(), tripId);
+  if (result.status === "unauthenticated") redirect("/planner/login");
+  if (result.status !== "ok") notFound();
+  const dates = result.payload;
 
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-border bg-card px-7 py-5">
         <Link href={`/planner/trips/${tripId}`} className="flex items-center gap-2 text-[17px] font-medium text-ink hover:text-accent">
-          <span aria-hidden>&larr;</span> {trip.name}
+          <span aria-hidden>&larr;</span> {dates.tripName}
         </Link>
       </header>
       <DatesBoard
         tripId={tripId}
-        tripName={trip.name}
-        isOwner={membership.role === "owner"}
-        myUserId={user.id}
-        joinCode={trip.join_code}
-        smsNumber={smsNumber}
-        datesLockedAt={trip.dates_locked_at}
-        lockedStart={trip.start_date}
-        lockedEnd={trip.end_date}
-        flagNote={trip.dates_flag_note}
-        flagReason={trip.dates_flag_reason}
-        flaggedAt={trip.dates_flagged_at}
-        flaggedByName={flaggedByName}
-        proposal={proposal}
-        coverage={coverage}
-        totalMembers={roster.length}
-        answered={answered}
-        myMarks={myMarks}
+        tripName={dates.tripName}
+        isOwner={dates.isOwner}
+        myUserId={dates.myUserId}
+        joinCode={dates.joinCode}
+        smsNumber={dates.smsNumber}
+        datesLockedAt={dates.datesLockedAt}
+        lockedStart={dates.lockedStart}
+        lockedEnd={dates.lockedEnd}
+        flagNote={dates.flagNote}
+        flagReason={dates.flagReason}
+        flaggedAt={dates.flaggedAt}
+        flaggedByName={dates.flaggedByName}
+        proposal={dates.proposal}
+        coverage={dates.coverage}
+        totalMembers={dates.totalMembers}
+        answered={dates.answered}
+        myMarks={dates.myMarks}
       />
     </div>
   );

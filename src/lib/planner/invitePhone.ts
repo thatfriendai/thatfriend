@@ -5,10 +5,8 @@ import { slugify } from "./slug";
 import { findOrCreatePlannerUserByPhone } from "./plannerUser";
 import { toE164, isUSPhone } from "./phone";
 import { sendSmsText } from "@/lib/twilio/send";
-import { addParticipantToConversation } from "@/lib/twilio/conversations";
-import { logConsentCarryover } from "./consent";
 
-export type PhoneInviteStatus = "sent" | "carried_over" | "already_member" | "invalid" | "error";
+export type PhoneInviteStatus = "sent" | "sent_returning" | "already_member" | "invalid" | "error";
 
 export interface InvitableTrip {
   id: string;
@@ -17,11 +15,6 @@ export interface InvitableTrip {
   join_code: string | null;
   twilio_conversation_sid: string | null;
 }
-
-// Off until the privacy policy has a line covering "if you've texted That
-// Friend before, we may add your number to other trips your contacts
-// invite you to without asking again" — see the handoff doc.
-const CONTACT_MATCH_ENABLED = process.env.ENABLE_CONTACT_MATCH_INVITES === "true";
 
 /**
  * Invites one phone number to a trip: provisions a bare account if the
@@ -62,37 +55,16 @@ export async function invitePhoneToTrip(
     await admin.from("planner_trips").update({ join_code: trip.join_code }).eq("id", trip.id);
   }
 
-  // Returning-user contact-match: this number already opted in on a prior
-  // trip, so skip the join step entirely and add them straight in, with
-  // one informational (not consent-seeking) text.
-  if (CONTACT_MATCH_ENABLED && invitedUser.notify_sms) {
-    const { error: memberError } = await admin
-      .from("planner_memberships")
-      .insert({ trip_id: trip.id, user_id: invitedUser.id, role: "member" });
-    if (memberError) return { phone, status: "error" };
-
-    if (trip.twilio_conversation_sid) {
-      await addParticipantToConversation(trip.twilio_conversation_sid, phone).catch(() => {
-        // Best-effort — group-text sync can catch up later.
-      });
-    }
-
-    await admin
-      .from("planner_trip_invites")
-      .upsert(
-        { trip_id: trip.id, phone, token: generateToken(), joined_at: new Date().toISOString() },
-        { onConflict: "trip_id,phone" }
-      );
-
-    await logConsentCarryover(admin, phone, invitedUser.sms_opted_in_at, trip.id);
-
-    try {
-      await sendSmsText(phone, `${organizerName} added you to "${trip.name}" on That Friend. Reply STOP anytime to opt out.`);
-    } catch {
-      // Best-effort — they're a real member either way.
-    }
-    return { phone, status: "carried_over" };
-  }
+  // A returning user — this number already verified and opted in on an
+  // earlier trip — gets a shorter invite that doesn't re-explain texts or
+  // re-ask for consent they've already given. What it does NOT do is add
+  // them to the trip: the privacy policy says being recognized "isn't the
+  // same as being added… you decide whether to join, and your name and
+  // other information isn't shared with that trip's members until you
+  // accept," and the whole invite flow is built on that one tap being the
+  // join. Auto-adding would also unlock the group-text gate on the
+  // organizer's page for someone who never answered.
+  const returning = invitedUser.notify_sms && Boolean(invitedUser.sms_opted_in_at);
 
   const token = generateToken();
   const { error: inviteError } = await admin
@@ -118,10 +90,15 @@ export async function invitePhoneToTrip(
   // texts, so the message says so in the same breath. The link is the
   // tap-through alternative (src/app/j/[token]) for someone who'd rather
   // see the trip first.
-  const message = `${organizerName} invites you to "${trip.name}" on That Friend. Reply 1 to join — you'll get texts about the trip — or take a look first: ${link}\nReply STOP to opt out.`;
+  // The returning version drops the consent ask, not the opt-out line —
+  // this still arrives unprompted, about a trip they haven't heard of, so
+  // STOP belongs in it.
+  const message = returning
+    ? `${organizerName} invites you to "${trip.name}" on That Friend. Reply 1 to join, or take a look first: ${link}\nReply STOP to opt out.`
+    : `${organizerName} invites you to "${trip.name}" on That Friend. Reply 1 to join — you'll get texts about the trip — or take a look first: ${link}\nReply STOP to opt out.`;
   try {
     await sendSmsText(phone, message);
-    return { phone, status: "sent" };
+    return { phone, status: returning ? "sent_returning" : "sent" };
   } catch {
     return { phone, status: "error" };
   }

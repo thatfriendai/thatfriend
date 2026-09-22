@@ -49,26 +49,6 @@ export async function recordConsentEvent(
   });
 }
 
-/**
- * Logs that consent for a NEW trip was carried over from a phone's existing
- * opt-in on a prior trip, without re-asking — no column changes (notify_sms
- * is already true), the point is purely the audit trail. Used by the
- * contact-matching auto-skip path in the invites route.
- */
-export async function logConsentCarryover(
-  admin: SupabaseClient,
-  phone: string,
-  optedInAt: string | null,
-  tripId: string
-): Promise<void> {
-  await admin.from("planner_sms_consent_log").insert({
-    phone,
-    opted_in_at: optedInAt ?? new Date().toISOString(),
-    method: "contact_match_carryover",
-    trip_id: tripId,
-  });
-}
-
 const STOP_KEYWORDS = new Set(["stop", "stopall", "unsubscribe", "cancel", "end", "quit"]);
 const START_KEYWORDS = new Set(["start", "yes", "unstop"]);
 
