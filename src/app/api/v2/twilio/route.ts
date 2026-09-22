@@ -212,7 +212,7 @@ export async function POST(request: Request) {
       let invalid = 0;
       for (const phone of phones) {
         const result = await invitePhoneToTrip(admin, trip, organizerName, phone);
-        if (result.status === "sent" || result.status === "carried_over") sent++;
+        if (result.status === "sent" || result.status === "sent_returning") sent++;
         else if (result.status === "already_member") alreadyIn++;
         else if (result.status === "invalid") invalid++;
       }
