@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { hashPercent } from "@/lib/planner/itinerary";
 import { formatDayLabel } from "@/lib/planner/itinerary";
 import type { PlannerDay, PlannerItineraryItem } from "@/lib/supabase/planner-types";
@@ -26,10 +26,16 @@ export function ItineraryBoard({
   tripId,
   days: initialDays,
   hasUnscheduledPlaces,
+  railTop,
+  railBottom,
 }: {
   tripId: string;
   days: DayWithItems[];
   hasUnscheduledPlaces: boolean;
+  /** Arrivals card, above the first day. */
+  railTop?: ReactNode;
+  /** Departures card, below the last day. */
+  railBottom?: ReactNode;
 }) {
   const [days, setDays] = useState(initialDays);
   const [selectedDayId, setSelectedDayId] = useState(initialDays[0]?.id ?? null);
@@ -219,6 +225,7 @@ export function ItineraryBoard({
           Itinerary
         </div>
         <div className="flex flex-col gap-2">
+          {railTop}
           {days.map((d) => {
             const on = d.id === selectedDayId;
             return (
@@ -251,12 +258,17 @@ export function ItineraryBoard({
                     On Plan B &middot; everyone notified
                   </div>
                 )}
-                <div className={`flex flex-col gap-1.5 ${d.plan_b_active ? "opacity-45" : ""}`}>
-                  {d.items.map((item) => (
-                    <div key={item.id} className="text-[13px] leading-[1.4] text-[#2B2825]">
-                      {item.text}
-                    </div>
-                  ))}
+                {/* On Plan B the day reads as Plan B; the original moves to the row below. */}
+                <div className="flex flex-col gap-1.5">
+                  {d.plan_b_active && d.plan_b_text ? (
+                    <div className="text-[13px] leading-[1.4] text-[#2B2825]">{d.plan_b_text}</div>
+                  ) : (
+                    d.items.map((item) => (
+                      <div key={item.id} className="text-[13px] leading-[1.4] text-[#2B2825]">
+                        {item.text}
+                      </div>
+                    ))
+                  )}
                 </div>
 
                 {d.items.length === 0 && hasUnscheduledPlaces && (
@@ -377,9 +389,11 @@ export function ItineraryBoard({
                         title="Edit Plan B"
                       >
                         <div className="mb-0.5 font-mono text-[9.5px] tracking-[0.08em] text-[#6B655C] uppercase">
-                          Plan B{d.plan_b_when ? ` · ${d.plan_b_when}` : ""}
+                          {d.plan_b_active ? "Plan A · the original" : `Plan B${d.plan_b_when ? ` · ${d.plan_b_when}` : ""}`}
                         </div>
-                        <div className="text-[12px] leading-[1.4] text-ink-soft">{d.plan_b_text}</div>
+                        <div className="text-[12px] leading-[1.4] text-ink-soft">
+                          {d.plan_b_active ? d.items.map((i) => i.text).join(", ") || "Nothing planned" : d.plan_b_text}
+                        </div>
                       </button>
                       <button
                         onClick={() => togglePlanB(d.id, !d.plan_b_active)}
@@ -391,7 +405,7 @@ export function ItineraryBoard({
                             : "bg-ink text-cream hover:bg-accent"
                         }`}
                       >
-                        {planBPending === d.id ? "…" : d.plan_b_active ? "Back to plan" : "Use Plan B"}
+                        {planBPending === d.id ? "…" : d.plan_b_active ? "Back to A" : "Switch"}
                       </button>
                     </div>
                   ) : (
@@ -447,6 +461,7 @@ export function ItineraryBoard({
               </div>
             );
           })}
+          {railBottom}
         </div>
       </div>
     </div>
