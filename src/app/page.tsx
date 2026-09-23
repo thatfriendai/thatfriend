@@ -80,6 +80,13 @@ export default function Home() {
           </div>
 
           <HeroDemo />
+
+          {/* Straight after the demo — the moment someone has just seen how it works. */}
+          <div className="text-center">
+            <Link href="/planner/trips/new" className="inline-block rounded-full bg-[#8A5A7A] px-6.5 py-3 text-[16px] text-[#FFFDF9] hover:bg-[#7A4A6A]">
+              Plan your trip
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -118,6 +125,12 @@ export default function Home() {
                 </p>
               </div>
             ))}
+          </div>
+          {/* Ties back to the last card, "And the one you never took". */}
+          <div className="mt-10 text-center">
+            <Link href="/planner/trips/new" className="inline-block rounded-full bg-[#8A5A7A] px-6.5 py-3 text-[16px] text-[#FFFDF9] hover:bg-[#7A4A6A]">
+              Plan the trip you keep talking about
+            </Link>
           </div>
         </div>
       </section>
