@@ -22,20 +22,27 @@ less often. Each layer catches a different kind of bug:
 
 `npm run qa` runs the first three rows locally. Run it before you push.
 
-## Every day
+## Automatically
 
-Two things run daily against `main` without anyone starting them:
-
-- **Nightly QA workflow** (`.github/workflows/nightly.yml`, 12:00 UTC):
-  lint, typecheck, unit tests, a build and the SMS classifier eval. It also
-  runs the full e2e suite once the `STAGING_BASE_URL` secret points at a
-  staging deploy. GitHub emails you when a run fails.
-- **Daily QA agent** (`.github/workflows/daily-qa-agent.yml`, 13:00 UTC):
-  Claude runs `/qa sweep` over the week's changes on `main`. If it fixes a
-  P0 or P1 bug, it opens a "Daily QA sweep" PR; otherwise the report is in
-  the run log. It never merges anything and never touches production. It
-  uses the `ANTHROPIC_API_KEY` repo secret. To run it by hand, go to
-  Actions → Daily QA agent → Run workflow.
+- **QA agent** (`.github/workflows/qa-agent.yml`): runs whenever app code
+  lands on `main`, which usually means you merged a PR from a Claude Code
+  session.
+  - Claude runs `/qa sweep` over just what that merge changed, plus
+    `npm run qa` and a build.
+  - If it fixes a P0 or P1 bug, it opens a "QA sweep" PR. Otherwise the
+    report is in the run log.
+  - Merges that only touch docs, tests or CI config don't trigger it.
+  - Several quick merges in a row collapse into one run.
+  - It never merges anything and never touches production.
+  - It uses the `ANTHROPIC_API_KEY` repo secret. Days without edits cost
+    nothing.
+  - To run it by hand over the last week: Actions → QA agent → Run workflow.
+- **Nightly QA workflow** (`.github/workflows/nightly.yml`, 12:00 UTC): lint,
+  typecheck, unit tests, a build and the SMS classifier eval, even on days
+  with no edits. This catches drift from outside the code: a dependency, the
+  model behind the classifier, or staging. It also runs the full e2e suite
+  once the `STAGING_BASE_URL` secret points at a staging deploy. GitHub
+  emails you when a run fails.
 
 ## The cast and the trips
 
