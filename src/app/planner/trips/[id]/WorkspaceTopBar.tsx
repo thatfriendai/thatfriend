@@ -17,7 +17,7 @@ const NAV_TIPS: Record<string, { what: string; todo: string }> = {
     todo: "Click a place to find it on the map.",
   },
   stays: {
-    what: "Options for where you sleep, priced for your nights.",
+    what: "Options for where you stay, priced for your nights.",
     todo: "Add one, or tell us you're already booked.",
   },
   resources: {
