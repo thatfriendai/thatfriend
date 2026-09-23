@@ -3,7 +3,7 @@
 # shows up the next morning instead of when a friend hits it. GitHub emails
 # whoever last touched this file / the repo admins when a scheduled run fails.
 # The judgement-heavy part — the /qa sweep agent — runs as a separate daily
-# Claude Code routine (see docs/qa/README.md).
+# workflow, daily-qa-agent.yml.
 name: Nightly QA
 
 on:

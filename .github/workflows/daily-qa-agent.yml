@@ -1,0 +1,67 @@
+# The judgement half of daily QA: Claude runs the /qa sweep (see
+# .claude/skills/qa/SKILL.md) over whatever changed on main this week, and
+# opens a "Daily QA sweep" PR if it fixed a P0/P1 bug. The deterministic half
+# (lint, types, tests, build) is nightly.yml. Uses the ANTHROPIC_API_KEY repo
+# secret — a quiet day costs cents, a sweep after a busy week a few dollars.
+name: Daily QA agent
+
+on:
+  schedule:
+    - cron: "0 13 * * *" # 13:00 UTC — 9am EDT
+  workflow_dispatch:
+
+concurrency:
+  group: daily-qa-agent
+  cancel-in-progress: false
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+      id-token: write
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          # Passed explicitly: scheduled runs can't do the GitHub App token
+          # exchange (anthropics/claude-code-action#814).
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          claude_args: |
+            --model claude-sonnet-5
+            --max-turns 120
+            --allowedTools "Bash,Read,Edit,Write,Glob,Grep,Agent,Task,Skill,TodoWrite"
+          prompt: |
+            REPO: ${{ github.repository }} — you are on a fresh checkout of main with dependencies installed.
+            Run That Friend's daily QA sweep.
+
+            1. Read .claude/skills/qa/SKILL.md and follow its `sweep` mode.
+               - Only audit code changed on main in the last 7 days
+                 (`git log --since="7 days ago" --name-only origin/main`), plus
+                 anything the skill marks as touched by those files.
+               - If nothing changed in 7 days, just run `npm run qa` and
+                 `npm run build` and report.
+            2. Never run seed scripts or e2e against production, and never send
+               real SMS. There is no .env.local here; that's expected.
+            3. If you fix P0 or P1 bugs:
+               - Add a regression test for each fix.
+               - Update docs/qa/KNOWN_ISSUES.md with anything found but not fixed.
+               - Commit to a new branch named `qa/daily-$(date -u +%F)` and push it.
+               - Open a PR with
+                 `gh pr create --base main --title "Daily QA sweep <date>" --body-file <report.md>`,
+                 where the body is the skill's QA report.
+               - Never merge anything.
+            4. If there's nothing worth fixing, don't open a PR. Print the QA
+               report as your final message, and end with one line: ship-safe or not.
