@@ -25,6 +25,7 @@ export function EssentialsCard({
   const [fields, setFields] = useState(initial);
   const [draft, setDraft] = useState<Draft | null>(null);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
   const stays = [...new Set(fields.map((f) => f.stay ?? ""))];
@@ -35,17 +36,29 @@ export function EssentialsCard({
   async function save() {
     if (!draft || !draft.label.trim() || !draft.value.trim()) return;
     setSaving(true);
-    const res = await fetch(`/api/v2/trips/${tripId}/essentials`, {
-      method: draft.id ? "PATCH" : "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(draft),
-    });
-    setSaving(false);
-    if (!res.ok) return;
-    const { essential } = await res.json();
-    setFields((list) => (draft.id ? list.map((f) => (f.id === essential.id ? essential : f)) : [...list, essential]));
-    setTab(essential.stay ?? "");
-    setDraft(null);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/essentials`, {
+        method: draft.id ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(draft),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // Keep the form open with what was typed — a door code is exactly
+        // the kind of thing nobody wants to re-enter.
+        setError(data.error ?? "Couldn't save that. Try again.");
+        return;
+      }
+      const { essential } = data;
+      setFields((list) => (draft.id ? list.map((f) => (f.id === essential.id ? essential : f)) : [...list, essential]));
+      setTab(essential.stay ?? "");
+      setDraft(null);
+    } catch {
+      setError("Couldn't save that. Try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function remove(id: string) {
@@ -102,9 +115,17 @@ export function EssentialsCard({
         >
           {saving ? "Saving…" : draft.id ? "Save" : "Pin it"}
         </button>
-        <button type="button" onClick={() => setDraft(null)} className="text-[13.5px] text-muted hover:text-ink">
+        <button
+          type="button"
+          onClick={() => {
+            setDraft(null);
+            setError(null);
+          }}
+          className="text-[13.5px] text-muted hover:text-ink"
+        >
           Cancel
         </button>
+        {error && <span className="text-[13px] text-red-700">{error}</span>}
         {draft.id && (
           <button type="button" onClick={() => remove(draft.id!)} className="ml-auto text-[13px] text-muted hover:text-red-700">
             Remove

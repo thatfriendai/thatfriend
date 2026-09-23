@@ -3,7 +3,8 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 
 async function resolveTarget(admin: ReturnType<typeof createAdminClient>, username: string) {
-  const { data } = await admin.from("planner_users").select("id").eq("username", username).maybeSingle();
+  // Stored lowercase (users/me PATCH); links to a profile may not be.
+  const { data } = await admin.from("planner_users").select("id").eq("username", username.toLowerCase()).maybeSingle();
   return data?.id ?? null;
 }
 

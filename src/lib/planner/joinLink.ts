@@ -45,6 +45,12 @@ export async function resolveInviteToken(admin: SupabaseClient, token: string): 
   return null;
 }
 
+/** Whether a per-phone invite sent to `invitePhone` belongs to a user with `userPhone` (compared in E.164, as both are stored). */
+export function inviteIsForPhone(invitePhone: string, userPhone: string | null): boolean {
+  if (!userPhone) return false;
+  return toE164(userPhone) === toE164(invitePhone);
+}
+
 export type AcceptOutcome =
   | { outcome: "joined" | "already_member"; tripId: string; tripName: string }
   | { outcome: "not_found" }
@@ -58,10 +64,25 @@ export type AcceptOutcome =
  * "reply JOIN" text afterwards. Membership itself goes through the same
  * joinTripById as a texted "1", so the group-thread sync and the invite
  * funnel row are handled identically whichever way someone came in.
+ *
+ * A per-phone invite (source "phone") is refused to an account whose phone
+ * is a *different* number — forwarding the text to someone who's already
+ * on That Friend by phone mustn't walk them into the trip. An account with
+ * no phone yet (a friend who signed up on the web by email, then got the
+ * texted invite) is let in: refusing them strands the invitee we most want,
+ * and it's no looser than the trip-wide share link. Anyone refused gets
+ * "wrong_phone"; the share link and the join code remain the ways in.
  */
-export async function acceptInviteToken(admin: SupabaseClient, user: JoiningUser, token: string): Promise<AcceptOutcome> {
+export async function acceptInviteToken(
+  admin: SupabaseClient,
+  user: JoiningUser,
+  token: string
+): Promise<AcceptOutcome | { outcome: "wrong_phone" }> {
   const invite = await resolveInviteToken(admin, token);
   if (!invite) return { outcome: "not_found" };
+  if (invite.source === "phone" && user.phone && !inviteIsForPhone(invite.phone, user.phone)) {
+    return { outcome: "wrong_phone" };
+  }
 
   const joined = await joinTripById(admin, user, invite.tripId);
   if (joined.outcome === "not_found") return { outcome: "not_found" };

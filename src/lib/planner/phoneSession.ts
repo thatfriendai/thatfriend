@@ -2,9 +2,16 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createClient } from "@/lib/supabase/server";
 
+const SYNTHETIC_EMAIL_DOMAIN = "@phone.thatfriend.internal";
+
 function syntheticEmailFor(phone: string) {
   const digits = phone.replace(/[^\d]/g, "");
-  return `phone-${digits}@phone.thatfriend.internal`;
+  return `phone-${digits}${SYNTHETIC_EMAIL_DOMAIN}`;
+}
+
+/** The never-shown placeholder a phone-only auth identity carries — not a real address to copy onto planner_users. */
+export function isSyntheticPhoneEmail(email: string): boolean {
+  return email.toLowerCase().endsWith(SYNTHETIC_EMAIL_DOMAIN);
 }
 
 /**

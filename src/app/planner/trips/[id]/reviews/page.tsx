@@ -21,7 +21,7 @@ export default async function ReviewsPage({
 }) {
   const { id: tripId } = await params;
   const user = await getPlannerUser();
-  if (!user) redirect("/planner/login");
+  if (!user) redirect(`/planner/login?next=${encodeURIComponent(`/planner/trips/${tripId}/reviews`)}`);
 
   const admin = createAdminClient();
 

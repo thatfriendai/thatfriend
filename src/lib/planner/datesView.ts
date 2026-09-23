@@ -1,7 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getPlannerUser } from "./session";
-import { computeDateProposal, type DateCoverageDay, type DateProposal } from "./dates";
+import { computeDateProposal, earliestProposableDate, upcomingMarks, type DateCoverageDay, type DateProposal } from "./dates";
 
 export interface DatesViewPayload {
   tripName: string;
@@ -65,7 +65,9 @@ export async function loadDatesView(admin: SupabaseClient, tripId: string): Prom
   }));
 
   const marks = markRows ?? [];
-  const { proposal, coverage } = computeDateProposal(marks, roster.length);
+  // Past days stay in myMarks/freeByDate (they're still what people said),
+  // but only upcoming ones get a say in the proposal and its heatmap.
+  const { proposal, coverage } = computeDateProposal(upcomingMarks(marks, earliestProposableDate()), roster.length);
 
   const freeByDate: Record<string, string[]> = {};
   for (const m of marks) (freeByDate[m.date] ??= []).push(m.user_id);

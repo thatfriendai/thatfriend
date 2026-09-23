@@ -5,6 +5,9 @@ import { BUDGET_FIELDS } from "./preferences";
 import { computeOverlap } from "./convergence";
 import type { PlannerDay } from "@/lib/supabase/planner-types";
 import { formatPhoneDisplay } from "./phone";
+import { addDays, todayIn } from "./calendarDate";
+
+const SMS_TIME_ZONE = "America/Los_Angeles";
 
 const WEEKDAYS = ["sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday"];
 
@@ -28,16 +31,17 @@ function resolveDayIndex(dayRef: string | null, days: PlannerDay[]): number | nu
     return idx >= 0 ? idx : null;
   }
 
-  const today = new Date();
+  // "today" is the sender's today, not UTC's — toISOString() is already
+  // tomorrow for anyone in the US after ~5pm. Neither trips nor users store
+  // a timezone yet, so this assumes US Pacific (the SMS line is US-only).
+  const today = todayIn(SMS_TIME_ZONE);
   if (/tomorrow/i.test(dayRef)) {
-    today.setDate(today.getDate() + 1);
-    const iso = today.toISOString().slice(0, 10);
+    const iso = addDays(today, 1);
     const idx = days.findIndex((d) => d.date === iso);
     return idx >= 0 ? idx : null;
   }
   if (/\btoday\b/i.test(dayRef)) {
-    const iso = today.toISOString().slice(0, 10);
-    const idx = days.findIndex((d) => d.date === iso);
+    const idx = days.findIndex((d) => d.date === today);
     return idx >= 0 ? idx : null;
   }
 

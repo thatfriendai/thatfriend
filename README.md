@@ -140,6 +140,8 @@ cp .env.local.example .env.local
 | `TWILIO_SMS_NUMBER` | v2 planner: real SMS/MMS number, E.164 (`+1...`) |
 | `TWILIO_MESSAGING_SERVICE_SID` | v2 planner: Messaging Service that number belongs to |
 | `ENABLE_CONTACT_MATCH_INVITES` | v2 planner: skip re-asking consent from already-opted-in numbers on invite — off until the privacy policy covers it |
+| `META_APP_SECRET` | v2 WhatsApp: verifies Meta webhook signatures — required in production or the webhook rejects everything |
+| `CRON_SECRET` | Authenticates Vercel's cron calls to `/api/v2/cron/*` — required, or the crons return 401 |
 
 `.env.local` is gitignored — it never gets committed.
 
@@ -151,6 +153,20 @@ npm run dev
 ```
 
 Open [http://localhost:3000](http://localhost:3000).
+
+## Testing & QA
+
+```bash
+npm run qa          # lint + typecheck + unit tests — run before every push
+npm run test:e2e    # browser suite on phone + desktop viewports (starts `next dev`)
+npm run eval:intent # SMS router golden set against the real model (needs ANTHROPIC_API_KEY)
+```
+
+The full process — personas and trip scenarios, the pre-ship checklist, the
+friends beta guide, and how bug reports become regression tests — is in
+[`docs/qa/`](docs/qa/README.md). In Claude Code, `/qa` runs the QA agent
+(`.claude/skills/qa/SKILL.md`) over your current change; `/qa sweep` does
+the full pre-beta pass.
 
 ## How access control works
 

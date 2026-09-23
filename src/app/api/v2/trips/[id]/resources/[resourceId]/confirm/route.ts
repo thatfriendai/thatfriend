@@ -5,7 +5,12 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { KIND_OPTIONS, hashPercent } from "@/lib/planner/itinerary";
 import { geocodePlace } from "@/lib/planner/geocode";
 import { isGoogleMapsUrl } from "@/lib/planner/mapsLink";
-import { loadExistingPlaces, findDuplicatePlace } from "@/lib/planner/placeDedupe";
+import { loadExistingPlaces, findDuplicatePlace, type ExistingPlace } from "@/lib/planner/placeDedupe";
+
+// Same ceiling the extractor applies (src/lib/planner/extract.ts) — each
+// place costs a billed geocode call, so a hand-built request can't ask for
+// hundreds.
+const MAX_PLACES_PER_CONFIRM = 12;
 
 export async function POST(
   request: Request,
@@ -51,7 +56,9 @@ export async function POST(
   }
 
   const body = await request.json().catch(() => ({}));
-  const places: IncomingPlace[] = Array.isArray(body.places) ? body.places : [];
+  const places: IncomingPlace[] = Array.isArray(body.places)
+    ? body.places.slice(0, MAX_PLACES_PER_CONFIRM)
+    : [];
   if (places.length === 0) {
     return NextResponse.json({ error: "Nothing to add." }, { status: 400 });
   }
@@ -85,14 +92,19 @@ export async function POST(
 
   // Check by name before geocoding — no point spending a Places API call
   // resolving a place we're about to discard as an existing duplicate.
+  // Also checked against earlier names in this same batch, so the same
+  // place listed twice in one forward only gets saved once.
   const existingPlaces = await loadExistingPlaces(admin, tripId);
   const duplicates: string[] = [];
+  const keptSoFar: ExistingPlace[] = [];
   const kept = named.filter((p) => {
-    const dup = findDuplicatePlace(existingPlaces, p.name.trim());
+    const name = p.name.trim();
+    const dup = findDuplicatePlace(existingPlaces, name) ?? findDuplicatePlace(keptSoFar, name);
     if (dup) {
-      duplicates.push(p.name.trim());
+      duplicates.push(name);
       return false;
     }
+    keptSoFar.push({ name, google_place_id: null });
     return true;
   });
 
@@ -150,12 +162,16 @@ export async function POST(
   // Geocoding can turn up a Google place id that matches an existing place
   // saved under a different name (e.g. "Uchi" vs. "Uchi Miami") — catch
   // that case too, now that we actually have an id to compare.
+  // Within the batch, two differently-named candidates can resolve to the
+  // same Google place — keep the first.
+  const seenPlaceIds = new Set<string>();
   const rows = geocoded.filter((r) => {
     const dup = findDuplicatePlace(existingPlaces, r.name, r.google_place_id);
-    if (dup) {
+    if (dup || (r.google_place_id && seenPlaceIds.has(r.google_place_id))) {
       duplicates.push(r.name);
       return false;
     }
+    if (r.google_place_id) seenPlaceIds.add(r.google_place_id);
     return true;
   });
 

@@ -15,12 +15,47 @@ import { milesBetween } from "./distance";
 // entirely, not a stretch of the same trip.
 const FAR_AWAY_MILES = 75;
 
-function isLikelyUrl(s: string): boolean {
+/**
+ * A share-sheet forward is rarely a bare link — it's "Check this out
+ * https://maps.app.goo.gl/abc" or a TikTok link with "must go" typed under
+ * it. Treating the whole text as a URL mangled it (the URL parser quietly
+ * drops the newline and glues the caption onto the path), and treating it
+ * as plain text never fetched the link at all. So: the first http(s) URL
+ * is the link, whatever's left is the caption.
+ */
+export function splitLinkAndCaption(text: string): { url: string; caption: string } | null {
+  const match = text.match(/https?:\/\/[^\s<>"]+/i);
+  if (!match || match.index === undefined) return null;
+  let url = match[0].replace(/[.,!?;:'"]+$/, "");
+  // A closing paren is usually the sentence's ("(see https://…)"), unless
+  // the URL opened one itself (Wikipedia-style "/Foo_(bar)").
+  if (url.endsWith(")") && !url.includes("(")) url = url.replace(/\)+$/, "");
   try {
-    const u = new URL(s.trim());
-    return u.protocol === "http:" || u.protocol === "https:";
+    const parsed = new URL(url);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return null;
   } catch {
-    return false;
+    return null;
+  }
+  const caption = (text.slice(0, match.index) + " " + text.slice(match.index + match[0].length))
+    .replace(/\s+/g, " ")
+    .trim();
+  return { url, caption };
+}
+
+// Share-tracking junk that differs every time the same link is shared —
+// left in, the same Instagram post forwarded twice looked like two links.
+const TRACKING_PARAM_RE = /^(?:utm_.*|igsh|igshid|si|fbclid|gclid)$/i;
+
+/** The link with share-tracking params removed — what gets stored as source_url and compared for "already saved". */
+export function normalizeSourceUrl(url: string): string {
+  try {
+    const parsed = new URL(url);
+    for (const key of [...parsed.searchParams.keys()]) {
+      if (TRACKING_PARAM_RE.test(key)) parsed.searchParams.delete(key);
+    }
+    return parsed.toString();
+  } catch {
+    return url;
   }
 }
 
@@ -46,7 +81,8 @@ export async function addResourceFromWhatsAppText(
   text: string
 ): Promise<AddResult | { error: string }> {
   const trimmed = text.trim();
-  const asLink = isLikelyUrl(trimmed);
+  const link = splitLinkAndCaption(trimmed);
+  const asLink = Boolean(link);
 
   let extractText = trimmed;
   let label = trimmed.slice(0, 60) + (trimmed.length > 60 ? "…" : "");
@@ -54,8 +90,8 @@ export async function addResourceFromWhatsAppText(
   let candidates: ExtractedPlace[] = [];
   const type = asLink ? "link" : "text";
 
-  if (asLink) {
-    sourceUrl = trimmed;
+  if (link) {
+    sourceUrl = normalizeSourceUrl(link.url);
 
     // Same as the web app: re-forwarding a link that never produced a
     // place shouldn't re-fetch/re-extract and create another empty
@@ -66,7 +102,9 @@ export async function addResourceFromWhatsAppText(
       .from("planner_resources")
       .select("id")
       .eq("trip_id", tripId)
-      .eq("source_url", trimmed)
+      // Rows saved before tracking params were stripped still hold the raw link.
+      .in("source_url", [...new Set([sourceUrl, link.url])])
+      .limit(1)
       .maybeSingle();
     if (existingResource) {
       const { data: existingPlace } = await admin
@@ -80,13 +118,17 @@ export async function addResourceFromWhatsAppText(
       }
     }
 
-    const page = await fetchPageText(trimmed);
+    const page = await fetchPageText(sourceUrl);
+    // The caption often names the place outright ("Lacivert, must go") —
+    // it goes first so the page text's 8000-char cap can't cut it off.
+    const withCaption = (pageText: string) =>
+      link.caption ? `Note from the person who shared this: ${link.caption}\n\n${pageText}` : pageText;
     // A link we can't read (paywalled, bot-blocked) has nothing to extract
     // a place from, but — same as the web app — it's still worth keeping
     // as a resource, so this falls through with zero candidates and a
     // label de-slugified from the URL instead of erroring out.
     if (page) {
-      extractText = page.text;
+      extractText = withCaption(page.text);
       label = page.label;
       candidates = await extractPlacesFromText(extractText);
       // A Maps link is one exact place — keep the model's kind guess, but
@@ -98,7 +140,8 @@ export async function addResourceFromWhatsAppText(
         candidates = [{ name, kind: first?.kind ?? "Other", note: first?.note ?? "", geocodeQuery: query }];
       }
     } else {
-      label = deriveLabelFromUrl(trimmed);
+      label = deriveLabelFromUrl(sourceUrl);
+      if (link.caption) candidates = await extractPlacesFromText(link.caption);
     }
   } else {
     candidates = await extractPlacesFromText(extractText);

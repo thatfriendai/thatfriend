@@ -1,10 +1,17 @@
 import { notFound } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatDayLabel } from "@/lib/planner/itinerary";
+import { formatDateRange } from "@/lib/planner/calendarDate";
+import { withoutEmptyStaleDays } from "@/lib/planner/days";
 import { Stars } from "@/components/planner/Stars";
 
-function labelOf(person: { name: string | null; email: string | null } | null) {
-  return person?.name || person?.email?.split("@")[0] || "Someone";
+/**
+ * Anyone with the link can read this page, so a rater with no name set
+ * stays anonymous — falling back to their email's local part (as the
+ * signed-in views do) would publish a piece of their address.
+ */
+function labelOf(person: { name: string | null } | null) {
+  return person?.name || "A friend";
 }
 
 export default async function SharedItineraryPage({
@@ -22,13 +29,20 @@ export default async function SharedItineraryPage({
     .maybeSingle();
   if (!trip) notFound();
 
-  const { data: days } = await admin
+  const { data: allDays } = await admin
     .from("planner_days")
     .select("id, date, city, color")
     .eq("trip_id", trip.id)
     .order("date", { ascending: true });
 
-  const dayIds = (days ?? []).map((d) => d.id);
+  // Days left over from an earlier date range stay in the table (see
+  // ensureDays) — shared the same way the trip page shows them.
+  const days =
+    trip.start_date && trip.end_date
+      ? await withoutEmptyStaleDays(admin, allDays ?? [], trip.start_date, trip.end_date)
+      : (allDays ?? []);
+
+  const dayIds = days.map((d) => d.id);
   const { data: items } = dayIds.length
     ? await admin
         .from("planner_itinerary_items")
@@ -41,25 +55,25 @@ export default async function SharedItineraryPage({
   const { data: ratingRows } = itemIds.length
     ? await admin
         .from("planner_item_ratings")
-        .select("item_id, stars, note, planner_users(name, email)")
+        .select("item_id, stars, note, planner_users(name)")
         .in("item_id", itemIds)
     : { data: [] };
 
   const ratingsByItem = new Map<string, { stars: number; note: string | null; who: string }[]>();
   for (const r of ratingRows ?? []) {
-    const who = labelOf(r.planner_users as unknown as { name: string | null; email: string | null } | null);
+    const who = labelOf(r.planner_users as unknown as { name: string | null } | null);
     if (!ratingsByItem.has(r.item_id)) ratingsByItem.set(r.item_id, []);
     ratingsByItem.get(r.item_id)!.push({ stars: r.stars, note: r.note, who });
   }
 
-  const daysWithItems = (days ?? []).map((d) => ({
+  const daysWithItems = days.map((d) => ({
     ...d,
     items: (items ?? []).filter((i) => i.day_id === d.id),
   }));
 
   const dateRange =
     trip.start_date && trip.end_date
-      ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" })}–${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" })}`
+      ? formatDateRange(trip.start_date, trip.end_date)
       : null;
 
   return (

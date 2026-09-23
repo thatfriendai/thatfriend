@@ -2,8 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
-
-const LINK_TTL_MS = 30 * 60 * 1000;
+import { EMAIL_LINK_COOKIE, EMAIL_LINK_TTL_MS, emailLinkCookieOptions } from "@/lib/planner/emailLink";
 
 /**
  * Starts adding a first real email to a phone-only account. Not the same
@@ -13,7 +12,9 @@ const LINK_TTL_MS = 30 * 60 * 1000;
  * placeholder email, and Supabase's secure email change tries to confirm
  * both the old and new address, which always fails on that placeholder.
  * See the planner_email_links table comment and /api/v2/auth/callback for
- * how the resulting magic-link click gets folded into this account.
+ * how the resulting magic-link click gets folded into this account, and
+ * EMAIL_LINK_COOKIE (lib/planner/emailLink.ts) for why the request is
+ * bound to this browser.
  */
 export async function POST(request: Request) {
   const user = await getPlannerUser();
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
   const { error: linkError } = await admin.from("planner_email_links").upsert({
     email,
     requesting_planner_user_id: user.id,
-    expires_at: new Date(Date.now() + LINK_TTL_MS).toISOString(),
+    expires_at: new Date(Date.now() + EMAIL_LINK_TTL_MS).toISOString(),
   });
   if (linkError) return NextResponse.json({ error: linkError.message }, { status: 500 });
 
@@ -48,5 +49,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }
 
-  return NextResponse.json({ sent: true });
+  const response = NextResponse.json({ sent: true });
+  response.cookies.set(EMAIL_LINK_COOKIE, user.id, emailLinkCookieOptions());
+  return response;
 }

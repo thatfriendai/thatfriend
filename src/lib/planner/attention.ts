@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { inTripRange } from "./days";
 
 export type AttentionKind =
   | "vote_deadline"
@@ -42,9 +43,9 @@ export async function computeAttention(
 ): Promise<Attention> {
   const items: AttentionItem[] = [];
 
-  // All five queries in this function depend only on tripId — one round
+  // All six queries in this function depend only on tripId — one round
   // trip instead of two sequential ones.
-  const [{ data: decisionRows }, { data: placeRows }, { data: dayRows }, { data: memberRows }, { data: prefRows }] =
+  const [{ data: decisionRows }, { data: placeRows }, { data: allDayRows }, { data: memberRows }, { data: prefRows }, { data: trip }] =
     await Promise.all([
       admin
         .from("planner_decisions")
@@ -55,7 +56,12 @@ export async function computeAttention(
       admin.from("planner_days").select("id, date").eq("trip_id", tripId).order("date", { ascending: true }),
       admin.from("planner_memberships").select("planner_users(id, phone)").eq("trip_id", tripId),
       admin.from("planner_preferences").select("user_id").eq("trip_id", tripId),
+      admin.from("planner_trips").select("start_date, end_date").eq("id", tripId).maybeSingle(),
     ]);
+
+  // Days left over from dates the group has since moved aren't "empty days to plan".
+  const dayRows =
+    trip?.start_date && trip?.end_date ? inTripRange(allDayRows ?? [], trip.start_date, trip.end_date) : [];
 
   const decisions = (decisionRows ?? []).map((d) => ({
     id: d.id as string,

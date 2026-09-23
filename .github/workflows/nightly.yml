@@ -1,0 +1,64 @@
+# The whole automated suite once a day against main, so drift (a dependency
+# bump, a model change behind the SMS classifier, a staging schema change)
+# shows up the next morning instead of when a friend hits it. GitHub emails
+# whoever last touched this file / the repo admins when a scheduled run fails.
+# The judgement-heavy part — the /qa sweep agent — runs as a separate daily
+# Claude Code routine (see docs/qa/README.md).
+name: Nightly QA
+
+on:
+  schedule:
+    - cron: "0 12 * * *" # 12:00 UTC — 5am Pacific, 3pm Istanbul
+  workflow_dispatch:
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - name: SMS classifier eval
+        run: npm run eval:intent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+
+  e2e-staging:
+    # Needs a long-lived staging deploy (STAGING_BASE_URL) — skipped until one exists.
+    runs-on: ubuntu-latest
+    env:
+      QA_BASE_URL: ${{ secrets.STAGING_BASE_URL }}
+    steps:
+      - uses: actions/checkout@v4
+        if: env.QA_BASE_URL != ''
+      - uses: actions/setup-node@v4
+        if: env.QA_BASE_URL != ''
+        with:
+          node-version: 22
+          cache: npm
+      - if: env.QA_BASE_URL != ''
+        run: npm ci && npx playwright install --with-deps chromium
+      - name: Restore seeded QA ids
+        if: env.QA_BASE_URL != '' && env.QA_SEED_JSON != ''
+        run: echo "$QA_SEED_JSON" > qa/.seed.json
+        env:
+          QA_SEED_JSON: ${{ secrets.QA_SEED_JSON }}
+      - if: env.QA_BASE_URL != ''
+        run: npm run test:e2e
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+      - uses: actions/upload-artifact@v4
+        if: always() && env.QA_BASE_URL != ''
+        with:
+          name: nightly-playwright-report
+          path: qa/reports/
+          retention-days: 14

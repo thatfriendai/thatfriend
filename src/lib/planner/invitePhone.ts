@@ -104,6 +104,18 @@ export async function invitePhoneToTrip(
   }
 }
 
+// A US number as people type it: "415 555 0100", "(415) 555-0101",
+// "+1 415.555.0102". Anchored on both sides so it can't start or stop
+// mid-run — without the lookbehind, "+442079460958" matched its last ten
+// digits as a US number and texted a stranger in Chicago.
+const US_PHONE_RE = /(?<![\d+])(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}(?!\d)/g;
+
+// "+44 207 946 0958" / "+90 532 555 0104": the country code is its own
+// digit group, so the lookbehind above doesn't see it — a "+" and a
+// non-1 country code right before the match means it's the tail of an
+// international number, not a US one.
+const INTERNATIONAL_PREFIX_RE = /\+[02-9][\d\s().-]*$/;
+
 /**
  * Pulls US phone numbers out of a text like "sara 415 555 0100, jen
  * (415) 555-0101". Deterministic on purpose — numbers are exact, and this
@@ -112,23 +124,31 @@ export async function invitePhoneToTrip(
  */
 export function extractPhoneNumbers(text: string): string[] {
   if (/https?:\/\/|www\./i.test(text)) return [];
-  const matches = text.match(/(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g) ?? [];
   const unique = new Set<string>();
-  for (const m of matches) {
-    const digits = m.replace(/\D/g, "");
+  for (const m of text.matchAll(US_PHONE_RE)) {
+    if (INTERNATIONAL_PREFIX_RE.test(text.slice(0, m.index))) continue;
+    const digits = m[0].replace(/\D/g, "");
     if (digits.length === 10 || (digits.length === 11 && digits.startsWith("1"))) unique.add(toE164(digits));
   }
   return [...unique];
 }
 
+// Words that mark a pasted business listing ("Nopa 560 Divisadero St
+// (415) 864-8643") rather than a list of friends — inviting that number
+// would text a restaurant.
+const ADDRESS_WORDS = /\b(?:st|street|ave|avenue|blvd|boulevard|rd|road|hwy|highway|suite|ste|pkwy)\b/i;
+
 /**
  * True when a text is "here are the numbers" and not much else — a short
- * name per number is fine ("sara 415…, jen 415…"), a paragraph isn't.
+ * name per number is fine ("sara 415…, jen 415…"), a paragraph isn't, and
+ * neither is anything with a street address in it: leftover multi-digit
+ * numbers (a house number, a zip) or street words.
  */
 export function looksLikeInviteList(text: string, phones: string[]): boolean {
   if (phones.length === 0) return false;
-  const residual = text
-    .replace(/(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}\b/g, " ")
+  const withoutPhones = text.replace(US_PHONE_RE, " ");
+  if (/\d{2,}/.test(withoutPhones) || ADDRESS_WORDS.test(withoutPhones)) return false;
+  const residual = withoutPhones
     .replace(/[^a-z\s']/gi, " ")
     .trim()
     .split(/\s+/)

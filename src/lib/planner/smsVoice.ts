@@ -123,6 +123,27 @@ export function unsupportedMediaReply() {
   return `i can only read text, links, and photos right now.`;
 }
 
+/** Saving a link/photo failed on our side — the raw error (a Postgres or Graph API message) is for the logs, not their phone. */
+export function saveFailedReply() {
+  return `couldn't save that one — something went wrong on my end. try sending it again in a bit.`;
+}
+
+// Twilio rejects a message body over 1600 characters outright (error
+// 21617) — the reply just never arrives. placesAddedReply with a dozen
+// far-away places and their addresses can get there, so every outgoing
+// reply goes through this first. 1500 leaves room for the "…".
+export const MAX_REPLY_CHARS = 1500;
+
+/** Trims a reply to fit one SMS body, cutting at a sentence or word break rather than mid-word. */
+export function capReply(text: string, max = MAX_REPLY_CHARS): string {
+  if (text.length <= max) return text;
+  const head = text.slice(0, max - 1);
+  const sentenceEnd = Math.max(head.lastIndexOf(". "), head.lastIndexOf("! "), head.lastIndexOf("? "));
+  if (sentenceEnd > max * 0.6) return head.slice(0, sentenceEnd + 1) + " …";
+  const space = head.lastIndexOf(" ");
+  return (space > max * 0.6 ? head.slice(0, space) : head).trimEnd() + "…";
+}
+
 export function placesAddedReply(
   tripName: string,
   duplicates: string[],

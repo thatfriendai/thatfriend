@@ -24,6 +24,7 @@ import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { TripVisibilityToggle } from "./TripVisibilityToggle";
 import { TripNameField } from "./TripNameField";
 import { ensureDays } from "@/lib/planner/days";
+import { formatDateRange } from "@/lib/planner/calendarDate";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 import { formatPhoneDisplay, toE164 } from "@/lib/planner/phone";
 import { generateToken } from "@/lib/planner/tokens";
@@ -55,7 +56,8 @@ export default async function PlannerTripPage({
 }) {
   const { id } = await params;
   const user = await getPlannerUser();
-  if (!user) redirect("/planner/login");
+  // Most people land here from a link in the group text — bring them back after signing in.
+  if (!user) redirect(`/planner/login?next=${encodeURIComponent(`/planner/trips/${id}`)}`);
 
   const admin = createAdminClient();
 
@@ -256,7 +258,7 @@ export default async function PlannerTripPage({
   } | null = null;
   if (stayDecisionRow) {
     const comparison = await buildStayComparison(admin, id, stayDecisionRow.id, stayDecisionRow.nights, roster.length);
-    const read = await generateStayRead(stayDecisionRow.title, comparison);
+    const read = await generateStayRead(trip.name, comparison);
     stayDecision = {
       id: stayDecisionRow.id,
       title: stayDecisionRow.title,
@@ -285,7 +287,7 @@ export default async function PlannerTripPage({
 
   const dateRange =
     trip.start_date && trip.end_date
-      ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "short", day: "numeric" }).toUpperCase()}–${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" }).toUpperCase()}`
+      ? formatDateRange(trip.start_date, trip.end_date).toUpperCase()
       : null;
 
   const navLabel = user.name || user.email || "?";
@@ -504,6 +506,10 @@ export default async function PlannerTripPage({
           </div>
           {daysWithItems.length > 0 ? (
             <ItineraryBoard
+              // Keyed by the day ids: the board keeps its days in state, so
+              // after the dates are re-locked it would otherwise go on
+              // showing the old range. A new set of days is a fresh board.
+              key={dayIds.join(",")}
               tripId={id}
               days={daysWithItems}
               hasUnscheduledPlaces={places.some((p) => !p.day_id)}
@@ -552,6 +558,7 @@ export default async function PlannerTripPage({
           places={places}
           googleMapsApiKey={process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY ?? ""}
           myDisplayName={user.name || user.email?.split("@")[0] || "Someone"}
+          myUserId={user.id}
         />
 
         <StaysSection tripId={id} stayDecision={stayDecision} myUserId={user.id} totalMembers={roster.length} />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { hashPercent } from "@/lib/planner/itinerary";
 import { formatDayLabel } from "@/lib/planner/itinerary";
 import type { PlannerDay, PlannerItineraryItem } from "@/lib/supabase/planner-types";
@@ -42,6 +42,9 @@ export function ItineraryBoard({
   const [addingOnDay, setAddingOnDay] = useState<string | null>(null);
   const [draftText, setDraftText] = useState("");
   const [pending, setPending] = useState(false);
+  // Mirrors `pending` synchronously — a blur can fire before the re-render
+  // that would give addItem a fresh `pending`.
+  const addInFlight = useRef(false);
   const [dayDrafts, setDayDrafts] = useState<Record<string, DayDraftState>>({});
   const [forecast, setForecast] = useState<Record<string, string>>({});
   const [planBEditing, setPlanBEditing] = useState<string | null>(null);
@@ -140,32 +143,42 @@ export function ItineraryBoard({
   }
 
   async function addItem(dayId: string) {
+    // Enter submits and then blurs the input, which submits again — without
+    // this the same item was posted twice.
+    if (pending || addInFlight.current) return;
     const text = draftText.trim();
     if (!text) {
       setAddingOnDay(null);
       return;
     }
+    addInFlight.current = true;
     setPending(true);
-    const res = await fetch(`/api/v2/trips/${tripId}/itinerary/items`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ day_id: dayId, text }),
-    });
-    setPending(false);
-    if (!res.ok) return;
-    const { item } = await res.json();
-    setDays((list) =>
-      list.map((d) => (d.id === dayId ? { ...d, items: [...d.items, item] } : d))
-    );
-    setDraftText("");
-    setAddingOnDay(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/itinerary/items`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ day_id: dayId, text }),
+      });
+      if (!res.ok) return;
+      const { item } = await res.json();
+      setDays((list) =>
+        list.map((d) => (d.id === dayId ? { ...d, items: [...d.items, item] } : d))
+      );
+      setDraftText("");
+      setAddingOnDay(null);
+    } finally {
+      addInFlight.current = false;
+      setPending(false);
+    }
   }
 
+  // Numbered within their own day — the selected day's pins read 1, 2, 3
+  // to match its list, not continue on from the days before it.
   const pins = days.flatMap((d) =>
-    d.items.map((item) => {
+    d.items.map((item, index) => {
       const { x, y } = hashPercent(item.id);
       const on = d.id === selectedDayId;
-      return { key: item.id, x, y, color: d.color, on };
+      return { key: item.id, x, y, color: d.color, on, number: index + 1 };
     })
   );
 
@@ -188,7 +201,7 @@ export function ItineraryBoard({
           className="absolute inset-0"
           style={{ background: "linear-gradient(118deg, transparent 46%, #DCE6E3 46%)" }}
         />
-        {pins.map((p, i) => {
+        {pins.map((p) => {
           const size = p.on ? 24 : 11;
           return (
             <div
@@ -208,7 +221,7 @@ export function ItineraryBoard({
                 boxShadow: `0 1px 4px rgba(27,25,23,${p.on ? 0.18 : 0.08})`,
               }}
             >
-              {p.on ? i + 1 : ""}
+              {p.on ? p.number : ""}
             </div>
           );
         })}

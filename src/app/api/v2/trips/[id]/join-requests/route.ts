@@ -34,6 +34,21 @@ export async function POST(
     .maybeSingle();
   if (membership) return NextResponse.json({ error: "You're already on this trip." }, { status: 400 });
 
+  // The upsert below would reset any existing request to pending and
+  // re-notify the owner — a declined request must stay declined, or
+  // re-asking becomes a way to ping the owner over and over.
+  const { data: existingRequest } = await admin
+    .from("planner_join_requests")
+    .select("status")
+    .eq("trip_id", tripId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (existingRequest?.status === "declined") {
+    return NextResponse.json({ error: "The organizer already passed on this request." }, { status: 409 });
+  }
+  // Already asked and still waiting — nothing new to tell the owner.
+  if (existingRequest?.status === "pending") return NextResponse.json({ ok: true });
+
   const { error } = await admin
     .from("planner_join_requests")
     .upsert(

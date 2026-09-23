@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
-import { INTERESTS, PACE_OPTIONS } from "@/lib/planner/preferences";
+import { BUDGET_FIELDS, INTERESTS, PACE_OPTIONS, type BudgetFieldKey } from "@/lib/planner/preferences";
 
 export async function PUT(
   request: Request,
@@ -25,8 +25,14 @@ export async function PUT(
 
   const body = await request.json().catch(() => ({}));
 
-  const toInt = (v: unknown) =>
-    typeof v === "number" && Number.isFinite(v) ? Math.round(v) : null;
+  // Clamped to the same range the sliders offer — a hand-crafted request
+  // with a negative or enormous number would otherwise skew the group's
+  // overlap math (or overflow the int4 column and 500).
+  const toBudget = (key: BudgetFieldKey, v: unknown) => {
+    if (typeof v !== "number" || !Number.isFinite(v)) return null;
+    const field = BUDGET_FIELDS.find((f) => f.key === key)!;
+    return Math.min(field.max, Math.max(field.min, Math.round(v)));
+  };
 
   const pace =
     typeof body.pace === "string" &&
@@ -47,9 +53,9 @@ export async function PUT(
       {
         trip_id: tripId,
         user_id: user.id,
-        stay_max: toInt(body.stay_max),
-        flight_max: toInt(body.flight_max),
-        food_max: toInt(body.food_max),
+        stay_max: toBudget("stay_max", body.stay_max),
+        flight_max: toBudget("flight_max", body.flight_max),
+        food_max: toBudget("food_max", body.food_max),
         pace,
         interests,
         non_negotiable: nonNegotiable || null,

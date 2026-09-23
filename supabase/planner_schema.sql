@@ -278,6 +278,11 @@ create table if not exists planner_whatsapp_codes (
 
 create index if not exists planner_whatsapp_codes_phone_idx on planner_whatsapp_codes (phone);
 
+-- Wrong guesses against this code; verify-phone deletes the code after 5
+-- (a 6-digit code with unlimited guesses is brute-forceable in minutes).
+-- Also shipped as supabase/migrations/2026-09-23-qa-hardening.sql.
+alter table planner_whatsapp_codes add column if not exists attempts int not null default 0;
+
 -- ---------------------------------------------------------------------------
 -- planner_availability_marks — Phase 7. One row per day a member marked as
 -- workable for a trip. No exact-dates picker anymore: everyone marks every

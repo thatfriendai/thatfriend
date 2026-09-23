@@ -24,6 +24,12 @@ function AlreadyBookedForm({ tripId, onDone }: { tripId: string; onDone: () => v
   const [note, setNote] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Remembered across retries: if the option or close step fails after the
+  // decision row was created, resubmitting reuses it rather than leaving a
+  // second empty "Where we stay" decision behind (there's no DELETE route
+  // to clean the first one up).
+  const [decisionId, setDecisionId] = useState<string | null>(null);
+  const [optionAdded, setOptionAdded] = useState(false);
 
   // Hotel names resolve to a real address via Google; a private
   // Airbnb/friend's-place listing has no public address to look up, so
@@ -58,46 +64,77 @@ function AlreadyBookedForm({ tripId, onDone }: { tripId: string; onDone: () => v
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!name.trim()) return;
+
+    // "$1,296.50" / "1 296" / "€900" all mean a number — strip everything
+    // but digits and the decimal point rather than letting Number() turn
+    // them into NaN, which JSON.stringify would quietly send as null.
+    let totalCost: number | undefined;
+    if (cost.trim()) {
+      const digits = cost.replace(/[^0-9.]/g, "");
+      totalCost = Number(digits);
+      if (!digits || !Number.isFinite(totalCost)) {
+        setError("That total cost doesn't look like a number.");
+        return;
+      }
+    }
+
     setPending(true);
     setError(null);
+    try {
+      let id = decisionId;
+      if (!id) {
+        const decisionRes = await fetch(`/api/v2/trips/${tripId}/decisions`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: "Where we stay", kind: "stay" }),
+        });
+        const decisionData = await decisionRes.json().catch(() => ({}));
+        if (!decisionRes.ok) {
+          setError(decisionData.error ?? "Could not save the booking.");
+          return;
+        }
+        id = decisionData.decision.id as string;
+        setDecisionId(id);
+      }
 
-    const decisionRes = await fetch(`/api/v2/trips/${tripId}/decisions`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ title: "Where we stay", kind: "stay" }),
-    });
-    const decisionData = await decisionRes.json().catch(() => ({}));
-    if (!decisionRes.ok) {
+      if (!optionAdded) {
+        const locationNote = match?.address || manualAddress.trim() || undefined;
+        const optionRes = await fetch(`/api/v2/trips/${tripId}/decisions/${id}/options`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            label: name.trim().slice(0, 120),
+            // The option's subtitle — shown under its name in the stay
+            // comparison and on the decision page.
+            sub: note.trim().slice(0, 200) || undefined,
+            total_cost: totalCost,
+            currency: totalCost !== undefined ? currency : undefined,
+            location_note: locationNote,
+            lat: match?.lat,
+            lng: match?.lng,
+          }),
+        });
+        if (!optionRes.ok) {
+          const data = await optionRes.json().catch(() => ({}));
+          setError(data.error ?? "Could not save the booking.");
+          return;
+        }
+        setOptionAdded(true);
+      }
+
+      const closeRes = await fetch(`/api/v2/trips/${tripId}/decisions/${id}/close`, { method: "POST" });
+      // 409 means it's already closed — the outcome we wanted.
+      if (!closeRes.ok && closeRes.status !== 409) {
+        const data = await closeRes.json().catch(() => ({}));
+        setError(data.error ?? "Saved, but couldn't mark it booked. Try again.");
+        return;
+      }
+      onDone();
+    } catch {
+      setError("Could not save the booking. Check your connection and try again.");
+    } finally {
       setPending(false);
-      setError(decisionData.error ?? "Could not save the booking.");
-      return;
     }
-    const decisionId = decisionData.decision.id;
-
-    const locationNote = match?.address || manualAddress.trim() || undefined;
-
-    const optionRes = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/options`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        label: name.trim().slice(0, 120),
-        total_cost: cost.trim() ? Number(cost) : undefined,
-        currency: cost.trim() ? currency : undefined,
-        location_note: locationNote,
-        lat: match?.lat,
-        lng: match?.lng,
-      }),
-    });
-    if (!optionRes.ok) {
-      const data = await optionRes.json().catch(() => ({}));
-      setPending(false);
-      setError(data.error ?? "Could not save the booking.");
-      return;
-    }
-
-    await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/close`, { method: "POST" });
-    setPending(false);
-    onDone();
   }
 
   return (
@@ -272,14 +309,16 @@ export function StaysSection({
 
   // StayMatrix owns its own comparison state after this — it refetches
   // the comparison endpoint itself once the vote lands, so this just
-  // needs to make the write.
+  // needs to make the write. Throws on failure — StayMatrix catches it
+  // and shows the error.
   async function castVote(optionId: string) {
     if (!decision) return;
-    await fetch(`/api/v2/trips/${tripId}/decisions/${decision.id}/vote`, {
+    const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decision.id}/vote`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ option_id: optionId }),
     });
+    if (!res.ok) throw new Error("Vote failed");
   }
 
   return (

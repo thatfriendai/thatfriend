@@ -11,7 +11,7 @@ export default async function DatesPage({
 }) {
   const { id: tripId } = await params;
   const result = await loadDatesView(createAdminClient(), tripId);
-  if (result.status === "unauthenticated") redirect("/planner/login");
+  if (result.status === "unauthenticated") redirect(`/planner/login?next=${encodeURIComponent(`/planner/trips/${tripId}/dates`)}`);
   if (result.status !== "ok") notFound();
   const dates = result.payload;
 

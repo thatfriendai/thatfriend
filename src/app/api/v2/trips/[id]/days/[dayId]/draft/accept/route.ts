@@ -38,14 +38,18 @@ export async function POST(
     return NextResponse.json({ error: "No places to add." }, { status: 400 });
   }
 
-  // Only places still unscheduled — someone may have scheduled one elsewhere
-  // since the draft was generated.
+  // Claim the places first — only those still unscheduled, in one
+  // conditional update — and add items only for what this request actually
+  // claimed. Reading then writing let two accepts (two days' drafts, or a
+  // double tap) both see a place as free and put it on two days; now the
+  // second update simply finds day_id already set and claims nothing.
   const { data: places } = await admin
     .from("planner_places")
-    .select("id, name, note")
+    .update({ day_id: dayId })
     .eq("trip_id", tripId)
     .is("day_id", null)
-    .in("id", placeIds);
+    .in("id", placeIds)
+    .select("id, name, note");
 
   if (!places || places.length === 0) {
     return NextResponse.json({ error: "Those places are no longer available to schedule." }, { status: 400 });
@@ -56,7 +60,7 @@ export async function POST(
     .select("id", { count: "exact", head: true })
     .eq("day_id", dayId);
 
-  const orderedPlaces = placeIds
+  const orderedPlaces = [...new Set(placeIds)]
     .map((id) => places.find((p) => p.id === id))
     .filter((p): p is (typeof places)[number] => Boolean(p));
 
@@ -73,15 +77,18 @@ export async function POST(
     )
     .select("*");
 
-  if (itemsError) return NextResponse.json({ error: itemsError.message }, { status: 500 });
-
-  await admin
-    .from("planner_places")
-    .update({ day_id: dayId })
-    .in(
-      "id",
-      orderedPlaces.map((p) => p.id)
-    );
+  if (itemsError) {
+    // Give the claimed places back so they aren't stuck "scheduled" with no item.
+    await admin
+      .from("planner_places")
+      .update({ day_id: null })
+      .eq("day_id", dayId)
+      .in(
+        "id",
+        orderedPlaces.map((p) => p.id)
+      );
+    return NextResponse.json({ error: itemsError.message }, { status: 500 });
+  }
 
   return NextResponse.json({ items });
 }

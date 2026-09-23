@@ -17,7 +17,7 @@ export default async function DecisionPage({
 }) {
   const { id: tripId, decisionId } = await params;
   const user = await getPlannerUser();
-  if (!user) redirect("/planner/login");
+  if (!user) redirect(`/planner/login?next=${encodeURIComponent(`/planner/trips/${tripId}/decisions/${decisionId}`)}`);
 
   const admin = createAdminClient();
 
@@ -75,7 +75,7 @@ export default async function DecisionPage({
   if (decision.kind === "stay") {
     const partySize = decision.party_size ?? roster.length ?? 1;
     const comparison = await buildStayComparison(admin, tripId, decisionId, decision.nights, partySize);
-    const read = await generateStayRead(decision.title, comparison);
+    const read = await generateStayRead(trip.name, comparison);
     initialComparison = { ...comparison, read };
   }
 

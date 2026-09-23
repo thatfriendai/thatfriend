@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
+import { leadingChars } from "@/lib/planner/initials";
 
 interface Lesson {
   id: string;
@@ -33,22 +34,29 @@ export function LessonsCard({
 
   async function save() {
     const body = draft.trim();
-    if (!body) return;
+    // `saving` guard: Enter pressed twice before the first request lands
+    // would otherwise save the same lesson twice.
+    if (!body || saving) return;
     setSaving(true);
     setError(null);
-    const res = await fetch(`/api/v2/trips/${tripId}/lessons`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ body }),
-    });
-    setSaving(false);
-    if (!res.ok) {
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/lessons`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ body }),
+      });
+      if (!res.ok) {
+        setError("Could not save that.");
+        return;
+      }
+      const { lesson } = await res.json();
+      setLessons((list) => [...list, { id: lesson.id, userId: myUserId, who: "You", body: lesson.body }]);
+      setDraft("");
+    } catch {
       setError("Could not save that.");
-      return;
+    } finally {
+      setSaving(false);
     }
-    const { lesson } = await res.json();
-    setLessons((list) => [...list, { id: lesson.id, userId: myUserId, who: "You", body: lesson.body }]);
-    setDraft("");
   }
 
   async function remove(id: string) {
@@ -74,7 +82,7 @@ export function LessonsCard({
                 className="flex h-5.5 w-5.5 flex-none items-center justify-center rounded-full font-mono text-[9px] text-on-accent"
                 style={{ background: colorOf.get(l.userId) }}
               >
-                {l.who.slice(0, 2).toUpperCase()}
+                {leadingChars(l.who)}
               </span>
               <span className="text-[14.5px] leading-[1.45] text-ink-body">{l.body}</span>
               {l.userId === myUserId && (
@@ -96,7 +104,9 @@ export function LessonsCard({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") save();
+            // Enter that confirms an IME composition (Japanese, Chinese,
+            // Korean input) isn't a submit.
+            if (e.key === "Enter" && !e.nativeEvent.isComposing) save();
           }}
           maxLength={240}
           placeholder="Book the big dinner earlier…"
