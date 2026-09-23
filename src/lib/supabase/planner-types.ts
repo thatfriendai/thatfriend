@@ -220,6 +220,30 @@ export interface PlannerTripEssential {
   created_at: string;
 }
 
+export type TravelDirection = "arrive" | "depart";
+
+export interface PlannerTravelLeg {
+  id: string;
+  trip_id: string;
+  user_id: string;
+  direction: TravelDirection;
+  detail: string;
+  date: string;
+  /** "14:20:00" — Postgres time. */
+  time: string;
+  created_at: string;
+}
+
+export interface PlannerRideGroup {
+  id: string;
+  trip_id: string;
+  direction: TravelDirection;
+  member_ids: string[];
+  time: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface PlannerTripLesson {
   id: string;
   trip_id: string;

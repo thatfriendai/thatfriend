@@ -966,3 +966,41 @@ create index if not exists planner_trip_lessons_trip_idx on planner_trip_lessons
 
 alter table planner_trip_lessons enable row level security;
 grant all on planner_trip_lessons to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- Arrivals, departures and ride groups — the cards that open and close the
+-- itinerary rail. One leg per person per direction: "TP 1234 from Gatwick"
+-- landing 14:20. Everyone adds their own; the card derives who's missing
+-- and who lands close together, and ride groups are tagged on top.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_travel_legs (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  direction text not null check (direction in ('arrive', 'depart')),
+  detail text not null check (char_length(detail) between 1 and 120),
+  date date not null,
+  time time not null,
+  created_at timestamptz not null default now(),
+  unique (trip_id, user_id, direction)
+);
+create index if not exists planner_travel_legs_trip_idx on planner_travel_legs (trip_id);
+
+alter table planner_travel_legs enable row level security;
+grant all on planner_travel_legs to anon, authenticated, service_role;
+
+-- "Ride 1 · Maya, Jonah, Nina · 15:15" — who shares the taxi from (or to)
+-- the airport. Numbered per direction in creation order at render time.
+create table if not exists planner_ride_groups (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  direction text not null check (direction in ('arrive', 'depart')),
+  member_ids uuid[] not null,
+  time time,
+  created_by uuid references planner_users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists planner_ride_groups_trip_idx on planner_ride_groups (trip_id);
+
+alter table planner_ride_groups enable row level security;
+grant all on planner_ride_groups to anon, authenticated, service_role;

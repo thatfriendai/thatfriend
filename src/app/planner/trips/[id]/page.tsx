@@ -31,6 +31,7 @@ import { slugify } from "@/lib/planner/slug";
 import { computeAttention } from "@/lib/planner/attention";
 import { lastTimeFor } from "@/lib/planner/lessons";
 import { EssentialsCard } from "./EssentialsCard";
+import { TravelCard } from "./TravelCard";
 import { LastTimeCard } from "./LastTimeCard";
 import type { PlannerItineraryItem, ResourceType } from "@/lib/supabase/planner-types";
 
@@ -76,10 +77,12 @@ export default async function PlannerTripPage({
     attention,
     { data: essentialRows },
     lastTime,
+    { data: legRows },
+    { data: rideRows },
   ] = await Promise.all([
     admin.from("planner_memberships").select("role").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
     admin.from("planner_trips").select("*").eq("id", id).maybeSingle(),
-    admin.from("planner_memberships").select("role, planner_users(name, email, phone)").eq("trip_id", id),
+    admin.from("planner_memberships").select("user_id, role, planner_users(name, email, phone)").eq("trip_id", id),
     admin.from("planner_invites").select("token").eq("trip_id", id).eq("channel", "link").limit(1).maybeSingle(),
     admin.from("planner_preferences").select("*").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
     admin.from("planner_availability_marks").select("date").eq("trip_id", id).eq("user_id", user.id),
@@ -109,6 +112,8 @@ export default async function PlannerTripPage({
     computeAttention(admin, id, user.id),
     admin.from("planner_trip_essentials").select("*").eq("trip_id", id).order("position", { ascending: true }),
     lastTimeFor(admin, id),
+    admin.from("planner_travel_legs").select("*").eq("trip_id", id),
+    admin.from("planner_ride_groups").select("*").eq("trip_id", id).order("created_at", { ascending: true }),
   ]);
   if (!membership) notFound();
   if (!trip) notFound();
@@ -237,7 +242,7 @@ export default async function PlannerTripPage({
     } | null;
     const label =
       person?.name || person?.email?.split("@")[0] || (person?.phone ? formatPhoneDisplay(person.phone) : null) || "Someone";
-    return { label, role: m.role };
+    return { userId: m.user_id as string, label, role: m.role };
   });
 
   const stayDecisionRow = decisions.find((d) => d.kind === "stay") ?? null;
@@ -502,6 +507,34 @@ export default async function PlannerTripPage({
               tripId={id}
               days={daysWithItems}
               hasUnscheduledPlaces={places.some((p) => !p.day_id)}
+              railTop={
+                trip.start_date && (
+                  <TravelCard
+                    tripId={id}
+                    direction="arrive"
+                    cardDate={trip.start_date}
+                    city={daysWithItems[0]?.city ?? trip.destination?.split(",")[0] ?? null}
+                    roster={roster}
+                    myUserId={user.id}
+                    initialLegs={(legRows ?? []).filter((l) => l.direction === "arrive")}
+                    initialRides={(rideRows ?? []).filter((r) => r.direction === "arrive")}
+                  />
+                )
+              }
+              railBottom={
+                trip.end_date && (
+                  <TravelCard
+                    tripId={id}
+                    direction="depart"
+                    cardDate={trip.end_date}
+                    city={daysWithItems[daysWithItems.length - 1]?.city ?? trip.destination?.split(",")[0] ?? null}
+                    roster={roster}
+                    myUserId={user.id}
+                    initialLegs={(legRows ?? []).filter((l) => l.direction === "depart")}
+                    initialRides={(rideRows ?? []).filter((r) => r.direction === "depart")}
+                  />
+                )
+              }
             />
           ) : (
             <div className="mb-14 rounded-2xl border border-dashed border-input-border p-7 text-center">

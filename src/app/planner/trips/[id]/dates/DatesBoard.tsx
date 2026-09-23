@@ -40,15 +40,14 @@ function firstName(label: string) {
   return label.split(/\s+/)[0];
 }
 
-function bucket(count: number, total: number) {
-  if (count <= 0) return 0;
-  if (count >= total) return 4;
-  if (count === total - 1) return 3;
-  if (count >= Math.ceil(total / 2)) return 2;
-  return 1;
+// The heatmap is everyone's marks stacked: each person who's free on a day
+// adds an equal share of green, so the shade is the sum of their marks
+// rather than a fixed ramp of buckets.
+const HEAT = "#6E8C6A";
+function heatColor(count: number, total: number) {
+  if (count <= 0 || total <= 0) return "transparent";
+  return `color-mix(in srgb, ${HEAT} ${Math.round((Math.min(count, total) / total) * 100)}%, #F4F1E9)`;
 }
-
-const BUCKET_COLORS = ["transparent", "#EAF0E8", "#C7D9C2", "#9BBB92", "#6E8C6A"];
 
 function monthKey(iso: string) {
   return iso.slice(0, 7);
@@ -139,13 +138,16 @@ export function DatesBoard({
   const isSolo = !isFull && iHaveAnswered && answeredCount <= 1;
   const isPartial = !isFull && !isSolo && answeredCount > 0;
 
-  const outlined =
+  const heatNote =
     datesLockedAt && lockedStart && lockedEnd
-      ? `${formatRange(lockedStart, lockedEnd)}, the dates you confirmed`
-      : proposal
-        ? `${formatRange(proposal.start_date, proposal.end_date)}, the best stretch so far`
-        : null;
-  const heatNote = `${outlined ? `The outlined block is ${outlined}. ` : ""}Darker means more of you are free, and each dot is one person — hover a day to see who.`;
+      ? `The outlined block is ${formatRange(lockedStart, lockedEnd)}, the dates you confirmed. Darker days mean more people free.`
+      : answeredCount <= 1 && iHaveAnswered
+        ? "Your days only. Everyone else's marks stack on top of these as they answer."
+        : proposal
+          ? `The outlined block is where ${
+              proposal.score >= totalMembers ? `all ${totalMembers}` : `${proposal.score}`
+            } of you are free. Darker days mean more people free.`
+          : "Darker days mean more people free.";
 
   const daysUntilStart = useMemo(() => {
     if (!datesLockedAt || !lockedStart) return null;
@@ -593,7 +595,7 @@ export function DatesBoard({
                         className={`mx-auto flex h-10 w-full max-w-10 flex-col items-center justify-center gap-[3px] rounded-md text-[12.5px] text-ink-body ${
                           inProposal ? "outline outline-2 outline-offset-[-2px] outline-ink" : ""
                         }`}
-                        style={{ background: BUCKET_COLORS[bucket(cell.count, totalMembers)] }}
+                        style={{ background: heatColor(cell.count, totalMembers) }}
                       >
                         {Number(cell.iso.slice(-2))}
                         {free.length > 0 && (
@@ -619,7 +621,7 @@ export function DatesBoard({
           <div className="mt-5 flex max-w-[780px] items-start gap-3 rounded-xl border border-warm-border bg-warm-bg px-4.5 py-3.5">
             <span
               className="mt-px h-5.5 w-5.5 flex-none rounded-md outline outline-2 outline-offset-[-2px] outline-ink"
-              style={{ background: BUCKET_COLORS[4] }}
+              style={{ background: HEAT }}
             />
             <p className="text-[15px] leading-[1.55] text-ink-body">{heatNote}</p>
           </div>
