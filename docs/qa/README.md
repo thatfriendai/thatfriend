@@ -22,6 +22,19 @@ less often. Each layer catches a different kind of bug:
 
 `npm run qa` runs the first three rows locally. Run it before you push.
 
+## Every day
+
+Two things run daily against `main` without anyone starting them:
+
+- **Nightly QA workflow** (`.github/workflows/nightly.yml`, 12:00 UTC):
+  lint, typecheck, unit tests, a build and the SMS classifier eval. It also
+  runs the full e2e suite once the `STAGING_BASE_URL` secret points at a
+  staging deploy. GitHub emails you when a run fails.
+- **Daily QA agent** (a Claude Code routine): runs `/qa sweep` on the
+  latest `main`. It opens a PR for any P0 or P1 fixes, and it updates
+  KNOWN_ISSUES.md with anything it finds but doesn't fix. It never touches
+  production. Manage it in claude.ai → Code → Routines.
+
 ## The cast and the trips
 
 [`qa/fixtures.ts`](../../qa/fixtures.ts) defines ten personas and eleven trip
