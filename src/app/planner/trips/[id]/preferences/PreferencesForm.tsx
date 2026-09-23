@@ -66,11 +66,19 @@ export function PreferencesForm({
     }
 
     if (!datesLocked) {
-      await fetch(`/api/v2/trips/${tripId}/availability`, {
+      // Budgets are saved by now, but don't move on to the group view as if
+      // the dates were too — stay here so they can be resubmitted.
+      const availabilityRes = await fetch(`/api/v2/trips/${tripId}/availability`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ dates: availableDates }),
-      });
+      }).catch(() => null);
+      if (!availabilityRes?.ok) {
+        const data = await availabilityRes?.json().catch(() => ({}));
+        setError(data?.error ?? "Your budget saved, but your dates didn't. Try again.");
+        setPending(false);
+        return;
+      }
     }
 
     router.push(`/planner/trips/${tripId}/convergence`);

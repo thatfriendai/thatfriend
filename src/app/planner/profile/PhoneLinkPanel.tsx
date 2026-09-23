@@ -62,7 +62,9 @@ export function PhoneLinkPanel({
     const res = await fetch("/api/v2/auth/verify-phone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: phone.trim(), code: code.trim() }),
+      // link: attach this number to the signed-in account — verify-phone
+      // otherwise treats a verified code as "sign in as this number."
+      body: JSON.stringify({ phone: phone.trim(), code: code.trim(), link: true }),
     });
     const data = await res.json().catch(() => ({}));
     setPending(false);

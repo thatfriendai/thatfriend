@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { notifyTrip } from "@/lib/planner/notify";
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+import { tripRangeError } from "@/lib/planner/calendarDate";
+import { earliestProposableDate } from "@/lib/planner/dates";
 
 function shortDates(start: string, end: string) {
   const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
@@ -36,10 +36,16 @@ export async function POST(
   }
 
   const body = await request.json().catch(() => ({}));
-  const startDate = typeof body.start_date === "string" ? body.start_date : null;
-  const endDate = typeof body.end_date === "string" ? body.end_date : null;
-  if (!startDate || !endDate || !DATE_RE.test(startDate) || !DATE_RE.test(endDate) || startDate > endDate) {
-    return NextResponse.json({ error: "start_date and end_date are required and must be a valid range." }, { status: 400 });
+  const rangeError = tripRangeError(body.start_date, body.end_date);
+  if (rangeError) return NextResponse.json({ error: rangeError }, { status: 400 });
+  const startDate: string = body.start_date;
+  const endDate: string = body.end_date;
+  // Same one day of slack as the proposal itself (see earliestProposableDate).
+  // Keeping the current start is always fine — that's extending or trimming
+  // the end of a trip that's already underway.
+  const { data: current } = await admin.from("planner_trips").select("start_date").eq("id", tripId).maybeSingle();
+  if (startDate < earliestProposableDate() && startDate !== current?.start_date) {
+    return NextResponse.json({ error: "That start date has already passed — pick dates from today on." }, { status: 400 });
   }
 
   const { data: days } = await admin
@@ -57,7 +63,7 @@ export async function POST(
       .select("id", { count: "exact", head: true })
       .in("day_id", outOfRangeDayIds);
     if (count && count > 0) {
-      warning = `${count} planned item${count === 1 ? "" : "s"} fall outside the new dates and will stay on the plan, just off the active range.`;
+      warning = `${count} planned item${count === 1 ? "" : "s"} fall outside the new dates and will stay on the plan alongside the new dates.`;
     }
   }
 

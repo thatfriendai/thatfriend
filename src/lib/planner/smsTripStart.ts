@@ -5,6 +5,17 @@ import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { autoFriendTripMembers } from "./follows";
 import { toE164 } from "./phone";
 
+/**
+ * Whether the word after "join" was plausibly meant as a join code, so a
+ * miss deserves "that code doesn't match" instead of being read as a normal
+ * message. Codes are CITY + 3 characters and usually carry a digit; people
+ * who type one from a screen tend to keep it in caps. "join tomorrow" or
+ * "join them" in a group thread is conversation, not a typo'd code.
+ */
+export function looksLikeJoinCode(word: string): boolean {
+  return /\d/.test(word) || (word.length >= 4 && word === word.toUpperCase());
+}
+
 interface PlannerUserLite {
   id: string;
   phone: string | null;

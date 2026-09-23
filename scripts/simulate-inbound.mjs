@@ -7,19 +7,23 @@
  * numbers you text back DO get real invite texts (use Twilio's magic
  * numbers, +1 500 555 0006, to avoid that).
  *
+ * Targets the local dev server (http://localhost:3000) unless you pass
+ * --prod — with those real side effects, production has to be asked for.
+ *
  * Usage:
  *   node scripts/simulate-inbound.mjs "+15005550006" "hey, first time using that friend"
- *   node scripts/simulate-inbound.mjs "+12242969077" "is miami going to be expensive?" --local
+ *   node scripts/simulate-inbound.mjs "+12242969077" "is miami going to be expensive?" --prod
  */
 import { readFileSync } from "fs";
 import twilio from "twilio";
 
 const args = process.argv.slice(2);
-const local = args.includes("--local");
-const [from, ...rest] = args.filter((a) => a !== "--local");
+const prod = args.includes("--prod");
+// --local was the old opt-in to localhost; it's the default now, so accept and ignore it.
+const [from, ...rest] = args.filter((a) => a !== "--prod" && a !== "--local");
 const body = rest.join(" ");
 if (!from || !body) {
-  console.error('Usage: node scripts/simulate-inbound.mjs "+1XXXXXXXXXX" "message text" [--local]');
+  console.error('Usage: node scripts/simulate-inbound.mjs "+1XXXXXXXXXX" "message text" [--prod]');
   process.exit(1);
 }
 
@@ -29,7 +33,7 @@ for (const line of readFileSync(new URL("../.env.local", import.meta.url), "utf8
   if (m) env[m[1]] = m[2].replace(/^"|"$/g, "");
 }
 
-const base = local ? "http://localhost:3000" : "https://thatfriendapp.com";
+const base = prod ? "https://thatfriendapp.com" : "http://localhost:3000";
 const url = `${base}/api/v2/twilio`;
 const params = {
   From: from,

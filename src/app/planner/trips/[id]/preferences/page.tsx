@@ -3,6 +3,7 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { PreferencesForm } from "./PreferencesForm";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
+import { formatDateRange } from "@/lib/planner/calendarDate";
 
 const AVATAR_COLORS = DAY_COLORS;
 
@@ -73,7 +74,7 @@ export default async function PreferencesPage({
 
   const dateRange =
     trip.start_date && trip.end_date
-      ? `${new Date(trip.start_date + "T00:00:00").toLocaleDateString(undefined, { month: "long", day: "numeric" })} – ${new Date(trip.end_date + "T00:00:00").toLocaleDateString(undefined, { day: "numeric" })}`
+      ? formatDateRange(trip.start_date, trip.end_date, { month: "long", separator: " – " })
       : null;
 
   return (

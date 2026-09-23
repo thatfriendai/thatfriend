@@ -9,17 +9,9 @@ import type {
 } from "@/lib/supabase/planner-types";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 import { celebrateDecisionClosed } from "@/lib/planner/confetti";
+import { initialsOf } from "@/lib/planner/initials";
 
 const AVATAR_COLORS = DAY_COLORS;
-
-function initialsOf(name: string) {
-  return name
-    .split(/\s+/)
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
 
 interface OptionWithVotes extends PlannerDecisionOption {
   voters: { label: string }[];
@@ -72,6 +64,8 @@ export function DecisionDetail({
   const [notes, setNotes] = useState(initialNotes);
   const [draftNote, setDraftNote] = useState("");
   const [postingNote, setPostingNote] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [noteError, setNoteError] = useState<string | null>(null);
 
   const isOpen = decision.status === "open";
   const totalVotes = Object.values(optionVotes).reduce((n, v) => n + v.length, 0);
@@ -79,45 +73,68 @@ export function DecisionDetail({
   async function castVote(optionId: string) {
     if (!isOpen || voting) return;
     setVoting(true);
+    setError(null);
     const previous = myVote;
     setMyVote(optionId);
+    // `?? []` throughout: a stay option pasted in via StayMatrix after this
+    // page loaded has no entry in optionVotes yet, and spreading undefined
+    // would crash the page on the first vote for it.
     setOptionVotes((v) => {
       const next = { ...v };
-      if (previous) next[previous] = removeOne(next[previous], myLabel);
-      next[optionId] = [...next[optionId], { label: myLabel }];
+      if (previous) next[previous] = removeOne(next[previous] ?? [], myLabel);
+      next[optionId] = [...(next[optionId] ?? []), { label: myLabel }];
       return next;
     });
     if (!previous) setWaitingOn((list) => list.filter((l) => l !== myLabel));
 
-    const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/vote`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ option_id: optionId }),
-    });
-    setVoting(false);
-    if (!res.ok) {
+    const rollback = () => {
       setMyVote(previous);
       setOptionVotes((v) => {
         const next = { ...v };
-        next[optionId] = removeOne(next[optionId], myLabel);
-        if (previous) next[previous] = [...next[previous], { label: myLabel }];
+        next[optionId] = removeOne(next[optionId] ?? [], myLabel);
+        if (previous) next[previous] = [...(next[previous] ?? []), { label: myLabel }];
         return next;
       });
       if (!previous) setWaitingOn((list) => [...list, myLabel]);
+      setError("Your vote didn't go through. Try again.");
+    };
+
+    // try/finally so a dropped connection can't leave every vote button
+    // disabled until reload.
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/vote`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ option_id: optionId }),
+      });
+      if (!res.ok) rollback();
+    } catch {
+      rollback();
+    } finally {
+      setVoting(false);
     }
   }
 
   async function closeDecision() {
     if (closing) return;
     setClosing(true);
-    const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/close`, {
-      method: "POST",
-    });
-    setClosing(false);
-    if (!res.ok) return;
-    const data = await res.json();
-    setDecision(data.decision);
-    celebrateDecisionClosed();
+    setError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/close`, {
+        method: "POST",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't close this decision.");
+        return;
+      }
+      setDecision(data.decision);
+      celebrateDecisionClosed();
+    } catch {
+      setError("Couldn't close this decision.");
+    } finally {
+      setClosing(false);
+    }
   }
 
   async function addNote(e: React.FormEvent) {
@@ -125,16 +142,26 @@ export function DecisionDetail({
     const text = draftNote.trim();
     if (!text) return;
     setPostingNote(true);
-    const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/notes`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
-    setPostingNote(false);
-    if (!res.ok) return;
-    const data = await res.json();
-    setNotes((list) => [...list, { ...data.note, who: "You" }]);
-    setDraftNote("");
+    setNoteError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/notes`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        // The draft stays in the box so nothing typed is lost.
+        setNoteError(data.error ?? "Couldn't post that note.");
+        return;
+      }
+      setNotes((list) => [...list, { ...data.note, who: "You" }]);
+      setDraftNote("");
+    } catch {
+      setNoteError("Couldn't post that note.");
+    } finally {
+      setPostingNote(false);
+    }
   }
 
   return (
@@ -286,6 +313,7 @@ export function DecisionDetail({
                 Post
               </button>
             </form>
+            {noteError && <p className="text-[13px] text-red-700">{noteError}</p>}
           </div>
         </div>
 
@@ -307,6 +335,7 @@ export function DecisionDetail({
               >
                 {closing ? "Closing…" : "Close this decision"}
               </button>
+              {error && <p className="mt-3 text-[13px] text-red-700">{error}</p>}
             </>
           ) : (
             <div className="text-[14px] leading-relaxed text-body">

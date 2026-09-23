@@ -23,7 +23,7 @@ export default async function ProfilePage({
   searchParams: Promise<{ welcome?: string }>;
 }) {
   const user = await getPlannerUser();
-  if (!user) redirect("/planner/login");
+  if (!user) redirect("/planner/login?next=/planner/profile");
 
   const { welcome } = await searchParams;
   const isWelcome = welcome === "1";

@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
-
-const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+import { MAX_MARKS, sanitizeMarkDates, todayIn } from "@/lib/planner/calendarDate";
 
 export async function PUT(
   request: Request,
@@ -25,21 +24,31 @@ export async function PUT(
   }
 
   const body = await request.json().catch(() => ({}));
-  const dates = Array.isArray(body.dates)
-    ? [...new Set(body.dates.filter((d: unknown) => typeof d === "string" && DATE_RE.test(d)))]
-    : [];
+  const dates = sanitizeMarkDates(body.dates, todayIn());
+  if (!dates) {
+    return NextResponse.json({ error: `You can mark at most ${MAX_MARKS} days.` }, { status: 400 });
+  }
 
-  await admin
+  // Write the new set before removing anything, so a failed write leaves
+  // the person's previous marks intact instead of wiping them. The primary
+  // key (trip_id, user_id, date) makes re-inserting a kept day a no-op.
+  if (dates.length > 0) {
+    const rows = dates.map((date) => ({ trip_id: tripId, user_id: user.id, date }));
+    const { error } = await admin
+      .from("planner_availability_marks")
+      .upsert(rows, { onConflict: "trip_id,user_id,date", ignoreDuplicates: true });
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  // Then drop whatever they un-marked.
+  let removal = admin
     .from("planner_availability_marks")
     .delete()
     .eq("trip_id", tripId)
     .eq("user_id", user.id);
-
-  if (dates.length > 0) {
-    const rows = dates.map((date) => ({ trip_id: tripId, user_id: user.id, date }));
-    const { error } = await admin.from("planner_availability_marks").insert(rows);
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  }
+  if (dates.length > 0) removal = removal.not("date", "in", `(${dates.join(",")})`);
+  const { error: deleteError } = await removal;
+  if (deleteError) return NextResponse.json({ error: deleteError.message }, { status: 500 });
 
   return NextResponse.json({ dates });
 }

@@ -8,8 +8,12 @@ import { sendRatingPrompt } from "@/lib/planner/ratingCapture";
  * timestamp column they're about to set is still null.
  */
 export async function GET(request: Request) {
+  // Fail closed: with CRON_SECRET unset this used to run for anyone who
+  // hit the URL, texting real people on demand. Vercel sends
+  // "Authorization: Bearer $CRON_SECRET" on scheduled invocations once the
+  // env var exists in the project.
   const secret = process.env.CRON_SECRET;
-  if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 

@@ -38,7 +38,16 @@ function tabClass(on: boolean) {
   }`;
 }
 
-export function AuthPanel({ token, defaultMode = "email" }: { token?: string; defaultMode?: Mode }) {
+export function AuthPanel({
+  token,
+  next,
+  defaultMode = "email",
+}: {
+  token?: string;
+  /** Same-origin path to land on after sign-in (already validated by the page). */
+  next?: string;
+  defaultMode?: Mode;
+}) {
   const router = useRouter();
   const [mode, setMode] = useState<Mode>(defaultMode);
   const [cred, setCred] = useState("");
@@ -56,7 +65,11 @@ export function AuthPanel({ token, defaultMode = "email" }: { token?: string; de
     setGooglePending(true);
     setError(null);
     const supabase = createClient();
-    const redirectTo = `${window.location.origin}/api/v2/auth/callback${token ? `?token=${token}` : ""}`;
+    const params = new URLSearchParams();
+    if (token) params.set("token", token);
+    if (next) params.set("next", next);
+    const query = params.toString();
+    const redirectTo = `${window.location.origin}/api/v2/auth/callback${query ? `?${query}` : ""}`;
     const { error: oauthError } = await supabase.auth.signInWithOAuth({
       provider: "google",
       options: { redirectTo },
@@ -99,6 +112,7 @@ export function AuthPanel({ token, defaultMode = "email" }: { token?: string; de
             ? {
                 email: cred.trim(),
                 token,
+                next,
                 name: withName,
                 whatsapp_opt_in: withName ? waOptIn : undefined,
               }
@@ -134,7 +148,7 @@ export function AuthPanel({ token, defaultMode = "email" }: { token?: string; de
     const res = await fetch("/api/v2/auth/verify-phone", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ phone: cred.trim(), code }),
+      body: JSON.stringify({ phone: cred.trim(), code, next }),
     });
     const data = await res.json().catch(() => ({}));
     setVerifying(false);

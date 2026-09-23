@@ -40,6 +40,12 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   const admin = createAdminClient();
   const result = await acceptInviteToken(admin, user, token);
   if (result.outcome === "not_found") return NextResponse.json({ error: "That invite isn't valid anymore." }, { status: 404 });
+  if (result.outcome === "wrong_phone") {
+    return NextResponse.json(
+      { error: "This invite was texted to a different number. Ask whoever invited you for the trip's share link." },
+      { status: 403 }
+    );
+  }
   if (result.outcome === "error") return NextResponse.json({ error: result.error }, { status: 500 });
 
   return NextResponse.json({ tripId: result.tripId, outcome: result.outcome, redirect: `/planner/trips/${result.tripId}` });

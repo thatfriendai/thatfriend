@@ -3,28 +3,42 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createSessionForPhone } from "@/lib/planner/phoneSession";
 import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { toE164, isUSPhone } from "@/lib/planner/phone";
-import { getPlannerUser } from "@/lib/planner/session";
+import { getPlannerUser, safeNextPath } from "@/lib/planner/session";
 import { mergePlannerUsers } from "@/lib/planner/plannerUser";
 import { acceptInviteToken } from "@/lib/planner/joinLink";
+
+/** Wrong guesses allowed against one code before it's thrown away — 5 in a million is no real brute-force budget. */
+const MAX_CODE_ATTEMPTS = 5;
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const rawPhone = typeof body.phone === "string" ? body.phone.trim() : "";
   const code = typeof body.code === "string" ? body.code.trim() : "";
   const inviteToken = typeof body.token === "string" ? body.token : "";
+  // Only the profile page's "Add a phone number" (PhoneLinkPanel) sends
+  // this. Anywhere else — the login page opened while some other account
+  // is still signed in, a shared device — verifying a number means "sign
+  // me in as this number," and silently merging that number's whole
+  // account into whoever happened to be signed in would be both surprising
+  // and a way to absorb someone else's trips.
+  const linkToCurrentAccount = body.link === true;
+  const next = safeNextPath(typeof body.next === "string" ? body.next : null);
 
   const admin = createAdminClient();
 
   // The per-phone invite page (src/app/j/[token]) sends its token instead
   // of the number — the code row for that number carries the token, so
-  // (token, code) identifies it just as well as (phone, code) does.
+  // token identifies it just as well as the phone does. Resolved without
+  // the code, so a wrong guess still counts against that code's attempts
+  // below instead of just reading as "no such row."
   let phone = rawPhone ? toE164(rawPhone) : "";
   if (!phone && inviteToken && code) {
     const { data: tokenRow } = await admin
       .from("planner_whatsapp_codes")
       .select("phone")
       .eq("invite_token", inviteToken)
-      .eq("code", code)
+      .order("created_at", { ascending: false })
+      .limit(1)
       .maybeSingle();
     phone = tokenRow?.phone ?? "";
   }
@@ -39,24 +53,77 @@ export async function POST(request: Request) {
     );
   }
 
+  const currentUser = await getPlannerUser();
+  if (linkToCurrentAccount && !currentUser) {
+    return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+  }
+
+  // auth/code keeps one live code per phone. Looked up by phone alone (not
+  // phone + code) so a wrong guess can be counted against it.
   const { data: codeRow } = await admin
     .from("planner_whatsapp_codes")
     .select("*")
     .eq("phone", phone)
-    .eq("code", code)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (!codeRow || new Date(codeRow.expires_at) < new Date()) {
     return NextResponse.json({ error: "That code is wrong or has expired." }, { status: 400 });
   }
 
+  // `attempts` comes from supabase/migrations/2026-09-23-qa-hardening.sql.
+  // Every guess — right or wrong — is counted BEFORE the code is compared,
+  // with a compare-and-set on the old count, so a burst of parallel guesses
+  // can't all read attempts = 0 and each get a free try: only one request
+  // per count value wins, the rest are turned away without being checked.
+  if (typeof codeRow.attempts === "number") {
+    const attempts = codeRow.attempts + 1;
+    if (attempts > MAX_CODE_ATTEMPTS) {
+      await admin.from("planner_whatsapp_codes").delete().eq("id", codeRow.id);
+      return NextResponse.json(
+        { error: "Too many wrong tries — ask for a new code and try again." },
+        { status: 429 }
+      );
+    }
+    const { data: counted } = await admin
+      .from("planner_whatsapp_codes")
+      .update({ attempts })
+      .eq("id", codeRow.id)
+      .eq("attempts", codeRow.attempts)
+      .select("id");
+    if (!counted || counted.length === 0) {
+      return NextResponse.json({ error: "One moment — try that code again." }, { status: 429 });
+    }
+    if (codeRow.code !== code) {
+      if (attempts >= MAX_CODE_ATTEMPTS) {
+        await admin.from("planner_whatsapp_codes").delete().eq("id", codeRow.id);
+        return NextResponse.json(
+          { error: "Too many wrong tries — ask for a new code and try again." },
+          { status: 429 }
+        );
+      }
+      return NextResponse.json({ error: "That code is wrong or has expired." }, { status: 400 });
+    }
+  } else if (codeRow.code !== code) {
+    // Migration not run yet, so there's no column to count in — fail
+    // closed: one wrong guess burns the code (the person just asks for a
+    // new one) rather than leaving a 6-digit code open to unlimited guesses.
+    await admin.from("planner_whatsapp_codes").delete().eq("id", codeRow.id);
+    return NextResponse.json(
+      { error: "That code didn't match — ask for a new code and try again." },
+      { status: 400 }
+    );
+  }
+
   await admin.from("planner_whatsapp_codes").delete().eq("id", codeRow.id);
 
-  // Already signed in (e.g. linking a phone from the profile page) —
-  // attach this phone to the current account instead of creating a
-  // second, disconnected one and swapping out the active session.
-  const currentUser = await getPlannerUser();
-  if (currentUser) {
+  // Explicitly linking a phone from the profile page — attach it to the
+  // current account instead of creating a second, disconnected one and
+  // swapping out the active session. Without `link`, fall through to the
+  // plain sign-in below, which replaces whatever session this browser had
+  // with the phone's own account.
+  if (linkToCurrentAccount && currentUser) {
     const { data: staleAccount } = await admin
       .from("planner_users")
       .select("id, auth_user_id")
@@ -148,5 +215,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ redirect: needsProfile ? "/planner/profile?welcome=1" : "/planner/home" });
+  return NextResponse.json({ redirect: needsProfile ? "/planner/profile?welcome=1" : (next ?? "/planner/home") });
 }

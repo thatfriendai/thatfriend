@@ -1,0 +1,51 @@
+# Fast checks on every PR — the gate before anything reaches friends.
+# See docs/qa/README.md for the full QA process.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm test
+
+  intent-eval:
+    # Only when the SMS router could have changed — it calls the real model.
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - id: changed
+        run: |
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -qE 'src/lib/planner/(inboundIntent|smsVoice)\.ts|qa/fixtures\.ts|qa/evals/'; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v4
+        if: steps.changed.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+      - if: steps.changed.outputs.run == 'true'
+        run: npm ci
+      - if: steps.changed.outputs.run == 'true'
+        run: npm run eval:intent
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

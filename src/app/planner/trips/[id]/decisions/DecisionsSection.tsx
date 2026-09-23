@@ -21,13 +21,26 @@ function formatClosedDate(iso: string | null) {
 
 // A real sentence built from the actual per-option vote tally — never a
 // stand-in for reasoning nobody recorded. optionVotes is sorted highest
-// first (see page.tsx), so [0] is always the winner.
-function describeOutcome(optionVotes: { label: string; count: number }[]): string {
+// first (see page.tsx), but on a tie that order needn't match the option
+// the close route actually picked (the first-listed one), so the decided
+// option is moved to the front before reading [0] as the winner.
+function describeOutcome(
+  optionVotes: { label: string; count: number }[],
+  decidedLabel: string | null
+): string {
   const total = optionVotes.reduce((sum, o) => sum + o.count, 0);
   if (total === 0) return "No votes were cast before this closed.";
-  const [top, second] = optionVotes;
+  const decidedIndex = decidedLabel ? optionVotes.findIndex((o) => o.label === decidedLabel) : -1;
+  const ordered =
+    decidedIndex > 0
+      ? [optionVotes[decidedIndex], ...optionVotes.slice(0, decidedIndex), ...optionVotes.slice(decidedIndex + 1)]
+      : optionVotes;
+  const [top, second] = ordered;
   if (!second || second.count === 0) {
     return `Uncontested — ${top.count} vote${top.count === 1 ? "" : "s"}.`;
+  }
+  if (second.count === top.count) {
+    return `Tied ${top.count}–${second.count} with ${second.label}; it went to the option listed first.`;
   }
   return `${top.count} vote${top.count === 1 ? "" : "s"} to ${second.count} against ${second.label}.`;
 }
@@ -123,7 +136,10 @@ export function DecisionsSection({
             {openDecisions.map((d) => (
               <Link
                 key={d.id}
-                href={d.kind === "stay" ? `/planner/trips/${tripId}#stays` : `/planner/trips/${tripId}/decisions/${d.id}`}
+                // Every decision, stays included, links to its own page — the
+                // #stays section only renders the newest stay decision, so
+                // pointing older ones there left them unreachable.
+                href={`/planner/trips/${tripId}/decisions/${d.id}`}
                 className="flex items-center gap-4 rounded-xl border border-border bg-card px-5 py-4 transition-colors hover:border-input-border"
               >
                 <div className="h-4.5 w-4.5 flex-none rounded-[5px]" style={{ border: "1px solid #DDD6C8" }} />
@@ -162,7 +178,7 @@ export function DecisionsSection({
                 <div className="mb-1 font-mono text-[10px] tracking-[0.1em] text-positive uppercase">Outcome</div>
                 <div className="text-[15px] text-ink-body">{d.decidedLabel ?? d.title}</div>
               </div>
-              <p className="text-[13px] leading-relaxed text-muted">{describeOutcome(d.optionVotes)}</p>
+              <p className="text-[13px] leading-relaxed text-muted">{describeOutcome(d.optionVotes, d.decidedLabel)}</p>
               {d.kind !== "stay" && <ReopenButton tripId={tripId} decisionId={d.id} />}
             </div>
           ))}

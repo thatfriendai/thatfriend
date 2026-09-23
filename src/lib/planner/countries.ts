@@ -45,17 +45,25 @@ export function regionForCode(code: string): string | null {
 
 /**
  * Best-effort city guess from the same address — the segment before the
- * country, skipping anything that looks like a postal code or state
- * abbreviation ("FL 33101"). Callers should fall back to the trip's
- * destination text when this returns null.
+ * country, skipping anything that looks like a state abbreviation plus ZIP
+ * ("FL 33101"). Most of the world writes the postal code in the same
+ * segment as the city ("1100-414 Lisboa", "34430 İstanbul", "London SW1A
+ * 2AA"), so that's peeled off rather than skipping the whole segment —
+ * skipping it used to return the street instead. Callers should fall back
+ * to the trip's destination text when this returns null.
  */
 export function cityFromAddress(address: string | null): string | null {
   if (!address) return null;
   const segments = address.split(",").map((s) => s.trim()).filter(Boolean);
   for (let i = segments.length - 2; i >= 0; i--) {
     const seg = segments[i];
-    if (!seg || /^\d/.test(seg) || /^[A-Z]{2}\s*\d/.test(seg)) continue;
-    return seg;
+    if (/^[A-Z]{2}\s*\d/.test(seg)) continue;
+    const city = seg
+      .replace(/^\d[\d\s-]*\s+(?=\D)/, "")
+      .replace(/\s+[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}$/, "")
+      .trim();
+    if (!city || /^\d/.test(city)) continue;
+    return city;
   }
   return null;
 }

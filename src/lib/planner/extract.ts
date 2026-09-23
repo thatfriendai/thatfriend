@@ -19,37 +19,46 @@ const SYSTEM = `You pull out real, named places (restaurants, bars, museums, act
 async function runExtraction(
   content: Anthropic.MessageParam["content"]
 ): Promise<ExtractedPlace[]> {
-  const message = await client.messages.create({
-    model: "claude-sonnet-5",
-    max_tokens: 1200,
-    system: SYSTEM,
-    messages: [{ role: "user", content }],
-    tools: [
-      {
-        name: "record_places",
-        description: "Record the places found in the source.",
-        input_schema: {
-          type: "object",
-          properties: {
-            places: {
-              type: "array",
-              items: {
-                type: "object",
-                properties: {
-                  name: { type: "string" },
-                  kind: { type: "string", enum: KIND_NAMES },
-                  note: { type: "string" },
+  // A rate limit or overload here would otherwise throw all the way out of
+  // the SMS webhook. Finding nothing is the graceful version: a link is
+  // still kept as a resource, and a caption just doesn't produce a place.
+  let message: Anthropic.Message;
+  try {
+    message = await client.messages.create({
+      model: "claude-sonnet-5",
+      max_tokens: 1200,
+      system: SYSTEM,
+      messages: [{ role: "user", content }],
+      tools: [
+        {
+          name: "record_places",
+          description: "Record the places found in the source.",
+          input_schema: {
+            type: "object",
+            properties: {
+              places: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    kind: { type: "string", enum: KIND_NAMES },
+                    note: { type: "string" },
+                  },
+                  required: ["name", "kind", "note"],
                 },
-                required: ["name", "kind", "note"],
               },
             },
+            required: ["places"],
           },
-          required: ["places"],
         },
-      },
-    ],
-    tool_choice: { type: "tool", name: "record_places" },
-  });
+      ],
+      tool_choice: { type: "tool", name: "record_places" },
+    });
+  } catch (e) {
+    console.error("[extract] place extraction failed", e);
+    return [];
+  }
 
   const toolUse = message.content.find((b) => b.type === "tool_use");
   if (!toolUse || toolUse.type !== "tool_use") return [];

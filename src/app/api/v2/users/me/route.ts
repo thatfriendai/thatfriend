@@ -54,7 +54,7 @@ export async function PATCH(request: Request) {
       .eq("username", username)
       .neq("id", user.id)
       .maybeSingle();
-    if (taken) return NextResponse.json({ error: "That username is taken." }, { status: 400 });
+    if (taken) return NextResponse.json({ error: "That username is taken." }, { status: 409 });
     update.username = username;
   }
 
@@ -81,7 +81,15 @@ export async function PATCH(request: Request) {
     .select("*")
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // The availability check above can lose a race with someone claiming
+    // the same username at the same moment — the unique constraint is the
+    // real arbiter, so report it the same friendly way.
+    if (error.code === "23505" && update.username) {
+      return NextResponse.json({ error: "That username is taken." }, { status: 409 });
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
   return NextResponse.json({ user: data });
 }
 

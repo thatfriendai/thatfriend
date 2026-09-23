@@ -46,6 +46,18 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
     return fetchRef.current;
   }
 
+  // Something changed inside the board (marks saved, dates locked) — re-read
+  // so the board isn't left rendering the copy from before the change.
+  async function reload() {
+    fetchRef.current = null;
+    try {
+      setData(await prefetch());
+    } catch {
+      fetchRef.current = null;
+      setError("Could not load dates.");
+    }
+  }
+
   async function openModal() {
     setOpen(true);
     setError(null);
@@ -122,6 +134,7 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
                 answered={data.answered}
                 myMarks={data.myMarks}
                 freeByDate={data.freeByDate}
+                onChanged={reload}
               />
             )}
           </div>

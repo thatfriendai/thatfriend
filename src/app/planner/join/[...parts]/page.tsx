@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
-import { resolveInviteToken } from "@/lib/planner/joinLink";
+import { inviteIsForPhone, resolveInviteToken } from "@/lib/planner/joinLink";
 import { loadJoinPreview } from "@/lib/planner/joinPreview";
 import { JoinTripPreview } from "@/components/planner/JoinTripPreview";
 import { JoinTripButton } from "@/components/planner/JoinTripButton";
@@ -42,6 +42,13 @@ export default async function JoinPage({ params }: { params: Promise<{ parts: st
   const [preview, user] = await Promise.all([loadJoinPreview(admin, invite.tripId), getPlannerUser()]);
   if (!preview) notFound();
 
+  // A per-phone invite token only admits the number it was texted to (see
+  // acceptInviteToken). Signed out, /j/<token> is the page built for that —
+  // it texts the code straight to the invited number. Signed in as someone
+  // else, say so up front instead of offering a button that can't work.
+  if (invite.source === "phone" && !user) redirect(`/j/${encodeURIComponent(token)}`);
+  const wrongPhone = invite.source === "phone" && Boolean(user) && !inviteIsForPhone(invite.phone, user?.phone ?? null);
+
   let alreadyMember = false;
   if (user) {
     const { data: membership } = await admin
@@ -72,6 +79,11 @@ export default async function JoinPage({ params }: { params: Promise<{ parts: st
             Open {preview.tripName}
           </Link>
         </div>
+      ) : wrongPhone ? (
+        <p className="text-[15px] text-body">
+          This invite was texted to a different number than the one on your account. Ask whoever invited you for
+          the trip&rsquo;s share link.
+        </p>
       ) : (
         <JoinTripButton token={token} tripName={preview.tripName} signedIn={Boolean(user)} />
       )}

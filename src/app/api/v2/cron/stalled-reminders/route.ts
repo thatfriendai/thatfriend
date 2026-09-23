@@ -11,8 +11,12 @@ import { sendNudge, type NudgeStage } from "@/lib/planner/nudge";
  * just-created trip doesn't immediately text its last holdout.
  */
 export async function GET(request: Request) {
+  // Fail closed: with CRON_SECRET unset this used to run for anyone who
+  // hit the URL, texting real people on demand. Vercel sends
+  // "Authorization: Bearer $CRON_SECRET" on scheduled invocations once the
+  // env var exists in the project.
   const secret = process.env.CRON_SECRET;
-  if (secret && request.headers.get("authorization") !== `Bearer ${secret}`) {
+  if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -59,7 +63,11 @@ export async function GET(request: Request) {
       if (total < 2 || answered !== total - 1) continue;
 
       const result = await sendNudge(admin, trip, stage, "individual");
-      if (!("error" in result)) remindersSent[stage]++;
+      // Only a nudge that actually went out uses up this trip's one
+      // reminder — a failed send (Twilio down, holdout has no phone yet)
+      // is retried on the next daily run instead of silently never sent.
+      if ("error" in result || result.sentCount === 0) continue;
+      remindersSent[stage]++;
       await admin.from("planner_trips").update({ [sentColumn]: now.toISOString() }).eq("id", trip.id);
     }
   }

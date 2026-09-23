@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getPlannerUser } from "@/lib/planner/session";
+import { getPlannerUser, safeNextPath } from "@/lib/planner/session";
 import { completePendingEmailLink } from "@/lib/planner/emailLink";
 import { acceptInviteToken } from "@/lib/planner/joinLink";
 
@@ -11,6 +11,10 @@ export async function GET(request: Request) {
   const token = searchParams.get("token");
   const name = searchParams.get("name");
   const waOptIn = searchParams.get("wa") === "1";
+  // The page that sent them to /planner/login, threaded through the
+  // magic link / OAuth redirect. Anyone can craft this URL, so only a
+  // same-origin path is honored (see safeNextPath).
+  const next = safeNextPath(searchParams.get("next"));
 
   if (!code) {
     return NextResponse.redirect(`${origin}/planner/login?error=Could not sign in`);
@@ -55,5 +59,5 @@ export async function GET(request: Request) {
   // Same rule as phone sign-in: only a bare account (no name, no username)
   // is walked through profile setup; everyone else lands on the main page.
   const needsProfile = !plannerUser.username && !plannerUser.name;
-  return NextResponse.redirect(`${origin}${needsProfile ? "/planner/profile?welcome=1" : "/planner/home"}`);
+  return NextResponse.redirect(`${origin}${needsProfile ? "/planner/profile?welcome=1" : (next ?? "/planner/home")}`);
 }

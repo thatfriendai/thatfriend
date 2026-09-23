@@ -6,6 +6,7 @@ import { nearbyPlaces } from "./walkTime";
 export interface StayComparisonOption {
   id: string;
   label: string;
+  sub: string | null;
   source: string | null;
   url: string | null;
   image_url: string | null;
@@ -60,6 +61,21 @@ function markBest(
 }
 
 /**
+ * Per-person cost is only comparable when every priced option is in the
+ * same currency — "€90 beats $95" isn't something we can claim without an
+ * exchange rate. Options with no currency set are assumed to share the
+ * others' (that's how they're displayed, via the comparison's fallback).
+ */
+export function costsShareCurrency(options: Pick<StayComparisonOption, "per_person_per_night" | "currency">[]): boolean {
+  const currencies = new Set(
+    options
+      .filter((o) => o.per_person_per_night != null && o.currency)
+      .map((o) => o.currency!.trim().toUpperCase())
+  );
+  return currencies.size <= 1;
+}
+
+/**
  * Builds the derived comparison view for a 'stay' decision — the client
  * never recomputes any of this itself. party_size comes from the trip's
  * current membership count, not a stored number, so adding a traveller
@@ -102,6 +118,7 @@ export async function buildStayComparison(
     return {
       id: o.id,
       label: o.label,
+      sub: o.sub,
       source: o.source,
       url: o.url,
       image_url: o.image_url,
@@ -123,7 +140,7 @@ export async function buildStayComparison(
     };
   });
 
-  markBest(options, "per_person_per_night", "min", "cost");
+  if (costsShareCurrency(options)) markBest(options, "per_person_per_night", "min", "cost");
   markBest(options, "bathrooms", "max", "sleeping");
   markBest(options, "walk_minutes", "min", "location");
 

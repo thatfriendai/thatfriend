@@ -49,7 +49,9 @@ function countBy<T>(rows: T[], key: (row: T) => string) {
 }
 
 export default async function PublicProfilePage({ params }: { params: Promise<{ username: string }> }) {
-  const { username } = await params;
+  // Usernames are stored lowercase (users/me PATCH), but a shared or
+  // hand-typed link may not be — match case-insensitively instead of 404ing.
+  const username = (await params).username.toLowerCase();
   const viewer = await getPlannerUser();
   const admin = createAdminClient();
 
@@ -114,7 +116,11 @@ export default async function PublicProfilePage({ params }: { params: Promise<{ 
     isFollowing = Boolean(followRow);
     const viewerFriendIds = new Set(viewerFriends.map((f) => f.id));
     mutualFriendsCount = profileFriends.filter((f) => viewerFriendIds.has(f.id)).length;
-  } else if (viewer) {
+  }
+
+  // Someone else looking at this profile — what the owner's "N people
+  // looked at your profile" nudge counts. Never the owner's own visits.
+  if (viewer && !isSelf) {
     // Best-effort, non-blocking — a failed insert shouldn't break the page.
     void admin
       .from("planner_profile_views")

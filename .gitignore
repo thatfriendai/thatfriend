@@ -40,3 +40,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# QA — seeded ids and local test reports (see docs/qa/)
+/qa/.seed.json
+/qa/reports/

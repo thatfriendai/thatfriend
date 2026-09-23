@@ -1,18 +1,8 @@
 import "server-only";
+import { addDays, dateRange, todayIn } from "./calendarDate";
 
 const MIN_WINDOW = 2;
 const MAX_WINDOW = 10;
-
-function dateRange(start: string, end: string): string[] {
-  const dates: string[] = [];
-  const cur = new Date(start + "T00:00:00");
-  const last = new Date(end + "T00:00:00");
-  while (cur <= last) {
-    dates.push(cur.toISOString().slice(0, 10));
-    cur.setDate(cur.getDate() + 1);
-  }
-  return dates;
-}
 
 export interface DateProposal {
   start_date: string;
@@ -24,6 +14,26 @@ export interface DateProposal {
 export interface DateCoverageDay {
   date: string;
   count: number;
+}
+
+/**
+ * The earliest date a proposal (or a lock) may start on: yesterday, by the
+ * server's clock. A day of slack because the server's "today" is UTC —
+ * already tomorrow for someone in the Americas in the evening — and a
+ * proposal that starts a few hours in the past is harmless, whereas one
+ * built on last month's marks is not.
+ */
+export function earliestProposableDate(now: Date = new Date()): string {
+  return addDays(todayIn(undefined, now), -1);
+}
+
+/**
+ * Only the marks that can still become a trip. Days that have passed would
+ * otherwise keep scoring — a group that marked last weekend would be
+ * proposed last weekend — so they're dropped before computeDateProposal.
+ */
+export function upcomingMarks<T extends { date: string }>(marks: T[], earliest: string): T[] {
+  return marks.filter((m) => m.date >= earliest);
 }
 
 /**

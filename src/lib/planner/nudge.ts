@@ -67,7 +67,10 @@ export async function sendNudge(
       );
       return { sentCount: 1 };
     } catch (e) {
-      return { error: e instanceof Error ? e.message : "Could not send the group nudge." };
+      // The error goes back to a person (in the app, or texted into the
+      // group) — log Twilio's wording, don't show it.
+      console.error("group nudge failed", e);
+      return { error: "Could not send the group nudge — try again in a bit." };
     }
   }
 

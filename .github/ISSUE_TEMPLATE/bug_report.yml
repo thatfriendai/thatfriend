@@ -1,0 +1,46 @@
+name: Bug report (friends beta)
+description: Something broke, looked wrong, or was confusing.
+labels: ["bug", "beta"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What you did, what you expected, and what happened instead.
+      placeholder: |
+        1. Opened the invite link from iMessage
+        2. Tapped "Join"
+        3. Expected to see the trip, got a blank page
+    validations:
+      required: true
+  - type: dropdown
+    id: where
+    attributes:
+      label: Where were you?
+      options:
+        - Web app on my phone
+        - Web app opened from a text (inside iMessage/WhatsApp)
+        - Web app on a computer
+        - Texting That Friend (1:1)
+        - The group text thread
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone / browser
+      placeholder: iPhone 15, Safari — or Pixel 8, Chrome
+  - type: input
+    id: trip
+    attributes:
+      label: Trip name (and roughly when it happened)
+      placeholder: Austin weekend, yesterday ~9pm
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or screen recording
+      description: Drag files here — even a blurry photo helps.
+  - type: markdown
+    attributes:
+      value: |
+        **For triage (maintainers):** severity P0/P1/P2, persona × trip × screen repro from `qa/fixtures.ts`, and the regression test that now covers it. See docs/qa/README.md.

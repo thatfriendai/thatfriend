@@ -61,7 +61,8 @@ export async function computeHomeAttention(admin: SupabaseClient, userId: string
     for (const d of decisionRows ?? []) {
       const deadline = Date.parse(d.deadline as string);
       const voted = (d.planner_decision_votes as { user_id: string }[] | null)?.some((v) => v.user_id === userId);
-      if (deadline <= in48h && !voted) {
+      // Already-passed deadlines aren't "closing soon" (matches attention.ts).
+      if (deadline > Date.now() && deadline <= in48h && !voted) {
         decisionItems.push({
           id: `decision-${d.id}`,
           title: `${d.title} closes soon`,

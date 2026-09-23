@@ -73,38 +73,47 @@ export function NewTripForm({
     setPending(finishLater ? "later" : "invite");
     setError(null);
 
-    const res = await fetch("/api/v2/trips", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        name,
-        destination: undecidedDestination ? "" : destination,
-        available_dates: availableDates,
-        trip_type: tripType,
-        budget_band: band,
-        privacy,
-      }),
-    });
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error ?? "Could not create trip.");
-      setPending(null);
-      return;
-    }
-
-    if (!finishLater && invitees.length > 0) {
-      await fetch(`/api/v2/trips/${data.trip.id}/invites`, {
+    // try/finally so a network error can't leave both buttons stuck on
+    // "Creating…" until reload.
+    try {
+      const res = await fetch("/api/v2/trips", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(
-          invitees.map((v) => (v.includes("@") ? { email: v } : { phone: v }))
-        ),
+        body: JSON.stringify({
+          name,
+          destination: undecidedDestination ? "" : destination,
+          available_dates: availableDates,
+          trip_type: tripType,
+          budget_band: band,
+          privacy,
+        }),
       });
-    }
+      // An HTML 500 page isn't JSON — fall back to the generic message.
+      const data = await res.json().catch(() => ({}));
 
-    setPending(null);
-    setCreated({ id: data.trip.id, joinToken: data.joinToken, finishLater });
+      if (!res.ok) {
+        setError(data.error ?? "Could not create trip.");
+        return;
+      }
+
+      if (!finishLater && invitees.length > 0) {
+        // The trip exists either way; a failed invite send shouldn't hide
+        // that (the share link on the next screen still works).
+        await fetch(`/api/v2/trips/${data.trip.id}/invites`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            invitees.map((v) => (v.includes("@") ? { email: v } : { phone: v }))
+          ),
+        }).catch(() => null);
+      }
+
+      setCreated({ id: data.trip.id, joinToken: data.joinToken, finishLater });
+    } catch {
+      setError("Could not create trip. Check your connection and try again.");
+    } finally {
+      setPending(null);
+    }
   }
 
   if (created) {

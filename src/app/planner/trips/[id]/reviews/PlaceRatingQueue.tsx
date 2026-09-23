@@ -33,6 +33,7 @@ export function PlaceRatingQueue({
   const [draftRating, setDraftRating] = useState(0);
   const [draftBody, setDraftBody] = useState("");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const ratedCount = visits.filter((v) => myRatings[v.id]).length;
   const current = index < visits.length ? visits[index] : null;
@@ -48,19 +49,30 @@ export function PlaceRatingQueue({
   async function submit() {
     if (!current || draftRating < 1) return;
     setSaving(true);
-    const res = await fetch(`/api/v2/trips/${tripId}/places/${current.id}/rating`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rating: draftRating, body: draftBody.trim() || undefined }),
-    });
-    setSaving(false);
-    if (!res.ok) return;
-    setMyRatings((m) => ({ ...m, [current.id]: { rating: draftRating, body: draftBody.trim() || null } }));
-    advance();
+    setError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/places/${current.id}/rating`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rating: draftRating, body: draftBody.trim() || undefined }),
+      });
+      if (!res.ok) {
+        // Stay on this place with the stars and line intact to retry.
+        setError("Couldn't save that rating. Try again.");
+        return;
+      }
+      setMyRatings((m) => ({ ...m, [current.id]: { rating: draftRating, body: draftBody.trim() || null } }));
+      advance();
+    } catch {
+      setError("Couldn't save that rating. Try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   function skip() {
     if (!current) return;
+    setError(null);
     setSkipped((s) => new Set(s).add(current.id));
     advance();
   }
@@ -149,6 +161,7 @@ export function PlaceRatingQueue({
             <button type="button" onClick={skip} className="text-[13px] text-muted hover:text-ink">
               Skip this one
             </button>
+            {error && <span className="text-[13px] text-red-700">{error}</span>}
           </div>
         </div>
       )}

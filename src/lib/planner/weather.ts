@@ -1,4 +1,5 @@
 import "server-only";
+import { addDays, todayIn } from "./calendarDate";
 
 /**
  * The one-line forecast on each itinerary day — "24° sunny · sunset 19:32".
@@ -47,8 +48,12 @@ export async function forecastForDays(
   days: { date: string; city: string | null }[],
   destination: string | null
 ): Promise<Record<string, string>> {
-  const today = new Date().toISOString().slice(0, 10);
-  const horizon = new Date(Date.now() + (FORECAST_DAYS - 1) * 86400000).toISOString().slice(0, 10);
+  // Calendar-date math, not instants: `toISOString()` is UTC, which drops
+  // "today" from the window for anyone west of UTC late in the evening.
+  // A day of slack before today covers the server's clock being ahead of
+  // the destination's (Open-Meteo still returns yesterday with timezone=auto).
+  const today = addDays(todayIn(), -1);
+  const horizon = addDays(todayIn(), FORECAST_DAYS - 1);
   const inRange = days.filter((d) => d.date >= today && d.date <= horizon);
   if (inRange.length === 0) return {};
 

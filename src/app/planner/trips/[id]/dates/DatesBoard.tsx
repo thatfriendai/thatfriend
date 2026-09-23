@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { daysBetween } from "@/lib/planner/calendarDate";
 import { AvailabilityCalendar } from "@/components/planner/AvailabilityCalendar";
 import { CopyJoinCode } from "../CopyJoinCode";
 import { celebrateDecisionClosed } from "@/lib/planner/confetti";
@@ -89,6 +90,7 @@ export function DatesBoard({
   answered,
   myMarks,
   freeByDate,
+  onChanged,
 }: {
   tripId: string;
   tripName: string;
@@ -109,12 +111,27 @@ export function DatesBoard({
   answered: { userId: string; label: string; answeredAt: string | null }[];
   myMarks: string[];
   freeByDate: Record<string, string[]>;
+  /**
+   * Called after anything here changes the dates. The standalone page gets
+   * fresh props from router.refresh(), but the trip-page modal renders
+   * this from its own fetched copy — without re-reading it, the modal kept
+   * offering "Confirm these dates" after they were confirmed.
+   */
+  onChanged?: () => Promise<void> | void;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [localMarks, setLocalMarks] = useState<string[]>(myMarks);
   const [savingMarks, setSavingMarks] = useState(false);
   const [locking, setLocking] = useState(false);
+  // A ref, not just the `locking` state: two quick clicks both run before
+  // React re-renders the button disabled, and each lock texts the group.
+  const lockInFlight = useRef(false);
+  // Fresh lock state from the server (locked here, or unlocked from another
+  // tab or the modal) means any in-flight lock has landed.
+  useEffect(() => {
+    lockInFlight.current = false;
+  }, [datesLockedAt]);
   const [showFlag, setShowFlag] = useState(false);
   const [flagDraft, setFlagDraft] = useState("");
   const [flagReasonPick, setFlagReasonPick] = useState<DateFlagReason | null>(null);
@@ -152,13 +169,17 @@ export function DatesBoard({
             } of you are free. Darker days mean more people free.`
           : "Darker days mean more people free.";
 
-  const daysUntilStart = useMemo(() => {
-    if (!datesLockedAt || !lockedStart) return null;
-    const todayIso = new Date().toISOString().slice(0, 10);
-    if (lockedStart < todayIso) return null;
-    const ms = new Date(lockedStart + "T00:00:00").getTime() - new Date(todayIso + "T00:00:00").getTime();
-    return Math.round(ms / 86400000);
-  }, [datesLockedAt, lockedStart]);
+  // Counted from the local today above, not UTC's — which is already
+  // tomorrow in the evening across the Americas.
+  const daysUntilStart =
+    !datesLockedAt || !lockedStart || lockedStart < todayLocal ? null : daysBetween(todayLocal, lockedStart);
+
+  // Re-read whatever renders this (the modal's copy, via onChanged) as
+  // well as the server page behind it.
+  async function refreshAll() {
+    await onChanged?.();
+    router.refresh();
+  }
 
   async function nudgeAvailability() {
     setNudging(true);
@@ -187,43 +208,49 @@ export function DatesBoard({
       return;
     }
     setEditing(false);
-    router.refresh();
+    await refreshAll();
+  }
+
+  async function lock(start: string, end: string) {
+    if (lockInFlight.current) return;
+    lockInFlight.current = true;
+    setLocking(true);
+    setError(null);
+    let ok = false;
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/dates/lock`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ start_date: start, end_date: end }),
+      });
+      ok = res.ok;
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setError(data.error ?? "Could not lock these dates.");
+      } else {
+        celebrateDecisionClosed();
+        await refreshAll();
+      }
+    } catch {
+      setError("Could not lock these dates — check your connection and try again.");
+    } finally {
+      setLocking(false);
+      // After a successful lock the guard stays up until the new props
+      // arrive (the effect on datesLockedAt below lowers it) — until then a
+      // stale "Confirm these dates" could be pressed again and re-text
+      // the group.
+      if (!ok) lockInFlight.current = false;
+    }
   }
 
   async function lockProposal() {
     if (!proposal) return;
-    setLocking(true);
-    setError(null);
-    const res = await fetch(`/api/v2/trips/${tripId}/dates/lock`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ start_date: proposal.start_date, end_date: proposal.end_date }),
-    });
-    setLocking(false);
-    if (!res.ok) {
-      setError("Could not lock these dates.");
-      return;
-    }
-    celebrateDecisionClosed();
-    router.refresh();
+    await lock(proposal.start_date, proposal.end_date);
   }
 
   async function lockManual() {
     if (!manualStart || !manualEnd) return;
-    setLocking(true);
-    setError(null);
-    const res = await fetch(`/api/v2/trips/${tripId}/dates/lock`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ start_date: manualStart, end_date: manualEnd }),
-    });
-    setLocking(false);
-    if (!res.ok) {
-      setError("Could not lock these dates.");
-      return;
-    }
-    celebrateDecisionClosed();
-    router.refresh();
+    await lock(manualStart, manualEnd);
   }
 
   async function unlock() {
@@ -235,7 +262,8 @@ export function DatesBoard({
       setError("Could not unlock dates.");
       return;
     }
-    router.refresh();
+    lockInFlight.current = false;
+    await refreshAll();
   }
 
   async function sendFlag() {
@@ -254,7 +282,7 @@ export function DatesBoard({
     setShowFlag(false);
     setFlagDraft("");
     setFlagReasonPick(null);
-    router.refresh();
+    await refreshAll();
   }
 
   return (

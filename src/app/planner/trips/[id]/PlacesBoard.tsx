@@ -17,12 +17,16 @@ export function PlacesBoard({
   places: initialPlaces,
   googleMapsApiKey,
   myDisplayName,
+  myUserId,
 }: {
   tripId: string;
   days: PlannerDay[];
   places: PlaceWithWho[];
   googleMapsApiKey: string;
   myDisplayName: string;
+  // Optional until the trip page passes it; "Added by me" falls back to
+  // comparing display names (wrong for two members with the same name).
+  myUserId?: string;
 }) {
   const [places, setPlaces] = useState(initialPlaces);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -32,17 +36,30 @@ export function PlacesBoard({
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
   const [groupNoteFor, setGroupNoteFor] = useState<string | null>(null);
   const [groupNoteDraft, setGroupNoteDraft] = useState("");
+  const [savingGroupNote, setSavingGroupNote] = useState(false);
+  const [placeError, setPlaceError] = useState<{ id: string; message: string } | null>(null);
 
   async function saveGroupNote(id: string) {
-    const res = await fetch(`/api/v2/trips/${tripId}/places/${id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ group_note: groupNoteDraft }),
-    });
-    setGroupNoteFor(null);
-    if (!res.ok) return;
-    const { place } = await res.json();
-    setPlaces((list) => list.map((p) => (p.id === id ? { ...p, group_note: place.group_note } : p)));
+    // Enter then the input's blur both call this — one save is enough.
+    if (savingGroupNote) return;
+    setSavingGroupNote(true);
+    setPlaceError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/places/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ group_note: groupNoteDraft }),
+      });
+      if (!res.ok) throw new Error();
+      const { place } = await res.json();
+      setPlaces((list) => list.map((p) => (p.id === id ? { ...p, group_note: place.group_note } : p)));
+      setGroupNoteFor(null);
+    } catch {
+      // The editor stays open with the draft still in it, so it can be retried.
+      setPlaceError({ id, message: "Couldn't save that note." });
+    } finally {
+      setSavingGroupNote(false);
+    }
   }
 
   function toggleFilter(f: string) {
@@ -68,19 +85,29 @@ export function PlacesBoard({
     return () => window.removeEventListener("open-add-modal", handler);
   }, []);
 
-  async function removePlace(id: string) {
+  async function removePlace(place: PlaceWithWho) {
+    // Deleting a place takes everyone's ratings of it along with it, and
+    // the × sits right next to the row — so ask first.
+    if (!window.confirm(`Remove "${place.name}" for everyone? Any ratings of it go too.`)) return;
+    const id = place.id;
     setRemovingId(id);
-    const res = await fetch(`/api/v2/trips/${tripId}/places/${id}`, { method: "DELETE" });
-    setRemovingId(null);
-    if (!res.ok) return;
-    setPlaces((list) => list.filter((p) => p.id !== id));
-    setSelectedId((current) => (current === id ? null : current));
+    setPlaceError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/places/${id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      setPlaces((list) => list.filter((p) => p.id !== id));
+      setSelectedId((current) => (current === id ? null : current));
+    } catch {
+      setPlaceError({ id, message: `Couldn't remove ${place.name}.` });
+    } finally {
+      setRemovingId(null);
+    }
   }
 
   const activeKinds = activeFilters.filter((f) => f !== MINE_FILTER) as PlaceKind[];
   const mineOnly = activeFilters.includes(MINE_FILTER);
   const visible = places.filter(
-    (p) => (activeKinds.length === 0 || activeKinds.includes(p.kind)) && (!mineOnly || p.who === myDisplayName)
+    (p) => (activeKinds.length === 0 || activeKinds.includes(p.kind)) && (!mineOnly || (myUserId ? p.added_by === myUserId : p.who === myDisplayName))
   );
 
   const groups = KIND_OPTIONS.map((k) => ({
@@ -261,12 +288,15 @@ export function PlacesBoard({
                           <div className="mt-1.5 font-mono text-[10.5px] text-muted">
                             <span>added by {p.who}</span>
                           </div>
+                          {placeError?.id === p.id && (
+                            <div className="mt-1 text-[12px] text-red-700">{placeError.message}</div>
+                          )}
                         </div>
                         <button
                           type="button"
                           onClick={(e) => {
                             e.stopPropagation();
-                            removePlace(p.id);
+                            removePlace(p);
                           }}
                           disabled={removingId === p.id}
                           aria-label={`Remove ${p.name}`}

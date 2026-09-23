@@ -4,8 +4,14 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendSmsText } from "@/lib/twilio/send";
 import { toE164, isUSPhone } from "@/lib/planner/phone";
+import { safeNextPath } from "@/lib/planner/session";
 
 const CODE_TTL_MS = 10 * 60 * 1000;
+// One text per number per minute. Each send is a real SMS we pay for and
+// a stranger's phone buzzing — without this, anyone could loop this
+// endpoint at someone's number. Also resets verify-phone's wrong-guess
+// counter, so it paces how fast fresh guesses can be bought, too.
+const RESEND_COOLDOWN_MS = 60 * 1000;
 
 async function phoneForInviteToken(token: string): Promise<string | null> {
   const { data } = await createAdminClient()
@@ -27,6 +33,9 @@ export async function POST(request: Request) {
   const phone = rawPhone ? toE164(rawPhone) : token && !email ? ((await phoneForInviteToken(token)) ?? "") : "";
   const name = typeof body.name === "string" ? body.name.trim() : "";
   const waOptIn = body.whatsapp_opt_in === true;
+  // Where the magic link should land after sign-in (the page that bounced
+  // them to /planner/login). Re-validated by the callback too.
+  const next = safeNextPath(typeof body.next === "string" ? body.next : null);
 
   if (!phone && !email && token) {
     return NextResponse.json({ error: "That invite isn't valid anymore." }, { status: 404 });
@@ -41,6 +50,23 @@ export async function POST(request: Request) {
     }
 
     const admin = createAdminClient();
+
+    const { data: recent } = await admin
+      .from("planner_whatsapp_codes")
+      .select("created_at")
+      .eq("phone", phone)
+      .gt("created_at", new Date(Date.now() - RESEND_COOLDOWN_MS).toISOString())
+      .limit(1)
+      .maybeSingle();
+    // A code went out under a minute ago — don't send another, but answer
+    // like a send so the page moves on to the code box. The usual way here
+    // is a slow SMS, a client timeout or a reload, and the code is already
+    // on their phone; a 429 left them stuck on "send code" with nowhere to
+    // type it.
+    if (recent) {
+      return NextResponse.json({ sent: true, cooldown: true });
+    }
+
     const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
     const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
 
@@ -59,6 +85,8 @@ export async function POST(request: Request) {
     try {
       await sendSmsText(phone, `Your That Friend sign-in code is ${code}. It expires in 10 minutes.`);
     } catch (e) {
+      // Nothing was delivered, so don't hold them to the resend cooldown.
+      await admin.from("planner_whatsapp_codes").delete().eq("phone", phone).eq("code", code);
       return NextResponse.json(
         { error: e instanceof Error ? e.message : "Could not send the sign-in code." },
         { status: 502 }
@@ -77,6 +105,7 @@ export async function POST(request: Request) {
   if (token) params.set("token", token);
   if (name) params.set("name", name);
   if (waOptIn) params.set("wa", "1");
+  if (next) params.set("next", next);
   const query = params.toString();
   const redirectTo = `${siteUrl}/api/v2/auth/callback${query ? `?${query}` : ""}`;
 

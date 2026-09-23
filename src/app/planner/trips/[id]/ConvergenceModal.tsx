@@ -3,6 +3,7 @@
 import { useState } from "react";
 import type { ConvergenceOverlap, ClusterCount } from "@/lib/planner/convergence";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
+import { leadingChars } from "@/lib/planner/initials";
 
 const DOT_COLORS = DAY_COLORS;
 
@@ -24,7 +25,9 @@ function OverlapBar({ overlap }: { overlap: ConvergenceOverlap }) {
   const positioned = overlap.dots.map((d) => {
     const tie = seen.get(d.value) ?? 0;
     seen.set(d.value, tie + 1);
-    const nudge = tie * 24 * (pct(d.value) > 60 ? -1 : 1);
+    // Capped at three steps: past that, extra tied dots stack on the last
+    // slot instead of marching 24px each off the edge of a phone screen.
+    const nudge = Math.min(tie, 3) * 24 * (pct(d.value) > 60 ? -1 : 1);
     return { ...d, left: pct(d.value), nudge };
   });
 
@@ -52,7 +55,7 @@ function OverlapBar({ overlap }: { overlap: ConvergenceOverlap }) {
               background: DOT_COLORS[i % DOT_COLORS.length],
             }}
           >
-            {d.name ? d.name.slice(0, 2).toUpperCase() : ""}
+            {d.name ? leadingChars(d.name) : ""}
           </div>
         ))}
       </div>

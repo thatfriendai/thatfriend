@@ -40,17 +40,20 @@ export async function GET(
     return NextResponse.json({ error: "This isn't an accommodation decision." }, { status: 400 });
   }
 
-  const { count: memberCount } = await admin
-    .from("planner_memberships")
-    .select("id", { count: "exact", head: true })
-    .eq("trip_id", tripId);
+  const [{ count: memberCount }, { data: trip }] = await Promise.all([
+    admin.from("planner_memberships").select("id", { count: "exact", head: true }).eq("trip_id", tripId),
+    admin.from("planner_trips").select("name").eq("id", tripId).maybeSingle(),
+  ]);
 
   // Live membership count, not the decision's stored party_size — so a
   // traveller joining or leaving mid-trip re-prices every option the next
   // time this is read, not just at decision-creation time.
   const partySize = memberCount ?? decision.party_size ?? 1;
   const comparison = await buildStayComparison(admin, tripId, decisionId, decision.nights, partySize);
-  const read = await generateStayRead(decision.title, comparison);
+  // generateStayRead wants the trip's name for its framing, not the
+  // decision's title ("Where we stay") — fall back to the title only if the
+  // trip row somehow isn't there.
+  const read = await generateStayRead(trip?.name ?? decision.title, comparison);
 
   return NextResponse.json({ ...comparison, read });
 }

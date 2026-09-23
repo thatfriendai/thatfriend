@@ -2,14 +2,18 @@ import Link from "next/link";
 import { AuthPanel } from "./AuthPanel";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { resolveInviteToken } from "@/lib/planner/joinLink";
+import { safeNextPath } from "@/lib/planner/session";
 import { TripPreviewCard } from "@/components/TripPreviewCard";
 
 export default async function PlannerLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string; error?: string }>;
+  searchParams: Promise<{ token?: string; error?: string; next?: string }>;
 }) {
-  const { token, error } = await searchParams;
+  const { token, error, next: rawNext } = await searchParams;
+  // Where to go after signing in — e.g. the trip page that bounced them
+  // here. Validated here and again server-side wherever it's acted on.
+  const next = safeNextPath(rawNext) ?? undefined;
 
   // Arriving from "Join <trip>" — keep the trip in view and lead with the
   // phone, since the tap they just made was about getting trip texts.
@@ -37,7 +41,7 @@ export default async function PlannerLoginPage({
               : "One box for both. Put in your email or your number and we'll take you to the right place. No password to forget, no app to download."}
           </p>
           {error && <p className="mb-4 text-sm text-red-700">{error}</p>}
-          <AuthPanel token={token} defaultMode={joiningTripName ? "phone" : "email"} />
+          <AuthPanel token={token} next={next} defaultMode={joiningTripName ? "phone" : "email"} />
           {!joiningTripName && (
             <p className="mt-6 text-[13px] text-faint">
               Invited by a friend? Use the same email they sent the link to.

@@ -57,17 +57,28 @@ function ItemRatingRow({
   const [stars, setStars] = useState(existing?.stars ?? 0);
   const [note, setNote] = useState(existing?.note ?? "");
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   async function save() {
     if (stars < 1) return;
     setSaving(true);
-    await fetch(`/api/v2/trips/${tripId}/itinerary/items/${item.id}/rating`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stars, note }),
-    });
-    setSaving(false);
-    router.refresh();
+    setError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/itinerary/items/${item.id}/rating`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stars, note }),
+      });
+      if (!res.ok) {
+        setError("Couldn't save that rating.");
+        return;
+      }
+      router.refresh();
+    } catch {
+      setError("Couldn't save that rating.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -90,6 +101,7 @@ function ItemRatingRow({
           {saving ? "Saving…" : "Save"}
         </button>
       </div>
+      {error && <p className="mt-2 text-[13px] text-red-700">{error}</p>}
     </div>
   );
 }
@@ -120,6 +132,7 @@ export function ReviewsBoard({
   const [pace, setPace] = useState<PaceFeedback | null>(myReview?.pace_feedback ?? null);
   const [savingReview, setSavingReview] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [reviewError, setReviewError] = useState<string | null>(null);
 
   const ratingsByItem = useMemo(() => {
     const map = new Map<string, Rating[]>();
@@ -136,14 +149,27 @@ export function ReviewsBoard({
 
   async function saveReview() {
     setSavingReview(true);
-    await fetch(`/api/v2/trips/${tripId}/review`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ stay_rating: stayRating || null, pace_feedback: pace }),
-    });
-    setSavingReview(false);
-    setSaved(true);
-    router.refresh();
+    setSaved(false);
+    setReviewError(null);
+    // "Saved." only once the server has actually said so.
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/review`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ stay_rating: stayRating || null, pace_feedback: pace }),
+      });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setReviewError(data.error ?? "Couldn't save that. Try again.");
+        return;
+      }
+      setSaved(true);
+      router.refresh();
+    } catch {
+      setReviewError("Couldn't save that. Try again.");
+    } finally {
+      setSavingReview(false);
+    }
   }
 
   const hasEnded = endDate ? endDate < new Date().toISOString().slice(0, 10) : false;
@@ -276,6 +302,7 @@ export function ReviewsBoard({
               {savingReview ? "Saving…" : "Save"}
             </button>
             {saved && <span className="text-[13px] text-accent">Saved.</span>}
+            {reviewError && <span className="text-[13px] text-red-700">{reviewError}</span>}
           </div>
         </div>
       </div>

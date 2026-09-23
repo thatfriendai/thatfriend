@@ -64,6 +64,7 @@ export function StayMatrix({
   const [pending, setPending] = useState(false);
   const [voting, setVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voteError, setVoteError] = useState<string | null>(null);
   const [diffsOnly, setDiffsOnly] = useState(false);
 
   const options = comparison.options;
@@ -80,12 +81,20 @@ export function StayMatrix({
     setComparison(data);
   }
 
+  // onVote rejects when the write fails; try/finally so a failed or
+  // dropped request can't leave every vote button disabled until reload.
   async function castVote(optionId: string) {
     if (!isOpen || voting) return;
     setVoting(true);
-    await onVote(optionId);
-    await refresh();
-    setVoting(false);
+    setVoteError(null);
+    try {
+      await onVote(optionId);
+      await refresh();
+    } catch {
+      setVoteError("Your vote didn't go through. Try again.");
+    } finally {
+      setVoting(false);
+    }
   }
 
   async function fetchCandidate(e: React.FormEvent) {
@@ -290,7 +299,13 @@ export function StayMatrix({
                   <div
                     key={o.id}
                     className="border-b border-l border-border p-4"
-                    style={{ background: isDecided ? "var(--color-positive)" : "var(--color-surface-warm)", opacity: isDecided ? 0.12 : 1 }}
+                    // The tint is a translucent background only — opacity on
+                    // the whole cell faded the winner's photo and name too.
+                    style={{
+                      background: isDecided
+                        ? "color-mix(in srgb, var(--color-positive) 12%, var(--color-surface-warm))"
+                        : "var(--color-surface-warm)",
+                    }}
                   >
                     {o.image_url && (
                       // eslint-disable-next-line @next/next/no-img-element
@@ -312,6 +327,7 @@ export function StayMatrix({
                     ) : (
                       <div className="mb-1 text-[14.5px] font-medium leading-tight text-ink">{o.label}</div>
                     )}
+                    {o.sub && <div className="mb-1 text-[12px] leading-snug text-muted">{o.sub}</div>}
                     {o.source && (
                       <div className="font-mono text-[9.5px] tracking-[0.08em] text-faint uppercase">{o.source}</div>
                     )}
@@ -469,6 +485,8 @@ export function StayMatrix({
               })}
             </div>
           </div>
+
+          {voteError && <p className="mt-3 text-[13px] text-red-700">{voteError}</p>}
 
           {comparison.read && (
             <div className="mt-4 rounded-xl border-t-2 border-border bg-surface-warm px-4.5 py-3.5 text-[14px] leading-relaxed text-ink-body">
