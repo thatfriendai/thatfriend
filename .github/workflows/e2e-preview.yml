@@ -23,7 +23,10 @@ jobs:
           URL: ${{ github.event.deployment_status.environment_url }}
           BYPASS: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: |
-          read -r code final < <(curl -s -o /dev/null -L -w '%{http_code} %{url_effective}' ${BYPASS:+-H "x-vercel-protection-bypass: $BYPASS"} "$URL/planner/login" || true)
+          # (no `read` here: curl's -w output has no trailing newline, so read exits 1 under bash -e)
+          out=$(curl -s -o /dev/null -L -w '%{http_code} %{url_effective}' ${BYPASS:+-H "x-vercel-protection-bypass: $BYPASS"} "$URL/planner/login" || true)
+          code=${out%% *}
+          final=${out#* }
           echo "preview answered $code at $final"
           if [[ "$code" != 2* || "$final" != "$URL"* ]]; then
             echo "::warning title=E2E skipped::The preview answered $code at $final instead of the app — usually Vercel Deployment Protection. Add the VERCEL_AUTOMATION_BYPASS_SECRET repo secret (Vercel → Project → Settings → Deployment Protection → Protection Bypass for Automation) to run e2e on previews."
