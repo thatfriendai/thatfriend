@@ -28,6 +28,8 @@ const caveat = Caveat({
 });
 
 export const metadata: Metadata = {
+  // So og:image and icon URLs come out absolute — link-preview fetchers need that.
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000"),
   title: "That Friend",
   description: "The group trip that actually happens.",
 };

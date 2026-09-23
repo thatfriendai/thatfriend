@@ -28,7 +28,8 @@ export async function generateMetadata({ params }: { params: Promise<{ parts: st
   if (!preview) return { title: "That Friend" };
   const title = `${preview.ownerName} invites you to ${preview.tripName}`;
   const description = [preview.dateRange, "Tap to join on That Friend"].filter(Boolean).join(" · ");
-  return { title, description, openGraph: { title, description, siteName: "That Friend" } };
+  const images = [{ url: `/api/og/invite/${encodeURIComponent(token)}`, width: 1200, height: 630, alt: title }];
+  return { title, description, openGraph: { title, description, siteName: "That Friend", images }, twitter: { card: "summary_large_image", images } };
 }
 
 export default async function JoinPage({ params }: { params: Promise<{ parts: string[] }> }) {
