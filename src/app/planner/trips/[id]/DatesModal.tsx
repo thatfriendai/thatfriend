@@ -3,28 +3,11 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { DatesBoard } from "./dates/DatesBoard";
+import type { DatesViewPayload } from "@/lib/planner/datesView";
 import { SlowLoadNotice } from "@/components/planner/SlowLoadNotice";
-import type { DateCoverageDay, DateProposal } from "@/lib/planner/dates";
 
-interface DatesPayload {
-  tripName: string;
-  isOwner: boolean;
-  myUserId: string;
-  joinCode: string | null;
-  smsNumber: string | null;
-  datesLockedAt: string | null;
-  lockedStart: string | null;
-  lockedEnd: string | null;
-  flagNote: string | null;
-  flagReason: string | null;
-  flaggedAt: string | null;
-  flaggedByName: string | null;
-  proposal: DateProposal | null;
-  coverage: DateCoverageDay[];
-  totalMembers: number;
-  answered: { userId: string; label: string; answeredAt: string | null }[];
-  myMarks: string[];
-}
+// Type-only: erased at build, so the server-only loader never reaches the client bundle.
+type DatesPayload = DatesViewPayload;
 
 export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRangeLabel: string }) {
   const router = useRouter();
@@ -138,6 +121,7 @@ export function DatesModal({ tripId, dateRangeLabel }: { tripId: string; dateRan
                 totalMembers={data.totalMembers}
                 answered={data.answered}
                 myMarks={data.myMarks}
+                freeByDate={data.freeByDate}
               />
             )}
           </div>

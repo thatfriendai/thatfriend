@@ -29,6 +29,9 @@ import { formatPhoneDisplay, toE164 } from "@/lib/planner/phone";
 import { generateToken } from "@/lib/planner/tokens";
 import { slugify } from "@/lib/planner/slug";
 import { computeAttention } from "@/lib/planner/attention";
+import { lastTimeFor } from "@/lib/planner/lessons";
+import { EssentialsCard } from "./EssentialsCard";
+import { LastTimeCard } from "./LastTimeCard";
 import type { PlannerItineraryItem, ResourceType } from "@/lib/supabase/planner-types";
 
 const AVATAR_COLORS = DAY_COLORS;
@@ -71,6 +74,8 @@ export default async function PlannerTripPage({
     { data: decisionRows },
     { data: pendingInviteRows },
     attention,
+    { data: essentialRows },
+    lastTime,
   ] = await Promise.all([
     admin.from("planner_memberships").select("role").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
     admin.from("planner_trips").select("*").eq("id", id).maybeSingle(),
@@ -102,6 +107,8 @@ export default async function PlannerTripPage({
       .gt("expires_at", new Date().toISOString())
       .order("created_at", { ascending: true }),
     computeAttention(admin, id, user.id),
+    admin.from("planner_trip_essentials").select("*").eq("trip_id", id).order("position", { ascending: true }),
+    lastTimeFor(admin, id),
   ]);
   if (!membership) notFound();
   if (!trip) notFound();
@@ -269,6 +276,7 @@ export default async function PlannerTripPage({
   }
 
   const today = new Date().toISOString().slice(0, 10);
+  const hasEnded = Boolean(trip.end_date && trip.end_date < today);
 
   const dateRange =
     trip.start_date && trip.end_date
@@ -321,7 +329,7 @@ export default async function PlannerTripPage({
               initialAvailableDates={(myAvailability ?? []).map((d) => d.date as string)}
             />
             <ConvergenceModal tripId={id} tripName={trip.name} hasAnsweredPreferences={Boolean(myPref)} />
-            {trip.end_date && trip.end_date < today && (
+            {hasEnded && (
               <Link
                 href={`/planner/trips/${id}/reviews`}
                 className="rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-ink hover:border-ink"
@@ -361,6 +369,18 @@ export default async function PlannerTripPage({
             </div>
           )}
         </div>
+
+        {!hasEnded && lastTime && (
+          <LastTimeCard sourceTripId={lastTime.tripId} label={lastTime.label} lessons={lastTime.lessons} />
+        )}
+
+        {!hasEnded && (
+          <EssentialsCard
+            tripId={id}
+            shareUrl={`${siteUrl}/planner/trips/${id}#essentials`}
+            initial={essentialRows ?? []}
+          />
+        )}
 
         <div className="mb-12">
           <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">

@@ -7,19 +7,12 @@ import { AvailabilityCalendar } from "@/components/planner/AvailabilityCalendar"
 import { CopyJoinCode } from "../CopyJoinCode";
 import { celebrateDecisionClosed } from "@/lib/planner/confetti";
 import type { DateCoverageDay, DateProposal } from "@/lib/planner/dates";
-import { DAY_COLORS } from "@/lib/planner/itinerary";
 import { DATE_FLAG_REASONS, type DateFlagReason } from "@/lib/supabase/planner-types";
 
-const AVATAR_COLORS = DAY_COLORS;
-
-function initialsOf(name: string) {
-  return name
-    .split(/\s+/)
-    .map((p) => p[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-}
+// One colour per person for the heatmap dots — the design's avatar set,
+// picked to stay distinct from each other at 5px. Green goes last since
+// the cells themselves are green.
+const PERSON_COLORS = ["#8A5A7A", "#C9A227", "#3F6E7A", "#B4664A", "#4A453E", "#6E7F8C", "#6E8C6A"];
 
 function formatRange(start: string, end: string) {
   const s = new Date(start + "T00:00:00");
@@ -28,10 +21,6 @@ function formatRange(start: string, end: string) {
   const sameMonth = s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear();
   if (sameMonth) return `${s.getDate()}–${e.getDate()} ${monthName(e)}`;
   return `${s.getDate()} ${monthName(s)} – ${e.getDate()} ${monthName(e)}`;
-}
-
-function formatShort(iso: string) {
-  return new Date(iso + "T00:00:00").toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
 function dayCount(start: string, end: string) {
@@ -100,6 +89,7 @@ export function DatesBoard({
   totalMembers,
   answered,
   myMarks,
+  freeByDate,
 }: {
   tripId: string;
   tripName: string;
@@ -119,6 +109,7 @@ export function DatesBoard({
   totalMembers: number;
   answered: { userId: string; label: string; answeredAt: string | null }[];
   myMarks: string[];
+  freeByDate: Record<string, string[]>;
 }) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
@@ -137,6 +128,8 @@ export function DatesBoard({
   const [nudgeResult, setNudgeResult] = useState<string | null>(null);
 
   const months = useMemo(() => buildHeatmapMonths(coverage), [coverage]);
+  const colorByUser = new Map(answered.map((m, i) => [m.userId, PERSON_COLORS[i % PERSON_COLORS.length]]));
+  const labelByUser = new Map(answered.map((m) => [m.userId, m.label]));
   const answeredCount = answered.filter((a) => a.answeredAt).length;
   const notAnswered = answered.filter((a) => !a.answeredAt && a.userId !== myUserId);
   const notAnsweredNames = joinNames(notAnswered.map((a) => firstName(a.label)));
@@ -145,6 +138,14 @@ export function DatesBoard({
   const isFull = Boolean(proposal && proposal.score >= totalMembers);
   const isSolo = !isFull && iHaveAnswered && answeredCount <= 1;
   const isPartial = !isFull && !isSolo && answeredCount > 0;
+
+  const outlined =
+    datesLockedAt && lockedStart && lockedEnd
+      ? `${formatRange(lockedStart, lockedEnd)}, the dates you confirmed`
+      : proposal
+        ? `${formatRange(proposal.start_date, proposal.end_date)}, the best stretch so far`
+        : null;
+  const heatNote = `${outlined ? `The outlined block is ${outlined}. ` : ""}Darker means more of you are free, and each dot is one person — hover a day to see who.`;
 
   const daysUntilStart = useMemo(() => {
     if (!datesLockedAt || !lockedStart) return null;
@@ -536,23 +537,26 @@ export function DatesBoard({
         <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
           <span className="font-mono text-[11px] text-faint">01</span>
           <span className="text-[25px] font-display text-ink">Who&rsquo;s free when</span>
-          <div className="ml-auto flex items-center gap-3 font-mono text-[10px] tracking-[0.06em] text-muted uppercase">
-            <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-sm border border-border-soft" style={{ background: BUCKET_COLORS[1] }} />
-              One or two
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BUCKET_COLORS[2] }} />
-              Some
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BUCKET_COLORS[3] }} />
-              Most
-            </span>
-            <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-sm" style={{ background: BUCKET_COLORS[4] }} />
-              All {totalMembers}
-            </span>
+          {/* The key is the roster: one colour per person, matching their dots
+              on each day. Anyone who hasn't marked days yet stays greyed out. */}
+          <div className="ml-auto flex flex-wrap items-center justify-end gap-x-3.5 gap-y-1.5">
+            {answered.map((m) => (
+              <span
+                key={m.userId}
+                className={`flex items-center gap-1.5 text-[12.5px] ${m.answeredAt ? "text-body" : "text-faint"}`}
+              >
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={
+                    m.answeredAt
+                      ? { background: colorByUser.get(m.userId) }
+                      : { border: "1px dashed #C0B8A8" }
+                  }
+                />
+                {firstName(m.label)}
+                {!m.answeredAt && " · not yet"}
+              </span>
+            ))}
           </div>
         </div>
 
@@ -577,16 +581,32 @@ export function DatesBoard({
                   {mo.cells.map((cell) => {
                     const inProposal =
                       proposal && cell.iso >= proposal.start_date && cell.iso <= proposal.end_date;
+                    const free = freeByDate[cell.iso] ?? [];
                     return (
                       <span
                         key={cell.iso}
-                        title={`${cell.count} of ${totalMembers} free`}
-                        className={`mx-auto flex h-7 w-7 items-center justify-center rounded-md text-[12.5px] text-ink-body ${
-                          inProposal ? "outline outline-2 outline-offset-[-2px] outline-accent" : ""
+                        title={
+                          free.length
+                            ? `Free: ${joinNames(free.map((u) => firstName(labelByUser.get(u) ?? "Someone")))}`
+                            : "Nobody free"
+                        }
+                        className={`mx-auto flex h-10 w-full max-w-10 flex-col items-center justify-center gap-[3px] rounded-md text-[12.5px] text-ink-body ${
+                          inProposal ? "outline outline-2 outline-offset-[-2px] outline-ink" : ""
                         }`}
                         style={{ background: BUCKET_COLORS[bucket(cell.count, totalMembers)] }}
                       >
                         {Number(cell.iso.slice(-2))}
+                        {free.length > 0 && (
+                          <span className="flex max-w-full flex-wrap justify-center gap-[2px] px-0.5">
+                            {free.map((u) => (
+                              <span
+                                key={u}
+                                className="h-[5px] w-[5px] rounded-full ring-1 ring-card"
+                                style={{ background: colorByUser.get(u) }}
+                              />
+                            ))}
+                          </span>
+                        )}
                       </span>
                     );
                   })}
@@ -595,35 +615,15 @@ export function DatesBoard({
             ))}
           </div>
         )}
-      </div>
-
-      <div className="mb-12">
-        <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
-          <span className="font-mono text-[11px] text-faint">02</span>
-          <span className="text-[25px] font-display text-ink">Everyone answered</span>
-          <span className="ml-auto text-[13.5px] text-muted">
-            {answeredCount} of {totalMembers} answered
-          </span>
-        </div>
-        <div className="flex flex-col gap-2">
-          {answered.map((m, i) => (
-            <div
-              key={m.userId}
-              className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
-            >
-              <div
-                className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] text-cream"
-                style={{ background: m.answeredAt ? AVATAR_COLORS[i % AVATAR_COLORS.length] : "#C0B8A8" }}
-              >
-                {initialsOf(m.label)}
-              </div>
-              <span className="text-[15px] text-ink-body">{m.label}</span>
-              <span className="ml-auto text-[12.5px] text-muted">
-                {m.answeredAt ? `Answered ${formatShort(m.answeredAt.slice(0, 10))}` : "Not yet"}
-              </span>
-            </div>
-          ))}
-        </div>
+        {months.length > 0 && (
+          <div className="mt-5 flex max-w-[780px] items-start gap-3 rounded-xl border border-warm-border bg-warm-bg px-4.5 py-3.5">
+            <span
+              className="mt-px h-5.5 w-5.5 flex-none rounded-md outline outline-2 outline-offset-[-2px] outline-ink"
+              style={{ background: BUCKET_COLORS[4] }}
+            />
+            <p className="text-[15px] leading-[1.55] text-ink-body">{heatNote}</p>
+          </div>
+        )}
       </div>
 
       <div className="border-t border-border pt-8">

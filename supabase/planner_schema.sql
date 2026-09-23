@@ -913,3 +913,56 @@ create index if not exists planner_guide_interactions_guide_idx on planner_guide
 
 alter table planner_guide_interactions enable row level security;
 grant all on planner_guide_interactions to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- Sept 23 — the live-trip additions from the That Friend.dc.html update.
+-- ---------------------------------------------------------------------------
+
+-- planner_trip_essentials — the pinned "Essentials" card on a trip: address,
+-- door code, Wi-Fi, host, emergency contact. One row per field so the group
+-- can add whatever their place actually needs. `stay` groups fields under a
+-- tab ("Lisbon" / "Lagos") on a multi-stay trip; null means the trip has
+-- one place and no tabs are shown.
+create table if not exists planner_trip_essentials (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  stay text,
+  label text not null check (char_length(label) between 1 and 60),
+  value text not null check (char_length(value) between 1 and 200),
+  sub text check (sub is null or char_length(sub) <= 200),
+  position integer not null default 0,
+  created_by uuid references planner_users (id) on delete set null,
+  created_at timestamptz not null default now()
+);
+create index if not exists planner_trip_essentials_trip_idx on planner_trip_essentials (trip_id);
+
+alter table planner_trip_essentials enable row level security;
+grant all on planner_trip_essentials to anon, authenticated, service_role;
+
+-- Plan B on a day: what the group does instead ("If it rains" → museum
+-- then the garden café). plan_b_active flips the day onto it; flipping
+-- texts the group once, which is what "everyone notified" on the day
+-- card refers to.
+alter table planner_days add column if not exists plan_b_when text;
+alter table planner_days add column if not exists plan_b_text text;
+alter table planner_days add column if not exists plan_b_active boolean not null default false;
+
+-- A place's group-size note: "Fit 15 of us, long tables", "Tables of 6
+-- max, no bookings". Whether a place works for this many people is the
+-- question a group actually has, and nothing else on the card answers it.
+alter table planner_places add column if not exists group_note text;
+
+-- planner_trip_lessons — "What would you do differently?", asked once on
+-- a past trip's Reviews page. Shown back as "Last time" on the next trip
+-- the same people plan together (see src/lib/planner/lessons.ts).
+create table if not exists planner_trip_lessons (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  user_id uuid not null references planner_users (id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 240),
+  created_at timestamptz not null default now()
+);
+create index if not exists planner_trip_lessons_trip_idx on planner_trip_lessons (trip_id);
+
+alter table planner_trip_lessons enable row level security;
+grant all on planner_trip_lessons to anon, authenticated, service_role;

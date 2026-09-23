@@ -30,6 +30,20 @@ export function PlacesBoard({
   const [addEntryMode, setAddEntryMode] = useState<"place" | "resource">("place");
   const [removingId, setRemovingId] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<string[]>([]);
+  const [groupNoteFor, setGroupNoteFor] = useState<string | null>(null);
+  const [groupNoteDraft, setGroupNoteDraft] = useState("");
+
+  async function saveGroupNote(id: string) {
+    const res = await fetch(`/api/v2/trips/${tripId}/places/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ group_note: groupNoteDraft }),
+    });
+    setGroupNoteFor(null);
+    if (!res.ok) return;
+    const { place } = await res.json();
+    setPlaces((list) => list.map((p) => (p.id === id ? { ...p, group_note: place.group_note } : p)));
+  }
 
   function toggleFilter(f: string) {
     setSelectedId(null);
@@ -198,6 +212,51 @@ export function PlacesBoard({
                           <div className="text-[15px] font-medium text-[#2B2825]">{p.name}</div>
                           {p.note && (
                             <div className="mt-0.5 line-clamp-1 text-[14.5px] text-body">{p.note}</div>
+                          )}
+                          {/* Whether it takes a group this size — the question the
+                              note and rating don't answer. Editable by anyone. */}
+                          {groupNoteFor === p.id ? (
+                            <input
+                              autoFocus
+                              value={groupNoteDraft}
+                              onClick={(e) => e.stopPropagation()}
+                              onChange={(e) => setGroupNoteDraft(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveGroupNote(p.id);
+                                if (e.key === "Escape") setGroupNoteFor(null);
+                              }}
+                              onBlur={() => saveGroupNote(p.id)}
+                              maxLength={120}
+                              placeholder="e.g. Took our booking for 12"
+                              className="mt-2 w-full rounded-full border border-[#DCE6E3] bg-card px-3 py-1 text-[12.5px] text-ink outline-none focus:border-[#43695C]"
+                            />
+                          ) : p.group_note ? (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setGroupNoteFor(p.id);
+                                setGroupNoteDraft(p.group_note ?? "");
+                              }}
+                              title="Edit"
+                              className="mt-2 inline-flex items-center rounded-full border border-[#DCE6E3] bg-[#F2F7F5] px-2.5 py-[3px] text-[12px] text-[#43695C]"
+                            >
+                              {p.group_note}
+                            </button>
+                          ) : (
+                            on && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setGroupNoteFor(p.id);
+                                  setGroupNoteDraft("");
+                                }}
+                                className="mt-1.5 block text-[12px] text-ink-soft hover:text-accent"
+                              >
+                                + Does it fit the group?
+                              </button>
+                            )
                           )}
                           <div className="mt-1.5 font-mono text-[10.5px] text-muted">
                             <span>added by {p.who}</span>

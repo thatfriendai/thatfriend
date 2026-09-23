@@ -203,6 +203,29 @@ export interface PlannerDay {
   date: string;
   city: string | null;
   color: string;
+  plan_b_when: string | null;
+  plan_b_text: string | null;
+  plan_b_active: boolean;
+}
+
+export interface PlannerTripEssential {
+  id: string;
+  trip_id: string;
+  stay: string | null;
+  label: string;
+  value: string;
+  sub: string | null;
+  position: number;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface PlannerTripLesson {
+  id: string;
+  trip_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
 }
 
 export interface PlannerItineraryItem {
@@ -232,6 +255,7 @@ export interface PlannerPlace {
   created_at: string;
   google_place_id: string | null;
   photo_url: string | null;
+  group_note: string | null;
 }
 
 export interface PlannerResource {
