@@ -17,9 +17,43 @@ function css(str: string): CSSProperties {
   return obj as CSSProperties;
 }
 
-const TODAY = 10; // September 2026, the 1st is a Tuesday
-const DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const dayName = (d: number) => DAY_NAMES[d % 7];
+// The demo's dates are counted in days from today, so it always offers a
+// real, forward-looking window — a fixed month goes stale (and blocked out
+// every date once the month ran out).
+const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS_AHEAD = 3;
+
+function startOfToday() {
+  const t = new Date();
+  return new Date(t.getFullYear(), t.getMonth(), t.getDate());
+}
+function dateAt(today: Date, offset: number) {
+  return new Date(today.getFullYear(), today.getMonth(), today.getDate() + offset);
+}
+function offsetOf(today: Date, d: Date) {
+  return Math.round((d.getTime() - today.getTime()) / 86400000);
+}
+function dayMonth(today: Date, offset: number) {
+  const d = dateAt(today, offset);
+  return `${d.getDate()} ${d.toLocaleDateString("en-US", { month: "short" })}`;
+}
+function ordinal(n: number) {
+  const s = n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] ?? "th";
+  return `${n}${s}`;
+}
+/** "19 to 27 Sep", or "28 Sep to 3 Oct" across a month boundary. */
+function rangeText(today: Date, a: number, b: number) {
+  const da = dateAt(today, a);
+  const db = dateAt(today, b);
+  return da.getMonth() === db.getMonth() ? `${da.getDate()} to ${dayMonth(today, b)}` : `${dayMonth(today, a)} to ${dayMonth(today, b)}`;
+}
+
+// The three friends' windows, as offsets from today. All four overlap on
+// JONAH_FROM..MAYA_TO — five nights, a couple of weeks out.
+const MAYA_FROM = 10;
+const MAYA_TO = 18;
+const PRIYA_FROM = 9;
+const JONAH_FROM = 13;
 
 interface Person {
   name: string;
@@ -34,11 +68,13 @@ const PEOPLE: Record<string, Person> = {
   you: { name: "You", initials: "YOU", color: "#8A5A7A" },
 };
 
-const AVAIL = [
-  { key: "maya", window: "19 to 27 Sept" },
-  { key: "priya", window: "Any time after the 18th" },
-  { key: "jonah", window: "Only the 22nd onwards" },
-];
+function availability(today: Date) {
+  return [
+    { key: "maya", window: rangeText(today, MAYA_FROM, MAYA_TO) },
+    { key: "priya", window: `Any time after the ${ordinal(dateAt(today, PRIYA_FROM).getDate())}` },
+    { key: "jonah", window: `Only the ${ordinal(dateAt(today, JONAH_FROM).getDate())} onwards` },
+  ];
+}
 
 interface Stay {
   id: string;
@@ -271,6 +307,11 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   // 4 the finished itinerary — the .5 states are their own full screens
   // between each decision, not just a recap bar.
   const [step, setStep] = useState(0);
+  // Only read once the demo reaches the dates step, after hydration, so the
+  // statically rendered page never bakes in the build day.
+  const [today] = useState(startOfToday);
+  const [viewMonth, setViewMonth] = useState(0);
+  const dayName = (offset: number) => DAY_NAMES[dateAt(today, offset).getDay()];
   const [start, setStart] = useState<number | null>(null);
   const [end, setEnd] = useState<number | null>(null);
   const [hover, setHover] = useState<number | null>(null);
@@ -344,13 +385,13 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
 
   // the range everyone can actually make
   function resolved() {
-    let a = start === null ? 19 : start;
-    let b = end === null ? 27 : end;
-    a = Math.max(a, 22, TODAY);
-    b = Math.min(b, 27);
+    let a = start === null ? MAYA_FROM : start;
+    let b = end === null ? MAYA_TO : end;
+    a = Math.max(a, JONAH_FROM);
+    b = Math.min(b, MAYA_TO);
     if (b - a < 2) {
-      a = 22;
-      b = 27;
+      a = JONAH_FROM;
+      b = MAYA_TO;
     }
     return { start: a, end: b, nights: b - a };
   }
@@ -358,8 +399,8 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   function runAll(e: React.MouseEvent) {
     e.preventDefault();
     const k = 1 / (autoplaySpeed ?? 1);
-    setStart(19);
-    setEnd(27);
+    setStart(MAYA_FROM);
+    setEnd(MAYA_TO);
     setStep(1.5);
     setConfetti(true);
     later(() => setConfetti(false), 1600 * k);
@@ -379,14 +420,18 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   const r = resolved();
   const selEnd = end === null ? hover : end;
 
+  // One month at a time, Monday-first, pageable up to MONTHS_AHEAD ahead.
+  const monthStart = new Date(today.getFullYear(), today.getMonth() + viewMonth, 1);
+  const monthLabel = monthStart.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const lead = (monthStart.getDay() + 6) % 7;
+  const monthLen = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0).getDate();
   const days = [];
-  for (let i = 0; i < 35; i++) {
-    const d = i < 1 || i > 30 ? null : i;
-    if (d === null) {
-      days.push({ key: i, label: "", disabled: true, style: css("height:29px;border:none;background:transparent") });
-      continue;
-    }
-    const past = d < TODAY;
+  for (let i = 0; i < lead; i++) {
+    days.push({ key: `b${i}`, label: "", disabled: true, d: undefined as number | undefined, style: css("height:29px;border:none;background:transparent") });
+  }
+  for (let n = 1; n <= monthLen; n++) {
+    const d = offsetOf(today, new Date(monthStart.getFullYear(), monthStart.getMonth(), n));
+    const past = d < 0;
     const isEnd = d === start || d === selEnd;
     const inRange = start !== null && selEnd !== null && d > Math.min(start, selEnd) && d < Math.max(start, selEnd);
     let style = "height:29px;border:none;border-radius:7px;font-size:12.5px;padding:0;";
@@ -394,7 +439,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
     else if (isEnd) style += "background:#8A5A7A;color:#FFFDF9;cursor:pointer;";
     else if (inRange) style += "background:#F3EAF0;color:#2B2825;cursor:pointer;";
     else style += "background:transparent;color:#4A453E;cursor:pointer;";
-    days.push({ key: i, label: String(d), disabled: past, d, style: css(style) });
+    days.push({ key: `d${n}`, label: String(n), disabled: past, d: past ? undefined : d, style: css(style) });
   }
 
   // What's actually saved so far — the stay comparison ranks options by
@@ -708,7 +753,12 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
     })
     .filter((rd): rd is { show: true; name: string; key: string; style: CSSProperties } => Boolean(rd.show));
 
-  const rangeLabel = start === null ? "Drag to pick" : selEnd === null || selEnd === start ? `${start} Sept` : `${start} to ${selEnd} Sept`;
+  const rangeLabel =
+    start === null
+      ? "Drag to pick"
+      : selEnd === null || selEnd === start
+        ? dayMonth(today, start)
+        : rangeText(today, Math.min(start, selEnd), Math.max(start, selEnd));
   const stepLabel =
     step === 0
       ? "Three decisions"
@@ -812,7 +862,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
         background: "#FFFDF9",
         border: "1px solid #E4DED2",
         borderRadius: 16,
-        boxShadow: "0 14px 40px rgba(27,25,23,0.06)",
+        boxShadow: "0 18px 50px rgba(27,25,23,0.10)",
         overflow: "hidden",
         userSelect: "none",
       }}
@@ -857,7 +907,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             </div>
             <div style={{ background: "#EFE2EE", borderRadius: 11, padding: "15px 16px 17px" }}>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#7A4A6A", marginBottom: 7 }}>DECISION 2</div>
-              <div style={{ fontSize: 16.5, color: "#1B1917", marginBottom: 5 }}>Where you sleep</div>
+              <div style={{ fontSize: 16.5, color: "#1B1917", marginBottom: 5 }}>Where you stay</div>
               <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Priced side by side, then a vote.</div>
             </div>
             <div style={{ borderRadius: 11, padding: "15px 16px 17px", backgroundColor: "#EBE6F4" }}>
@@ -887,7 +937,27 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
           <div style={{ fontSize: 13.5, color: "#8C8478", marginBottom: 14 }}>Drag the days that work for you.</div>
 
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
-            <span style={{ fontSize: 13.5 }}>September 2026</span>
+            <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                type="button"
+                aria-label="Previous month"
+                disabled={viewMonth === 0}
+                onClick={() => setViewMonth((m) => Math.max(0, m - 1))}
+                style={{ border: "none", background: "transparent", padding: "0 4px", fontSize: 15, color: viewMonth === 0 ? "#D9D2C4" : "#4A453E", cursor: viewMonth === 0 ? "default" : "pointer" }}
+              >
+                ‹
+              </button>
+              <span style={{ fontSize: 13.5, minWidth: 118, textAlign: "center" }}>{monthLabel}</span>
+              <button
+                type="button"
+                aria-label="Next month"
+                disabled={viewMonth === MONTHS_AHEAD}
+                onClick={() => setViewMonth((m) => Math.min(MONTHS_AHEAD, m + 1))}
+                style={{ border: "none", background: "transparent", padding: "0 4px", fontSize: 15, color: viewMonth === MONTHS_AHEAD ? "#D9D2C4" : "#4A453E", cursor: viewMonth === MONTHS_AHEAD ? "default" : "pointer" }}
+              >
+                ›
+              </button>
+            </span>
             <span style={{ fontSize: 13, color: "#8C8478" }}>{rangeLabel}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 4 }}>
@@ -916,7 +986,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
           </div>
 
           <div style={{ marginTop: 15, paddingTop: 14, borderTop: "1px solid #EDE8DD", display: "grid", gap: 8 }}>
-            {AVAIL.map((a) => (
+            {availability(today).map((a) => (
               <div key={a.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={css(avatarStyle(PEOPLE[a.key], 26))}>{PEOPLE[a.key].initials}</div>
                 <span style={{ fontSize: 13.5, color: "#4A453E", flex: 1 }}>{PEOPLE[a.key].name}</span>
@@ -959,14 +1029,14 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             Decision 1 of 3 · confirmed
           </div>
           <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 33, lineHeight: 1.08, marginBottom: 8 }}>
-            {r.start} to {r.end} Sept, {r.nights} nights
+            {rangeText(today, r.start, r.end)}, {r.nights} nights
           </div>
           <div style={{ fontSize: 16, lineHeight: 1.5, color: "#4A3E46" }}>The one window all four can make.</div>
           <div style={{ height: 1, background: "#EBD8E6", margin: "24px 0 20px" }} />
           <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8C8478", marginBottom: 8 }}>
             Next up · decision 2
           </div>
-          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 30, lineHeight: 1.08, marginBottom: 8 }}>Where the four of you sleep</div>
+          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 30, lineHeight: 1.08, marginBottom: 8 }}>Where the four of you stay</div>
           <div style={{ fontSize: 17.5, lineHeight: 1.5, color: "#4A453E", marginBottom: 26 }}>Every option priced for your nights, then a vote.</div>
           <button
             type="button"
@@ -1010,7 +1080,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
               Dates locked
             </div>
             <div style={{ fontSize: 17, color: "#1B1917", marginBottom: 3 }}>
-              {r.start} to {r.end} Sept, {r.nights} nights
+              {rangeText(today, r.start, r.end)}, {r.nights} nights
             </div>
             <div style={{ fontSize: 14, color: "#6E5A7A" }}>These are the dates that work for all four</div>
           </div>

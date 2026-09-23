@@ -62,16 +62,16 @@ export default function Home() {
         </div>
       </header>
 
-      <div className="bg-[#33253C]">
+      <div className="bg-canvas">
         <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-8.5 px-6 py-14 pb-21 sm:px-8">
           <div>
-            <p className="mb-4 font-display text-[clamp(21px,2.1vw,26px)] leading-[1.25] text-[#D8AEC8] italic">
+            <p className="mb-4 font-display text-[clamp(21px,2.1vw,26px)] leading-[1.25] text-accent italic">
               For the trip that&rsquo;s been &ldquo;a maybe&rdquo; since forever.
             </p>
-            <h1 className="mb-5 text-[clamp(40px,4.6vw,60px)] leading-[1.02] font-display tracking-tight text-[#FBF6EC] text-balance">
+            <h1 className="mb-5 text-[clamp(40px,4.6vw,60px)] leading-[1.02] font-display tracking-tight text-ink text-balance">
               Everything you need to plan a group trip.
             </h1>
-            <p className="max-w-[32em] text-[18.5px] leading-relaxed text-[#E0D2DC] text-pretty">
+            <p className="max-w-[32em] text-[18.5px] leading-relaxed text-ink-soft text-pretty">
               If you travel in groups, you know it&rsquo;s almost impossible to
               coordinate everything across 947362 messages. That Friend
               streamlines the process, so the trip can finally make it out of

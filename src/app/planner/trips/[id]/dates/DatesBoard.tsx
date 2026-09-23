@@ -127,6 +127,9 @@ export function DatesBoard({
   const [nudgeResult, setNudgeResult] = useState<string | null>(null);
 
   const months = useMemo(() => buildHeatmapMonths(coverage), [coverage]);
+  // Local, not UTC — "today" in the evening shouldn't already be tomorrow.
+  const now = new Date();
+  const todayLocal = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const colorByUser = new Map(answered.map((m, i) => [m.userId, PERSON_COLORS[i % PERSON_COLORS.length]]));
   const labelByUser = new Map(answered.map((m) => [m.userId, m.label]));
   const answeredCount = answered.filter((a) => a.answeredAt).length;
@@ -362,6 +365,7 @@ export function DatesBoard({
                   type="date"
                   value={manualStart}
                   onChange={(e) => setManualStart(e.target.value)}
+                  min={todayLocal}
                   className="rounded-full border border-input-border bg-cream px-4 py-2 text-[14.5px] text-ink outline-none focus:border-ink"
                 />
                 <span className="text-muted">to</span>
@@ -369,7 +373,7 @@ export function DatesBoard({
                   type="date"
                   value={manualEnd}
                   onChange={(e) => setManualEnd(e.target.value)}
-                  min={manualStart || undefined}
+                  min={manualStart || todayLocal}
                   className="rounded-full border border-input-border bg-cream px-4 py-2 text-[14.5px] text-ink outline-none focus:border-ink"
                 />
                 <button
