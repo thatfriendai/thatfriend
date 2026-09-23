@@ -21,6 +21,8 @@ export interface DatesViewPayload {
   totalMembers: number;
   answered: { userId: string; label: string; answeredAt: string | null }[];
   myMarks: string[];
+  /** Who marked each date free, by user id — the per-person dots on the heatmap. */
+  freeByDate: Record<string, string[]>;
 }
 
 export type DatesViewResult =
@@ -65,6 +67,9 @@ export async function loadDatesView(admin: SupabaseClient, tripId: string): Prom
   const marks = markRows ?? [];
   const { proposal, coverage } = computeDateProposal(marks, roster.length);
 
+  const freeByDate: Record<string, string[]> = {};
+  for (const m of marks) (freeByDate[m.date] ??= []).push(m.user_id);
+
   const answeredAt = new Map<string, string>();
   for (const m of marks) {
     const existing = answeredAt.get(m.user_id);
@@ -93,6 +98,7 @@ export async function loadDatesView(admin: SupabaseClient, tripId: string): Prom
       totalMembers: roster.length,
       answered: roster.map((m) => ({ ...m, answeredAt: answeredAt.get(m.userId) ?? null })),
       myMarks: marks.filter((m) => m.user_id === user.id).map((m) => m.date),
+      freeByDate,
     },
   };
 }

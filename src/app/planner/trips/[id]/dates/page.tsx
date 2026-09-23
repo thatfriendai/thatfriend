@@ -41,6 +41,7 @@ export default async function DatesPage({
         totalMembers={dates.totalMembers}
         answered={dates.answered}
         myMarks={dates.myMarks}
+        freeByDate={dates.freeByDate}
       />
     </div>
   );

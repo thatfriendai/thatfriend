@@ -6,6 +6,8 @@ import { ensureDays } from "@/lib/planner/days";
 import { ReviewsBoard } from "./ReviewsBoard";
 import { PlaceRatingQueue } from "./PlaceRatingQueue";
 import { listVisits } from "@/lib/planner/ratingCapture";
+import { listLessons } from "@/lib/planner/lessons";
+import { LessonsCard } from "./LessonsCard";
 import type { PlannerItineraryItem } from "@/lib/supabase/planner-types";
 
 function labelOf(person: { name: string | null; email: string | null } | null) {
@@ -25,11 +27,12 @@ export default async function ReviewsPage({
 
   // Phase 1: only depends on tripId/user.id — one round trip instead of
   // four sequential ones.
-  const [{ data: membership }, { data: trip }, { data: myReview }, visits] = await Promise.all([
+  const [{ data: membership }, { data: trip }, { data: myReview }, visits, lessons] = await Promise.all([
     admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
     admin.from("planner_trips").select("*").eq("id", tripId).maybeSingle(),
     admin.from("planner_trip_reviews").select("*").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
     listVisits(admin, tripId),
+    listLessons(admin, tripId),
   ]);
   if (!membership) notFound();
   if (!trip) notFound();
@@ -97,6 +100,9 @@ export default async function ReviewsPage({
           />
         </div>
       )}
+      <div className="mx-auto max-w-[820px] px-6 pt-9.5">
+        <LessonsCard tripId={tripId} myUserId={user.id} initial={lessons} />
+      </div>
       <ReviewsBoard
         tripId={tripId}
         tripName={trip.name}

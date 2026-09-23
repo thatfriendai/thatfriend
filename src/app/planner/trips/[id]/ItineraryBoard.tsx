@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { hashPercent } from "@/lib/planner/itinerary";
 import { formatDayLabel } from "@/lib/planner/itinerary";
 import type { PlannerDay, PlannerItineraryItem } from "@/lib/supabase/planner-types";
@@ -37,6 +37,54 @@ export function ItineraryBoard({
   const [draftText, setDraftText] = useState("");
   const [pending, setPending] = useState(false);
   const [dayDrafts, setDayDrafts] = useState<Record<string, DayDraftState>>({});
+  const [forecast, setForecast] = useState<Record<string, string>>({});
+  const [planBEditing, setPlanBEditing] = useState<string | null>(null);
+  const [planBWhen, setPlanBWhen] = useState("");
+  const [planBText, setPlanBText] = useState("");
+  const [planBPending, setPlanBPending] = useState<string | null>(null);
+
+  // Loaded after render so a slow forecast never holds up the page.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/v2/trips/${tripId}/weather`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!cancelled && data?.forecast) setForecast(data.forecast);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [tripId]);
+
+  function replaceDay(day: PlannerDay) {
+    setDays((list) => list.map((d) => (d.id === day.id ? { ...d, ...day } : d)));
+  }
+
+  async function savePlanB(dayId: string) {
+    setPlanBPending(dayId);
+    const res = await fetch(`/api/v2/trips/${tripId}/days/${dayId}/plan-b`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ when: planBWhen, text: planBText }),
+    });
+    setPlanBPending(null);
+    if (!res.ok) return;
+    replaceDay((await res.json()).day);
+    setPlanBEditing(null);
+  }
+
+  async function togglePlanB(dayId: string, active: boolean) {
+    setPlanBPending(dayId);
+    const res = await fetch(`/api/v2/trips/${tripId}/days/${dayId}/plan-b`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ active }),
+    });
+    setPlanBPending(null);
+    if (!res.ok) return;
+    replaceDay((await res.json()).day);
+  }
 
   async function requestDraft(dayId: string, excludeIds: string[] = []) {
     setDayDrafts((d) => ({ ...d, [dayId]: { places: [], reasoning: "", pending: true, error: null } }));
@@ -195,7 +243,15 @@ export function ItineraryBoard({
                   </div>
                   <div className="ml-auto text-[11px] text-muted">{d.city ?? ""}</div>
                 </div>
-                <div className="flex flex-col gap-1.5">
+                {forecast[d.date] && (
+                  <div className="-mt-0.5 mb-2 font-mono text-[10.5px] text-[#6B655C]">{forecast[d.date]}</div>
+                )}
+                {d.plan_b_active && (
+                  <div className="mb-2 inline-block rounded-full bg-ink-soft px-2 py-[3px] font-mono text-[9.5px] tracking-[0.08em] text-on-accent uppercase">
+                    On Plan B &middot; everyone notified
+                  </div>
+                )}
+                <div className={`flex flex-col gap-1.5 ${d.plan_b_active ? "opacity-45" : ""}`}>
                   {d.items.map((item) => (
                     <div key={item.id} className="text-[13px] leading-[1.4] text-[#2B2825]">
                       {item.text}
@@ -275,6 +331,84 @@ export function ItineraryBoard({
                     )}
                   </div>
                 )}
+
+                <div onClick={(e) => e.stopPropagation()}>
+                  {planBEditing === d.id ? (
+                    <div className="mt-2.5 flex flex-col gap-1.5 border-t border-dashed border-[#DDD6C8] pt-2.5">
+                      <input
+                        autoFocus
+                        value={planBWhen}
+                        onChange={(e) => setPlanBWhen(e.target.value)}
+                        placeholder="When — e.g. If it rains"
+                        className="w-full rounded-md border border-input-border bg-card px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-ink"
+                      />
+                      <input
+                        value={planBText}
+                        onChange={(e) => setPlanBText(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") savePlanB(d.id);
+                          if (e.key === "Escape") setPlanBEditing(null);
+                        }}
+                        placeholder="What you'd do instead"
+                        className="w-full rounded-md border border-input-border bg-card px-2.5 py-1.5 text-[12.5px] text-ink outline-none focus:border-ink"
+                      />
+                      <div className="flex items-center gap-2.5">
+                        <button
+                          onClick={() => savePlanB(d.id)}
+                          disabled={planBPending === d.id}
+                          className="rounded-full bg-ink px-3 py-1.5 text-[11.5px] text-cream hover:bg-accent disabled:opacity-50"
+                        >
+                          Save Plan B
+                        </button>
+                        <button onClick={() => setPlanBEditing(null)} className="text-[11.5px] text-faint hover:text-ink">
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  ) : d.plan_b_text ? (
+                    <div className="mt-2.5 flex items-start gap-2 border-t border-dashed border-[#DDD6C8] pt-2.5">
+                      <button
+                        onClick={() => {
+                          setPlanBEditing(d.id);
+                          setPlanBWhen(d.plan_b_when ?? "");
+                          setPlanBText(d.plan_b_text ?? "");
+                        }}
+                        className="min-w-0 flex-1 text-left"
+                        title="Edit Plan B"
+                      >
+                        <div className="mb-0.5 font-mono text-[9.5px] tracking-[0.08em] text-[#6B655C] uppercase">
+                          Plan B{d.plan_b_when ? ` · ${d.plan_b_when}` : ""}
+                        </div>
+                        <div className="text-[12px] leading-[1.4] text-ink-soft">{d.plan_b_text}</div>
+                      </button>
+                      <button
+                        onClick={() => togglePlanB(d.id, !d.plan_b_active)}
+                        title="Texts the group either way"
+                        disabled={planBPending === d.id}
+                        className={`flex-none rounded-full px-2.5 py-1 text-[11px] whitespace-nowrap disabled:opacity-50 ${
+                          d.plan_b_active
+                            ? "border border-input-border bg-card text-ink hover:border-ink"
+                            : "bg-ink text-cream hover:bg-accent"
+                        }`}
+                      >
+                        {planBPending === d.id ? "…" : d.plan_b_active ? "Back to plan" : "Use Plan B"}
+                      </button>
+                    </div>
+                  ) : (
+                    on && (
+                      <button
+                        onClick={() => {
+                          setPlanBEditing(d.id);
+                          setPlanBWhen("");
+                          setPlanBText("");
+                        }}
+                        className="mt-2.5 block w-full border-t border-dashed border-[#DDD6C8] pt-2 text-left text-[12px] text-ink-soft hover:text-accent"
+                      >
+                        + Add a Plan B for this day
+                      </button>
+                    )
+                  )}
+                </div>
 
                 {addingOnDay === d.id ? (
                   <input
