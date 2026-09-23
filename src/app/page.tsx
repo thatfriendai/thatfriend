@@ -79,14 +79,9 @@ export default function Home() {
             </p>
           </div>
 
+          {/* No separate button under the demo: it ends on its own "Now let's plan
+              yours", so a second one here only competed with its first step. */}
           <HeroDemo />
-
-          {/* Straight after the demo — the moment someone has just seen how it works. */}
-          <div className="text-center">
-            <Link href="/planner/trips/new" className="inline-block rounded-full bg-[#8A5A7A] px-6.5 py-3 text-[16px] text-[#FFFDF9] hover:bg-[#7A4A6A]">
-              Plan your trip
-            </Link>
-          </div>
         </div>
       </div>
 
