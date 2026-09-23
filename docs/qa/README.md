@@ -30,10 +30,12 @@ Two things run daily against `main` without anyone starting them:
   lint, typecheck, unit tests, a build and the SMS classifier eval. It also
   runs the full e2e suite once the `STAGING_BASE_URL` secret points at a
   staging deploy. GitHub emails you when a run fails.
-- **Daily QA agent** (a Claude Code routine): runs `/qa sweep` on the
-  latest `main`. It opens a PR for any P0 or P1 fixes, and it updates
-  KNOWN_ISSUES.md with anything it finds but doesn't fix. It never touches
-  production. Manage it in claude.ai → Code → Routines.
+- **Daily QA agent** (`.github/workflows/daily-qa-agent.yml`, 13:00 UTC):
+  Claude runs `/qa sweep` over the week's changes on `main`. If it fixes a
+  P0 or P1 bug, it opens a "Daily QA sweep" PR; otherwise the report is in
+  the run log. It never merges anything and never touches production. It
+  uses the `ANTHROPIC_API_KEY` repo secret. To run it by hand, go to
+  Actions → Daily QA agent → Run workflow.
 
 ## The cast and the trips
 
