@@ -50,3 +50,37 @@ export function loadBrandFonts(): Promise<FontFace[]> {
 export function Wordmark({ size, color = OG_COLORS.blush }: { size: number; color?: string }) {
   return <div style={{ display: "flex", fontFamily: "Instrument Serif", fontSize: size, color }}>“that friend”</div>;
 }
+
+/**
+ * The logo mark: "that / friend" stacked in Instrument Serif on a cream
+ * disc, the opening quote hanging off the first line. `round` draws the
+ * disc (favicon); off, the cream fills the square (iOS rounds it itself).
+ */
+export function LogoMark({ size, round }: { size: number; round: boolean }) {
+  const fontSize = size * 0.235;
+  return (
+    <div
+      style={{
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "#FCFBF7",
+        borderRadius: round ? "50%" : 0,
+        fontFamily: "Instrument Serif",
+        fontSize,
+        lineHeight: 0.92,
+        color: "#1B1917",
+      }}
+    >
+      <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-start", marginLeft: size * 0.02 }}>
+        <div style={{ display: "flex", position: "relative" }}>
+          <span style={{ position: "absolute", left: -fontSize * 0.36, top: -fontSize * 0.06 }}>“</span>
+          <span>that</span>
+        </div>
+        <div style={{ display: "flex" }}>friend”</div>
+      </div>
+    </div>
+  );
+}
