@@ -16,7 +16,7 @@ export function watchForErrors(page: Page) {
     if (m.type() !== "error") return;
     const text = m.text();
     // Third-party noise we don't control (Maps key restrictions on preview URLs, etc.).
-    if (/maps\.googleapis|Google Maps JavaScript API|favicon/i.test(text)) return;
+    if (/maps\.googleapis|Google Maps JavaScript API|favicon|GSI_LOGGER|accounts\.google\.com/i.test(text)) return;
     errors.push(`console: ${text}`);
   });
   page.on("response", (r) => {
