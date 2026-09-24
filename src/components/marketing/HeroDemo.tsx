@@ -893,27 +893,24 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
 
       {step === 0 && (
         <div style={{ padding: "30px 26px 32px" }}>
-          <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: "clamp(30px, 3.4vw, 38px)", lineHeight: 1.08, marginBottom: 12 }}>
-            Get a glimpse of how it works.
-          </div>
           <div style={{ fontSize: 17, lineHeight: 1.5, color: "#4A453E", maxWidth: "30em", marginBottom: 26 }}>
-            Four friends, one week in Portugal, three decisions. Make them here.
+            Four friends. One week in Portugal. Try it yourself.
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(190px, 1fr))", gap: 12, marginBottom: 26 }}>
-            <div style={{ background: "#FAF0F6", borderRadius: 11, padding: "15px 16px 17px" }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#A9709A", marginBottom: 7 }}>DECISION 1</div>
+            <div style={{ background: "#F3EAF0", borderRadius: 11, padding: "15px 16px 17px" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#8A5A7A", marginBottom: 7 }}>DECISION 1</div>
               <div style={{ fontSize: 16.5, color: "#1B1917", marginBottom: 5 }}>The dates</div>
-              <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Everyone marks what works.</div>
+              <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Mark the days you&rsquo;re free, find the overlap.</div>
             </div>
-            <div style={{ background: "#EFE2EE", borderRadius: 11, padding: "15px 16px 17px" }}>
+            <div style={{ background: "#F3EAF0", borderRadius: 11, padding: "15px 16px 17px" }}>
               <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#7A4A6A", marginBottom: 7 }}>DECISION 2</div>
-              <div style={{ fontSize: 16.5, color: "#1B1917", marginBottom: 5 }}>Where you stay</div>
-              <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Priced side by side, then a vote.</div>
+              <div style={{ fontSize: 16.5, color: "#1B1917", marginBottom: 5 }}>Where you sleep</div>
+              <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Compare stays side by side, then vote.</div>
             </div>
-            <div style={{ borderRadius: 11, padding: "15px 16px 17px", backgroundColor: "#EBE6F4" }}>
-              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#5F5880", marginBottom: 7 }}>DECISION 3</div>
+            <div style={{ borderRadius: 11, padding: "15px 16px 17px", backgroundColor: "#F3EAF0" }}>
+              <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10, letterSpacing: "0.12em", color: "#8A5A7A", marginBottom: 7 }}>DECISION 3</div>
               <div style={{ fontSize: 16.5, color: "#1B1917", marginBottom: 5 }}>What you do</div>
-              <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Chat links, on a map.</div>
+              <div style={{ fontSize: 14.5, lineHeight: 1.45, color: "#4A453E" }}>Paste links from the chat, see them on a map.</div>
             </div>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
