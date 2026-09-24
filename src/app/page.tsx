@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import { HeroDemo } from "@/components/marketing/HeroDemo";
 
@@ -36,10 +37,10 @@ const forGroups = [
 ];
 
 const tripPhotos = [
-  { city: "Athens" },
-  { city: "Costa Smeralda" },
-  { city: "NYC" },
-  { city: "Santa Teresa Gallura" },
+  { city: "Athens", src: "/marketing/trips/athens.jpg" },
+  { city: "Costa Smeralda", src: "/marketing/trips/costa-smeralda.jpg" },
+  { city: "NYC", src: "/marketing/trips/nyc.jpg" },
+  { city: "Santa Teresa Gallura", src: "/marketing/trips/santa-teresa-gallura.jpg" },
 ];
 
 // A signed-in visitor is redirected away from here in middleware
@@ -121,9 +122,14 @@ export default function Home() {
           <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
             {tripPhotos.map((t) => (
               <figure key={t.city} className="m-0 flex flex-col gap-3">
-                {/* Placeholder pending real trip photos — see note to the user. */}
-                <div className="flex aspect-[3/4] items-center justify-center rounded-[14px] bg-warm-bg">
-                  <span className="font-mono text-[11px] tracking-[0.1em] text-faint uppercase">Trip photo</span>
+                <div className="relative aspect-[3/4] w-full overflow-hidden rounded-[14px]">
+                  <Image
+                    src={t.src}
+                    alt={t.city}
+                    fill
+                    sizes="(min-width: 640px) 25vw, 50vw"
+                    className="object-cover"
+                  />
                 </div>
                 <figcaption className="font-display text-[24px] leading-[1.15] tracking-tight text-ink">
                   {t.city}
