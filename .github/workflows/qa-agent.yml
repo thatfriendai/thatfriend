@@ -77,6 +77,9 @@ jobs:
           # Passed explicitly: scheduled runs can't do the GitHub App token
           # exchange (anthropics/claude-code-action#814).
           github_token: ${{ secrets.GITHUB_TOKEN }}
+          # Put Claude's final QA report (with "Your next steps") on the
+          # run's Summary page — the log hides Claude's output by default.
+          display_report: true
           claude_args: |
             --model claude-sonnet-5
             --max-turns 120

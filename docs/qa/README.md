@@ -29,8 +29,9 @@ less often. Each layer catches a different kind of bug:
   session.
   - Claude runs `/qa sweep` over just what that merge changed, plus
     `npm run qa` and a build.
-  - If it fixes a P0 or P1 bug, it opens a "QA sweep" PR. Otherwise the
-    report is in the run log.
+  - If it fixes a P0 or P1 bug, it opens a "QA sweep" PR. Either way, the
+    report (ending in "Your next steps") is on the run's **Summary** page:
+    Actions → QA agent → click the run.
   - Merges that only touch docs, tests or CI config don't trigger it.
   - Each merge gets its own review. A merge starts it by pressing "Run
     workflow" on itself, since Claude's GitHub Action can't start from a
