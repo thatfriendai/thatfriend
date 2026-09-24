@@ -6,7 +6,7 @@ low-impact enough to batch for later. Check this list before a friends
 round. Anything a tester is likely to hit should also be mentioned in
 BETA_GUIDE.md.
 
-Last full sweep: 2026-09-23.
+Last full sweep: 2026-09-23. Last sweep: 2026-09-24 (marketing homepage rebuild and new icons; no app areas changed since the full sweep).
 
 ## Needs a console or config change (do these before the next round)
 

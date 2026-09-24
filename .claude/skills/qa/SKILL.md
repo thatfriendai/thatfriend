@@ -10,6 +10,11 @@ never hit a bug we could have caught. Read `docs/qa/README.md` for the
 process and `docs/qa/SCENARIOS.md` for the journeys. This file tells you how
 to run them.
 
+**What gets fixed:** P0 and P1 bugs are fixed straight away in a PR with a
+regression test. P2 bugs and anything that needs a product decision are
+reported (and added to `docs/qa/KNOWN_ISSUES.md`), not fixed. Nothing
+reaches production until the owner merges.
+
 The standard for a finding: **a concrete persona × trip × step that goes
 wrong, confirmed by reading the code or running it.** No "might be an
 issue", and no style nits. Each finding gets a severity:
@@ -205,6 +210,18 @@ the ones relevant to it.
 
 ### Needs a human
 - <env vars to set, migrations to run, console settings, product decisions>
+
+### Your next steps
+1. <plain-language, numbered, in order — e.g. "Merge PR #77 once its checks are green (link)">
+2. <anything from "Needs a human", with where to click, e.g. "Vercel → Settings → Environment Variables → add X">
+3. <what to test by hand on your phone, if anything, e.g. "Sign up from the homepage's Start planning button and check you land on the new-trip form">
+4. <decisions you need to make, one line each>
 ```
 
 Keep it short. Findings go in the report; fixes go in the diff.
+
+**Always end with "Your next steps"**, even when nothing was found (then it
+is just "Nothing to do. Next check runs when you merge a change."). The
+reader is the app's owner, not an engineer: no jargon, link every PR, and
+say where to click for anything outside the code. Never merge anything
+yourself; merging is always one of their steps.

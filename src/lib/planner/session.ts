@@ -20,6 +20,17 @@ export function safeNextPath(next: string | null | undefined): string | null {
 }
 
 /**
+ * Where to send someone who just signed in. A brand-new account goes to
+ * profile setup first, carrying `next` along so setup can finish the trip
+ * they started — a homepage "Start planning" tap used to end on the
+ * profile page and never reach the new-trip form.
+ */
+export function afterSignInPath(needsProfile: boolean, next: string | null): string {
+  if (needsProfile) return next ? `/planner/profile?welcome=1&next=${encodeURIComponent(next)}` : "/planner/profile?welcome=1";
+  return next ?? "/planner/home";
+}
+
+/**
  * Resolves the signed-in Supabase Auth user (email magic-link) to their
  * planner_users row, creating one on first sign-in. Returns null if nobody
  * is signed in. Phone-identified planner_users never come back from this —

@@ -8,7 +8,7 @@ vi.mock("@/lib/supabase/admin", () => ({ createAdminClient: vi.fn() }));
 vi.mock("@/lib/planner/smsTripStart", () => ({ joinTripById: vi.fn() }));
 vi.mock("@/lib/planner/consent", () => ({ recordConsentEvent: vi.fn() }));
 
-const { safeNextPath } = await import("@/lib/planner/session");
+const { afterSignInPath, safeNextPath } = await import("@/lib/planner/session");
 const { inviteIsForPhone } = await import("@/lib/planner/joinLink");
 const { isSyntheticPhoneEmail } = await import("@/lib/planner/phoneSession");
 const { mergePlannerUsers } = await import("@/lib/planner/plannerUser");
@@ -195,5 +195,17 @@ describe("mergePlannerUsers", () => {
       { user_a: FRIEND_A, user_b: KEEP, source: "trip", created_at: "x" },
       { user_a: KEEP, user_b: FRIEND_Z, source: "manual", created_at: "y" },
     ]);
+  });
+});
+
+describe("afterSignInPath", () => {
+  it("sends a brand-new account through profile setup without losing where they were headed", () => {
+    expect(afterSignInPath(true, "/planner/trips/new")).toBe("/planner/profile?welcome=1&next=%2Fplanner%2Ftrips%2Fnew");
+    expect(afterSignInPath(true, null)).toBe("/planner/profile?welcome=1");
+  });
+
+  it("sends a returning account straight to where they were headed, else home", () => {
+    expect(afterSignInPath(false, "/planner/trips/new")).toBe("/planner/trips/new");
+    expect(afterSignInPath(false, null)).toBe("/planner/home");
   });
 });

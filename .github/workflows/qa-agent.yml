@@ -83,3 +83,6 @@ jobs:
                - Never merge anything.
             4. If there's nothing worth fixing, don't open a PR. Print the QA
                report as your final message, and end with one line: ship-safe or not.
+            5. Every report, including the PR body, ends with the skill's
+               "Your next steps" section: a plain-language, numbered checklist
+               for the owner.

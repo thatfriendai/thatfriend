@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getPlannerUser, safeNextPath } from "@/lib/planner/session";
+import { afterSignInPath, getPlannerUser, safeNextPath } from "@/lib/planner/session";
 import { completePendingEmailLink } from "@/lib/planner/emailLink";
 import { acceptInviteToken } from "@/lib/planner/joinLink";
 
@@ -59,5 +59,5 @@ export async function GET(request: Request) {
   // Same rule as phone sign-in: only a bare account (no name, no username)
   // is walked through profile setup; everyone else lands on the main page.
   const needsProfile = !plannerUser.username && !plannerUser.name;
-  return NextResponse.redirect(`${origin}${needsProfile ? "/planner/profile?welcome=1" : (next ?? "/planner/home")}`);
+  return NextResponse.redirect(`${origin}${afterSignInPath(needsProfile, next)}`);
 }
