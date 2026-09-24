@@ -57,3 +57,17 @@ test("the login form rejects a malformed phone/email without a server error", as
   await page.waitForTimeout(1000);
   await expectHealthyPage(page, errors);
 });
+
+test("every in-page link on the homepage points at a section that exists", async ({ page }) => {
+  await page.goto("/");
+  const hashes = await page.$$eval('a[href^="#"]', (as) => [...new Set(as.map((a) => a.getAttribute("href")!.slice(1)))]);
+  for (const id of hashes.filter(Boolean)) {
+    expect(await page.locator(`[id="${id}"]`).count(), `#${id} has no target`).toBeGreaterThan(0);
+  }
+});
+
+test("Start planning brings a signed-out visitor back to the new-trip form after sign-in", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Start planning" }).first().click();
+  await expect(page).toHaveURL(/\/planner\/login\?next=%2Fplanner%2Ftrips%2Fnew/);
+});

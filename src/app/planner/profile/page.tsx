@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { getPlannerUser } from "@/lib/planner/session";
+import { getPlannerUser, safeNextPath } from "@/lib/planner/session";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getNavCounts } from "@/lib/planner/navCounts";
 import { HomeNav } from "@/components/planner/HomeNav";
@@ -20,13 +20,14 @@ function initialsOf(name: string) {
 export default async function ProfilePage({
   searchParams,
 }: {
-  searchParams: Promise<{ welcome?: string }>;
+  searchParams: Promise<{ welcome?: string; next?: string }>;
 }) {
   const user = await getPlannerUser();
   if (!user) redirect("/planner/login?next=/planner/profile");
 
-  const { welcome } = await searchParams;
+  const { welcome, next } = await searchParams;
   const isWelcome = welcome === "1";
+  const continueTo = isWelcome ? safeNextPath(next) : null;
 
   const admin = createAdminClient();
   const { tripsCount } = await getNavCounts(admin, user.id);
@@ -47,7 +48,7 @@ export default async function ProfilePage({
             : "How you show up on trips, and how That Friend reaches you."}
         </p>
 
-        <SettingsForm user={user} isWelcome={isWelcome} />
+        <SettingsForm user={user} isWelcome={isWelcome} continueTo={continueTo} />
       </div>
     </div>
   );

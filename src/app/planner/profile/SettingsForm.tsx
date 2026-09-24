@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import type { DigestFrequency, PlannerUser } from "@/lib/supabase/planner-types";
 import { formatPhoneDisplay } from "@/lib/planner/phone";
@@ -51,7 +52,17 @@ function previewCopy(f: Fields) {
   return `Four of six have picked dates for Lisbon — you'd get this by ${channels.join(" and ")}, ${timing}.`;
 }
 
-export function SettingsForm({ user, isWelcome }: { user: PlannerUser; isWelcome?: boolean }) {
+export function SettingsForm({
+  user,
+  isWelcome,
+  continueTo,
+}: {
+  user: PlannerUser;
+  isWelcome?: boolean;
+  /** Where the person was headed before sign-in sent them through setup (e.g. the new-trip form). */
+  continueTo?: string | null;
+}) {
+  const router = useRouter();
   const [saved, setSaved] = useState(fieldsOf(user));
   const [fields, setFields] = useState(saved);
   const [saving, setSaving] = useState(false);
@@ -129,6 +140,7 @@ export function SettingsForm({ user, isWelcome }: { user: PlannerUser; isWelcome
     const resolved = { ...fields, username: data.user.username ?? fields.username };
     setFields(resolved);
     setSaved(resolved);
+    if (continueTo) router.push(continueTo);
   }
 
   return (

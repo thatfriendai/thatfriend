@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { createSessionForPhone } from "@/lib/planner/phoneSession";
 import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { toE164, isUSPhone } from "@/lib/planner/phone";
-import { getPlannerUser, safeNextPath } from "@/lib/planner/session";
+import { afterSignInPath, getPlannerUser, safeNextPath } from "@/lib/planner/session";
 import { mergePlannerUsers } from "@/lib/planner/plannerUser";
 import { acceptInviteToken } from "@/lib/planner/joinLink";
 
@@ -215,5 +215,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ redirect: needsProfile ? "/planner/profile?welcome=1" : (next ?? "/planner/home") });
+  return NextResponse.json({ redirect: afterSignInPath(needsProfile, next) });
 }

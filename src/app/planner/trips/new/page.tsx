@@ -8,9 +8,12 @@ export default async function NewPlannerTripPage({
   searchParams: Promise<{ name?: string }>;
 }) {
   const user = await getPlannerUser();
-  if (!user) redirect(`/planner/login`);
-
   const { name } = await searchParams;
+  // The homepage's "Start planning" lands here signed out — come back after.
+  if (!user) {
+    const here = `/planner/trips/new${name ? `?name=${encodeURIComponent(name)}` : ""}`;
+    redirect(`/planner/login?next=${encodeURIComponent(here)}`);
+  }
 
   return (
     <div className="min-h-screen">

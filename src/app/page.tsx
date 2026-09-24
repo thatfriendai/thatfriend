@@ -95,7 +95,8 @@ export default function Home() {
             </Link>
           </div>
 
-          <div className="flex flex-col gap-4.5 border-t border-border pt-7.5">
+          {/* "How it works" in the nav, and the demo's own links, jump here. */}
+          <div id="demo" className="flex flex-col gap-4.5 border-t border-border pt-7.5">
             <p className="font-mono text-[15px] font-medium tracking-[0.12em] text-accent uppercase">
               Try the demo
             </p>
