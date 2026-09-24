@@ -1,39 +1,45 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { HeroDemo } from "@/components/marketing/HeroDemo";
+
+export const metadata: Metadata = {
+  title: "That Friend | Plan the group trip that actually happens",
+  description:
+    "Plan group trips without the 200-message thread. Pick dates, compare stays, and plan what to do, all in one place.",
+};
 
 const forGroups = [
   {
     title: "Bachelorette weekends",
-    body: "Eight people, one bride, six different budgets. Costs are visible from the start, so nobody gets priced out or stuck footing the bill.",
-    accent: "#8A5A7A",
+    body: "Costs are visible from the start, so nobody gets priced out.",
   },
   {
     title: "Reunion trips",
-    body: "College friends now live in four different cities. Everyone answers what they can, and the plan still lands close enough to work for the group.",
-    accent: "#6E5A7A",
+    body: "Friends in four cities answer what they can, and the plan still lands.",
   },
   {
     title: "Birthday trips",
-    body: "One person's celebration, everyone else's spending. The birthday person gets say on the things that matter and doesn't have to run logistics.",
-    accent: "#A9709A",
-    titleColor: "#7A5A6E",
+    body: "The birthday person gets a say without having to run logistics.",
   },
   {
     title: "Family and multi-household",
-    body: "Two families, different nap schedules, one house. Days get built around the constraints instead of clashing under them.",
-    accent: "#7A5A6E",
+    body: "Days get built around nap schedules instead of clashing with them.",
   },
   {
     title: "Remote work week",
-    body: "One destination, real work hours built in. That Friend blocks out who's got a 9am standup and who needs a quiet morning, and plans the actual trip around it, not instead of it.",
-    accent: "#5E5A6E",
+    body: "Work hours built in, so the trip plans around standups instead of skipping them.",
   },
   {
     title: "And the one you never took",
-    body: "The trip you've talked about for three years never got submitted. This is the year That Friend is ready for it.",
-    accent: "#9A7A8E",
-    titleColor: "#7A5A6E",
+    body: "The trip you've talked about for three years never got booked. This is the year.",
   },
+];
+
+const tripPhotos = [
+  { city: "Athens" },
+  { city: "Costa Smeralda" },
+  { city: "NYC" },
+  { city: "Santa Teresa Gallura" },
 ];
 
 // A signed-in visitor is redirected away from here in middleware
@@ -48,6 +54,12 @@ export default function Home() {
         <div className="mx-auto flex h-16 max-w-[1180px] items-center gap-6.5 px-6 sm:px-8">
           <span className="flex-none text-[23px] font-display text-ink">&ldquo;that friend&rdquo;</span>
           <nav className="hidden min-w-0 flex-1 justify-end gap-5.5 text-[14.5px] text-body sm:flex">
+            <a href="#demo" className="hover:text-accent">
+              How it works
+            </a>
+            <a href="#trips" className="hover:text-accent">
+              Our trips
+            </a>
             <a href="#for" className="hover:text-accent">
               Who it&rsquo;s for
             </a>
@@ -65,68 +77,87 @@ export default function Home() {
       <div className="bg-canvas">
         <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-8.5 px-6 py-14 pb-21 sm:px-8">
           <div>
-            <p className="mb-4 font-display text-[clamp(21px,2.1vw,26px)] leading-[1.25] text-accent italic">
+            <p className="mb-4 font-mono text-[15px] font-medium tracking-[0.12em] text-accent uppercase">
               For the trip that&rsquo;s been &ldquo;a maybe&rdquo; since forever.
             </p>
-            <h1 className="mb-5 text-[clamp(40px,4.6vw,60px)] leading-[1.02] font-display tracking-tight text-ink text-balance">
-              Everything you need to plan a group trip.
+            <h1 className="mb-5 max-w-[16em] text-[clamp(52px,8vw,96px)] leading-[0.96] font-display tracking-tight text-ink text-pretty">
+              One place to plan your group trip.
             </h1>
-            <p className="max-w-[32em] text-[18.5px] leading-relaxed text-ink-soft text-pretty">
-              If you travel in groups, you know it&rsquo;s almost impossible to
-              coordinate everything across 947362 messages. That Friend
-              streamlines the process, so the trip can finally make it out of
-              the chat.
+            <p className="mb-7.5 max-w-[34em] text-[clamp(19px,1.9vw,22px)] leading-[1.45] text-ink-soft text-pretty">
+              No chasing dates. No 200-message thread. No lost itinerary.
+            </p>
+            <Link
+              href="/planner/trips/new"
+              className="inline-block rounded-full bg-[#8A5A7A] px-11 py-5 text-[20px] font-medium text-[#FFFDF9] hover:bg-[#7A4A6A]"
+            >
+              Start planning
+            </Link>
+          </div>
+
+          <div className="flex flex-col gap-4.5 border-t border-border pt-7.5">
+            <p className="font-mono text-[15px] font-medium tracking-[0.12em] text-accent uppercase">
+              Try the demo
+            </p>
+            <h2 className="max-w-[16em] text-[clamp(30px,3.4vw,42px)] leading-[1.08] font-display tracking-tight text-ink text-pretty">
+              Plan a whole trip in three decisions.
+            </h2>
+            <p className="max-w-[34em] text-[19px] leading-[1.55] text-body text-pretty">
+              That Friend puts dates, stays, and plans in one place, so the trip finally makes it out of the chat.
             </p>
           </div>
 
-          {/* No separate button under the demo: it ends on its own "Now let's plan
-              yours", so a second one here only competed with its first step. */}
           <HeroDemo />
         </div>
       </div>
 
-      <section id="for" className="border-t border-border px-6 py-24 sm:px-10">
-        <div className="mx-auto w-full max-w-6xl">
-          <div className="mb-14 grid grid-cols-1 items-start gap-16 lg:grid-cols-[1fr_1.35fr]">
-            <div>
-              <p className="mb-6 font-mono text-[11.5px] tracking-[0.14em] text-muted uppercase">
-                Who it&rsquo;s for
-              </p>
-              <h2 className="text-[46px] leading-[1.07] font-display tracking-tight text-ink">
-                The trips with more than two people in them.
-              </h2>
-            </div>
-            <p className="max-w-xl text-lg leading-relaxed text-body text-pretty">
-              Two people can plan in a text thread. Five can&rsquo;t. Different
-              budgets, different weeks off, different ideas of a good time,
-              and a plan that usually dies before anyone books.
-            </p>
+      <section id="trips" className="border-t border-border px-6 py-16 sm:px-10">
+        <div className="mx-auto w-full max-w-[1180px]">
+          <p className="mb-3.5 font-mono text-[15px] font-medium tracking-[0.12em] text-accent uppercase">
+            From our trips
+          </p>
+          <h2 className="mb-7 max-w-[16em] text-[clamp(30px,3.4vw,42px)] leading-[1.08] font-display tracking-tight text-ink text-pretty">
+            Trips that made it out of the chat.
+          </h2>
+          <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-4">
+            {tripPhotos.map((t) => (
+              <figure key={t.city} className="m-0 flex flex-col gap-3">
+                {/* Placeholder pending real trip photos — see note to the user. */}
+                <div className="flex aspect-[3/4] items-center justify-center rounded-[14px] bg-warm-bg">
+                  <span className="font-mono text-[11px] tracking-[0.1em] text-faint uppercase">Trip photo</span>
+                </div>
+                <figcaption className="font-display text-[24px] leading-[1.15] tracking-tight text-ink">
+                  {t.city}
+                </figcaption>
+              </figure>
+            ))}
           </div>
-          <div className="grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-3">
+        </div>
+      </section>
+
+      <section id="for" className="border-t border-border px-6 py-24 sm:px-10">
+        <div className="mx-auto w-full max-w-3xl">
+          <p className="mb-4 font-mono text-[15px] font-medium tracking-[0.12em] text-accent uppercase">
+            Who it&rsquo;s for
+          </p>
+          <h2 className="mb-4.5 max-w-[22em] text-[clamp(30px,3.4vw,42px)] leading-[1.08] font-display tracking-tight text-ink text-pretty">
+            The trips with more than two people in them.
+          </h2>
+          <p className="mb-8.5 max-w-xl text-[17px] leading-relaxed text-body text-pretty">
+            Two people can plan in a text thread. Five can&rsquo;t. Different
+            budgets, different weeks off, different ideas of a good time,
+            and a plan that usually dies before anyone books.
+          </p>
+          <div className="mb-9 grid grid-cols-1 gap-px overflow-hidden rounded-2xl border border-border bg-border sm:grid-cols-2">
             {forGroups.map((g) => (
-              <div
-                key={g.title}
-                className="border-t-2 bg-card p-7 pb-8"
-                style={{ borderTopColor: g.accent }}
-              >
-                <h3
-                  className="mb-2.5 text-[27px] leading-tight font-display"
-                  style={{ color: g.titleColor ?? g.accent }}
-                >
-                  {g.title}
-                </h3>
-                <p className="text-[15.5px] leading-relaxed text-body">
-                  {g.body}
-                </p>
+              <div key={g.title} className="bg-card p-5.5 pb-6">
+                <h3 className="mb-2 text-[18px] font-medium text-ink">{g.title}</h3>
+                <p className="text-[16px] leading-relaxed text-body text-pretty">{g.body}</p>
               </div>
             ))}
           </div>
-          {/* Ties back to the last card, "And the one you never took". */}
-          <div className="mt-10 text-center">
-            <Link href="/planner/trips/new" className="inline-block rounded-full bg-[#8A5A7A] px-6.5 py-3 text-[16px] text-[#FFFDF9] hover:bg-[#7A4A6A]">
-              Plan the trip you keep talking about
-            </Link>
-          </div>
+          <Link href="/planner/trips/new" className="inline-block rounded-full bg-[#8A5A7A] px-11 py-5 text-[20px] font-medium text-[#FFFDF9] hover:bg-[#7A4A6A]">
+            Start planning
+          </Link>
         </div>
       </section>
 
@@ -152,9 +183,6 @@ export default function Home() {
         <div className="mx-auto flex w-full max-w-6xl flex-col items-center justify-between gap-4 text-[13.5px] text-muted sm:flex-row">
           <span className="text-lg font-display text-ink">&ldquo;that friend&rdquo;</span>
           <div className="flex gap-6">
-            <Link href="#for" className="hover:text-accent">
-              Who it&rsquo;s for
-            </Link>
             <Link href="/privacy" className="hover:text-accent">
               Privacy
             </Link>
