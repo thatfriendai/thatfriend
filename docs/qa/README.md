@@ -32,7 +32,9 @@ less often. Each layer catches a different kind of bug:
   - If it fixes a P0 or P1 bug, it opens a "QA sweep" PR. Otherwise the
     report is in the run log.
   - Merges that only touch docs, tests or CI config don't trigger it.
-  - Several quick merges in a row collapse into one run.
+  - Each merge gets its own review. A merge starts it by pressing "Run
+    workflow" on itself, since Claude's GitHub Action can't start from a
+    merge directly.
   - It never merges anything and never touches production.
   - It uses the `ANTHROPIC_API_KEY` repo secret. Days without edits cost
     nothing.

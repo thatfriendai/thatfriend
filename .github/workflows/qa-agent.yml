@@ -17,14 +17,32 @@ on:
       - "scripts/**"
       - "package.json"
   workflow_dispatch:
-
-# Several merges in a row only need one sweep — the newest one covers them.
-concurrency:
-  group: qa-agent
-  cancel-in-progress: true
+    inputs:
+      base:
+        description: "Review changes since this commit (blank = the last 7 days)"
+        required: false
 
 jobs:
+  # claude-code-action refuses to start from a `push` event ("Unsupported
+  # event type: push"), but runs fine from workflow_dispatch — so a merge
+  # just presses "Run workflow" on itself, passing along what changed.
+  # (GITHUB_TOKEN may trigger workflow_dispatch; it's the one exception to
+  # "workflows can't start workflows".)
+  dispatch:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: write
+    steps:
+      - run: gh workflow run qa-agent.yml --repo "$GITHUB_REPOSITORY" --ref main -f base="$BASE"
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          BASE: ${{ github.event.before }}
+
   sweep:
+    if: github.event_name == 'workflow_dispatch'
+    # No cancel-in-progress: each run reviews only its own merge's changes,
+    # so cancelling an older run would leave that merge unreviewed.
     runs-on: ubuntu-latest
     timeout-minutes: 60
     permissions:
@@ -40,12 +58,14 @@ jobs:
       - name: What changed
         id: range
         run: |
-          # A push covers before..after; a manual run looks back a week.
-          if [ "${{ github.event_name }}" = "push" ] && git cat-file -e "${{ github.event.before }}" 2>/dev/null; then
-            echo "range=${{ github.event.before }}..${{ github.sha }}" >> "$GITHUB_OUTPUT"
+          # A merge passes the commit before it; a manual run looks back a week.
+          if [ -n "$BASE" ] && git cat-file -e "$BASE" 2>/dev/null; then
+            echo "range=$BASE..${{ github.sha }}" >> "$GITHUB_OUTPUT"
           else
             echo "range=$(git rev-list -1 --before='7 days ago' HEAD || git rev-list --max-parents=0 HEAD)..HEAD" >> "$GITHUB_OUTPUT"
           fi
+        env:
+          BASE: ${{ inputs.base }}
       - uses: actions/setup-node@v4
         with:
           node-version: 22
