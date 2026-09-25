@@ -16,6 +16,16 @@ export interface StayDecisionSummary {
   comparison: StayComparisonData;
 }
 
+/** Every other stay decision (P2-8) — no comparison/LLM read built for these, just enough to link through and show status at a glance. */
+export interface OtherStayDecision {
+  id: string;
+  title: string;
+  status: "open" | "closed" | "tied";
+  nights: number | null;
+  decidedOptionLabel: string | null;
+  optionCount: number;
+}
+
 type LocationMatch = { address: string; lat: number; lng: number };
 
 function AlreadyBookedForm({ tripId, onDone }: { tripId: string; onDone: () => void }) {
@@ -335,12 +345,14 @@ function AlreadyBookedForm({ tripId, onDone }: { tripId: string; onDone: () => v
 export function StaysSection({
   tripId,
   stayDecision,
+  otherStayDecisions,
   myUserId,
   totalMembers,
   isOwner,
 }: {
   tripId: string;
   stayDecision: StayDecisionSummary | null;
+  otherStayDecisions: OtherStayDecision[];
   myUserId: string;
   totalMembers: number;
   isOwner: boolean;
@@ -525,6 +537,34 @@ export function StaysSection({
             </Link>
             <span className="text-[13px] text-muted">Comparison closed</span>
           </div>
+        </div>
+      )}
+
+      {otherStayDecisions.length > 0 && (
+        <div className="mt-5 flex flex-col gap-2">
+          <p className="text-[12.5px] text-faint">
+            {otherStayDecisions.length === 1 ? "One more stay decision on this trip:" : `${otherStayDecisions.length} more stay decisions on this trip:`}
+          </p>
+          {otherStayDecisions.map((d) => (
+            <Link
+              key={d.id}
+              href={`/planner/trips/${tripId}/decisions/${d.id}`}
+              className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 text-[14px] transition-colors hover:border-input-border"
+            >
+              <span className="min-w-0 flex-1 truncate text-ink-body">{d.title}</span>
+              {d.status === "closed" ? (
+                <span className="flex-none font-mono text-[10px] tracking-[0.08em] text-positive uppercase">
+                  Booked{d.decidedOptionLabel ? ` · ${d.decidedOptionLabel}` : ""}
+                </span>
+              ) : d.status === "tied" ? (
+                <span className="flex-none font-mono text-[10px] tracking-[0.08em] text-[#8A6A2A] uppercase">Tied</span>
+              ) : (
+                <span className="flex-none text-[12.5px] text-muted">
+                  {d.optionCount} option{d.optionCount === 1 ? "" : "s"}
+                </span>
+              )}
+            </Link>
+          ))}
         </div>
       )}
 

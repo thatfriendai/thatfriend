@@ -155,8 +155,16 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
   turned that into an empty list instead of a loud failure. Fixed with an
   explicit `!planner_memberships_user_id_fkey` hint, same fix already
   applied to the decisions query in `page.tsx` for the same reason.
-- **P2 · The Stays section only shows the newest stay decision.** Older ones
-  are reachable from Decisions.
+- ~~**P2 · The Stays section only shows the newest stay decision.**~~ —
+  **fixed 2026-09-29 (P2-8).** The most recent stay decision still gets
+  the full comparison view (voting matrix, or the booked card) — building
+  that, and the LLM "read" sentence it costs, for every stay on every load
+  wasn't worth it. Any others now show as a compact linked row (title,
+  status, night count if set, option count) instead of disappearing off
+  this section entirely, which is what actually happened before: a
+  second stay decision existed and was fully functional, just invisible
+  here (still reachable from Decisions the whole time, hence low
+  severity, but genuinely gone from the one place people look first).
 
 ## Security hardening (low risk today, fix before a wider launch)
 
