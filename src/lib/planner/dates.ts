@@ -1,7 +1,7 @@
 import "server-only";
 import { addDays, dateRange, todayIn } from "./calendarDate";
+import { MIN_DATE_WINDOW } from "@/config/limits";
 
-const MIN_WINDOW = 2;
 const MAX_WINDOW = 10;
 
 export interface DateProposal {
@@ -77,7 +77,7 @@ export function computeDateProposal(
       const count = coverage[start + len - 1].count;
       minCount = Math.min(minCount, count);
       sum += count;
-      if (len < MIN_WINDOW) continue;
+      if (len < MIN_DATE_WINDOW) continue;
 
       const candidate = { start, len, score: minCount, sum };
       if (
