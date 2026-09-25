@@ -49,7 +49,7 @@ export const TYPE_COLORS: Record<GuideType, string> = {
   "Set-jetting": "#8A5A7A",
   "Local insider": "#6E5A7A",
   "Best of That Friend": "#5E5A6E",
-  Seasonal: "#A9709A",
+  Seasonal: "#985B88", // darkened from #A9709A, same as DAY_COLORS/COVER_TINTS — was below AA as text/button-bg
   "Reported sightings": "#7A5A6E",
 };
 
