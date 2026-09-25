@@ -278,7 +278,15 @@ export default async function PlannerTripPage({
 
   const recentActivity = activityRows ?? [];
 
-  const stayDecisionRow = decisions.find((d) => d.kind === "stay") ?? null;
+  // decisions is already newest-first (the big query above orders by
+  // created_at desc) — the most recent stay decision is the one shown in
+  // full; any others are still real decisions (a second comparison, an
+  // earlier booking that got reopened, whatever) and used to disappear
+  // off this page entirely once a newer one existed. They're listed
+  // compactly instead — full comparisons (and the LLM "read" sentence
+  // each one costs) are only built for the one actually expanded here.
+  const stayRows = decisions.filter((d) => d.kind === "stay");
+  const [primaryStayRow, ...otherStayRows] = stayRows;
   let stayDecision: {
     id: string;
     title: string;
@@ -288,19 +296,27 @@ export default async function PlannerTripPage({
     nights: number | null;
     comparison: Awaited<ReturnType<typeof buildStayComparison>> & { read: string | null };
   } | null = null;
-  if (stayDecisionRow) {
-    const comparison = await buildStayComparison(admin, id, stayDecisionRow.id, stayDecisionRow.nights, roster.length);
+  if (primaryStayRow) {
+    const comparison = await buildStayComparison(admin, id, primaryStayRow.id, primaryStayRow.nights, roster.length);
     const read = await generateStayRead(trip.name, comparison);
     stayDecision = {
-      id: stayDecisionRow.id,
-      title: stayDecisionRow.title,
-      status: stayDecisionRow.status,
-      deadline: stayDecisionRow.deadline,
-      decidedOptionLabel: stayDecisionRow.decidedLabel,
-      nights: stayDecisionRow.nights,
+      id: primaryStayRow.id,
+      title: primaryStayRow.title,
+      status: primaryStayRow.status,
+      deadline: primaryStayRow.deadline,
+      decidedOptionLabel: primaryStayRow.decidedLabel,
+      nights: primaryStayRow.nights,
       comparison: { ...comparison, read },
     };
   }
+  const otherStayDecisions = otherStayRows.map((d) => ({
+    id: d.id,
+    title: d.title,
+    status: d.status,
+    nights: d.nights,
+    decidedOptionLabel: d.decidedLabel,
+    optionCount: d.optionCount,
+  }));
 
   let pendingJoinRequests: { id: string; label: string }[] = [];
   if (membership.role === "owner") {
@@ -604,6 +620,7 @@ export default async function PlannerTripPage({
         <StaysSection
           tripId={id}
           stayDecision={stayDecision}
+          otherStayDecisions={otherStayDecisions}
           myUserId={user.id}
           totalMembers={roster.length}
           isOwner={membership.role === "owner"}
