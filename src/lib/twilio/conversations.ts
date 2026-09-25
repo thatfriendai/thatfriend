@@ -1,6 +1,7 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createTwilioClient, getSmsFrom } from "./client";
+import { sendUserText } from "./send";
 
 /** Twilio error code for "this participant/address is already in the conversation." */
 const ALREADY_PARTICIPANT = 50416;
@@ -81,17 +82,54 @@ export async function getOrCreateTripConversation(
 
   const { data: members } = await admin
     .from("planner_memberships")
-    .select("planner_users(phone)")
+    .select("user_id, planner_users(phone)")
     .eq("trip_id", trip.id);
 
-  const phones = (members ?? [])
-    .map((m) => (m.planner_users as unknown as { phone: string | null } | null)?.phone)
-    .filter((p): p is string => Boolean(p));
+  const withPhone = (members ?? [])
+    .map((m) => ({
+      userId: m.user_id as string,
+      phone: (m.planner_users as unknown as { phone: string | null } | null)?.phone,
+    }))
+    .filter((m): m is { userId: string; phone: string } => Boolean(m.phone));
 
-  for (const phone of phones) {
-    await addParticipantToConversation(conversation.sid, phone).catch(() => {
-      // Best-effort — a member who fails to get added can still be synced later.
-    });
+  // Twilio only allows one active Conversation binding per phone number
+  // through this proxy — someone already bound to another trip's group
+  // thread can't also be added to this one (their texts there would never
+  // reach it). Best-effort otherwise too, but this specific, expected
+  // failure is worth telling the organizer about instead of losing silently.
+  const unreachable: string[] = [];
+  for (const member of withPhone) {
+    try {
+      await addParticipantToConversation(conversation.sid, member.phone);
+    } catch (e) {
+      console.error("[conversations] couldn't add participant", trip.id, member.userId, e);
+      unreachable.push(member.userId);
+    }
+  }
+
+  if (unreachable.length > 0) {
+    const { data: names } = await admin.from("planner_users").select("id, name, email").in("id", unreachable);
+    const label = (names ?? [])
+      .map((n) => n.name?.split(" ")[0] || n.email?.split("@")[0] || "someone")
+      .join(", ");
+    const { data: owner } = await admin
+      .from("planner_memberships")
+      .select("planner_users(id, phone, whatsapp_opt_in, notify_sms)")
+      .eq("trip_id", trip.id)
+      .eq("role", "owner")
+      .maybeSingle();
+    const ownerUser = owner?.planner_users as unknown as
+      | { id: string; phone: string | null; whatsapp_opt_in: boolean; notify_sms: boolean }
+      | null;
+    if (ownerUser?.phone && ownerUser.notify_sms) {
+      await sendUserText(
+        ownerUser.phone,
+        ownerUser.whatsapp_opt_in,
+        `heads up — ${label} won't get ${trip.name}'s group texts. they're already in another trip's group thread on the same number, so this one can't reach them there too.`
+      ).catch(() => {
+        // Best-effort — the console.error above is the durable record.
+      });
+    }
   }
 
   return conversation.sid;

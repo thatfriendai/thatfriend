@@ -13,6 +13,7 @@ import { createTripFromText, joinTripByCode, looksLikeJoinCode } from "@/lib/pla
 import { acceptPendingInviteByReply, findPendingInvite } from "@/lib/planner/joinLink";
 import { invitePhoneToTrip, extractPhoneNumbers, looksLikeInviteList } from "@/lib/planner/invitePhone";
 import { recordConsentEvent, handleOptKeywordFromBody, applyOptKeyword, type ConsentMethod } from "@/lib/planner/consent";
+import { routeInboundMessage, type HeldMedia } from "@/lib/planner/smsTripRouting";
 import * as say from "@/lib/planner/smsVoice";
 
 // "hello LISBON4K", "hi LISBON4K", "join LISBON4K!" — deterministic, not
@@ -47,9 +48,14 @@ export async function POST(request: Request) {
     return new NextResponse("Invalid signature", { status: 403 });
   }
 
+  // Set once routing resolves to more than one active trip — every reply
+  // from that point on gets "<Trip Name>: " in front, so a misroute would
+  // be obvious immediately. Empty for the (overwhelmingly common)
+  // single-trip case, and for anything replied before a trip is known.
+  let replyPrefix = "";
   const reply = (body: string) => {
     const twiml = new twilio.twiml.MessagingResponse();
-    twiml.message(say.capReply(body));
+    twiml.message(say.capReply(replyPrefix + body));
     return new NextResponse(twiml.toString(), {
       status: 200,
       headers: { "Content-Type": "text/xml" },
@@ -72,6 +78,18 @@ export async function POST(request: Request) {
   const body = (params.Body ?? "").trim();
   const numMedia = Number(params.NumMedia ?? "0");
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+
+  // A voice memo, video or contact card isn't a screenshot — checked
+  // against every item, not just the first, since an MMS can mix a photo
+  // with something else. Not downloaded yet: only needed if this message
+  // ends up held for trip disambiguation or actually saved as a place.
+  const buildHeldMedia = (): HeldMedia[] =>
+    Array.from({ length: numMedia }, (_, i) => i)
+      .filter((i) => {
+        const contentType = (params[`MediaContentType${i}`] ?? "").toLowerCase();
+        return !contentType || contentType.startsWith("image/");
+      })
+      .map((i) => ({ url: params[`MediaUrl${i}`], contentType: params[`MediaContentType${i}`] ?? "" }));
 
   const admin = createAdminClient();
 
@@ -165,76 +183,78 @@ export async function POST(request: Request) {
       if (optKeyword === "start") return reply(say.optedBackInReply());
     }
 
-    const { data: membership } = await admin
-      .from("planner_memberships")
-      .select("trip_id, planner_trips(id, name, destination, join_code, twilio_conversation_sid)")
-      .eq("user_id", user.id)
-      .order("joined_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    const trip = membership
-      ? (membership.planner_trips as unknown as {
-          id: string;
-          name: string;
-          destination: string | null;
-          join_code: string | null;
-          twilio_conversation_sid: string | null;
-        } | null)
-      : null;
-    const tripName = trip?.name ?? "your trip";
-
-    // Any inbound message from here on is itself affirmative consent —
-    // classify how (a tracked join-link tap, a bare join code, or just a
-    // reply) before acting on it, so the audit log records why.
-    if (body) {
+    // A real join-code attempt is resolved before the trip-routing below —
+    // it names a trip explicitly (possibly one the sender isn't on yet), so
+    // it must never be caught up in "which of your existing trips is this
+    // for" disambiguation. A loose-but-unmatched shape ("hi there" fits the
+    // pattern too) falls through to normal routing untouched.
+    if (body && numMedia === 0) {
       const joinMatch = body.match(JOIN_CODE_PATTERN);
-      let method: ConsentMethod = "inbound_reply";
-      let consentTripId: string | null = trip?.id ?? null;
       if (joinMatch) {
         const code = joinMatch[1].trim().toUpperCase();
         const { data: codeTrip } = await admin.from("planner_trips").select("id").eq("join_code", code).maybeSingle();
-        // "hi there" matches the shape too — only a real code is a join.
         if (codeTrip) {
-          method = "join_code";
-          consentTripId = codeTrip.id;
-        }
-        if (codeTrip && user.phone) {
-          const { data: trackedInvite } = await admin
-            .from("planner_trip_invites")
-            .select("id")
-            .eq("trip_id", codeTrip.id)
-            .eq("phone", toE164(user.phone))
-            .not("clicked_at", "is", null)
-            .maybeSingle();
-          if (trackedInvite) method = "link_tap";
+          let method: ConsentMethod = "join_code";
+          if (user.phone) {
+            const { data: trackedInvite } = await admin
+              .from("planner_trip_invites")
+              .select("id")
+              .eq("trip_id", codeTrip.id)
+              .eq("phone", toE164(user.phone))
+              .not("clicked_at", "is", null)
+              .maybeSingle();
+            if (trackedInvite) method = "link_tap";
+          }
+          await recordConsentEvent(admin, user, method, codeTrip.id);
+
+          const joined = await joinTripByCode(admin, user, joinMatch[1]);
+          if (joined.outcome === "joined") return reply(say.joinedReply(joined.tripName));
+          if (joined.outcome === "already_member") return reply(say.alreadyMemberReply(joined.tripName));
+          if (joined.outcome === "error") {
+            console.error("[twilio] join by code failed", joined.error);
+            return reply(say.lookupFailedReply());
+          }
+        } else if (/^join\b/i.test(body) && looksLikeJoinCode(joinMatch[1])) {
+          // "hi there" is a greeting, not a mistyped code — only someone who
+          // actually said "join" gets told the code didn't match.
+          return reply(say.joinCodeNotFoundReply());
         }
       }
-      await recordConsentEvent(admin, user, method, consentTripId);
-    } else if (numMedia > 0) {
+    }
+
+    const phone = toE164(user.phone ?? fromDigits);
+    const routing = await routeInboundMessage(admin, user.id, phone, body, buildHeldMedia());
+
+    if (routing.status === "switched") return reply(say.switchedTripReply(routing.trip.name));
+    if (routing.status === "ambiguous") return reply(say.whichTripReply(routing.tripNames));
+
+    const trip =
+      routing.status === "resolved" || routing.status === "resolved_from_pending" ? routing.trip : null;
+    const tripName = trip?.name ?? "your trip";
+    const isMultiTrip = routing.status === "resolved" || routing.status === "resolved_from_pending" ? routing.isMultiTrip : false;
+    replyPrefix = isMultiTrip ? `${tripName}: ` : "";
+    // A held message replaces what actually just arrived — everything from
+    // here on (consent, intent, place-saving) processes it exactly as if it
+    // had arrived now, so the sender never has to resend it. The media gate
+    // mirrors "any attachment at all" (not just the image-filtered list),
+    // same as the original single-message flow below it.
+    const effectiveBody = routing.status === "resolved_from_pending" ? routing.body : body;
+    const effectiveMedia = routing.status === "resolved_from_pending" ? routing.media : buildHeldMedia();
+    const effectiveHasMedia = routing.status === "resolved_from_pending" ? routing.media.length > 0 : numMedia > 0;
+    const membership = trip ? { trip_id: trip.id } : null;
+
+    // Any inbound message from here on is itself affirmative consent — a
+    // real join-code attempt already logged its own reason above.
+    if (effectiveBody || effectiveHasMedia) {
       await recordConsentEvent(admin, user, "inbound_reply", trip?.id ?? null);
     }
 
-    if (body && !(numMedia > 0)) {
-      const joinMatch = body.match(JOIN_CODE_PATTERN);
-      if (joinMatch) {
-        const joined = await joinTripByCode(admin, user, joinMatch[1]);
-        if (joined.outcome === "joined") return reply(say.joinedReply(joined.tripName));
-        if (joined.outcome === "already_member") return reply(say.alreadyMemberReply(joined.tripName));
-        if (joined.outcome === "error") {
-          console.error("[twilio] join by code failed", joined.error);
-          return reply(say.lookupFailedReply());
-        }
-        // "hi there" is a greeting, not a mistyped code — only someone who
-        // actually said "join" gets told the code didn't match.
-        if (/^join\b/i.test(body) && looksLikeJoinCode(joinMatch[1])) return reply(say.joinCodeNotFoundReply());
-      }
-
+    if (effectiveBody && !effectiveHasMedia) {
       // "who's coming? text me their numbers" — a text that's mostly phone
       // numbers is the answer to that, and it goes to the trip they most
       // recently joined or started. Deterministic, ahead of the classifier.
-      const phones = extractPhoneNumbers(body);
-      if (looksLikeInviteList(body, phones)) {
+      const phones = extractPhoneNumbers(effectiveBody);
+      if (looksLikeInviteList(effectiveBody, phones)) {
         if (!trip) return reply(say.invitesNeedTripReply());
         const organizerName = await organizerFirstName(admin, user.id);
         let sent = 0;
@@ -249,7 +269,7 @@ export async function POST(request: Request) {
         return reply(say.invitesSentReply(sent, tripName, alreadyIn, invalid));
       }
 
-      const intent = await classifyIntent(body, { hasTrips: Boolean(membership) });
+      const intent = await classifyIntent(effectiveBody, { hasTrips: Boolean(membership) });
 
       if (intent.kind === "chat") {
         if (intent.tone === "thanks") return reply(say.thanksReply());
@@ -298,27 +318,18 @@ export async function POST(request: Request) {
 
     let result: Awaited<ReturnType<typeof addResourceFromWhatsAppText>> | null = null;
 
-    if (numMedia > 0 && params.MediaUrl0) {
-      // A voice memo, video or contact card would otherwise be handed to
-      // the screenshot reader as a "jpeg" and fail or come back empty —
-      // checked against every item, not just the first, since an MMS can
-      // mix a photo with something else.
-      const imageIndexes = Array.from({ length: numMedia }, (_, i) => i).filter((i) => {
-        const contentType = (params[`MediaContentType${i}`] ?? "").toLowerCase();
-        return !contentType || contentType.startsWith("image/");
-      });
-      if (imageIndexes.length === 0) return reply(say.unsupportedMediaReply());
+    if (effectiveMedia.length > 0) {
       try {
-        const downloaded = await Promise.all(
-          imageIndexes.map((i) => downloadTwilioMedia(params[`MediaUrl${i}`]))
-        );
+        const downloaded = await Promise.all(effectiveMedia.map((m) => downloadTwilioMedia(m.url)));
         result = await addResourceFromWhatsAppImage(admin, membership.trip_id, user.id, downloaded);
       } catch (e) {
         result = { error: e instanceof Error ? e.message : "Could not download that image." };
       }
-    } else if (body) {
-      result = await addResourceFromWhatsAppText(admin, membership.trip_id, user.id, body);
+    } else if (effectiveBody) {
+      result = await addResourceFromWhatsAppText(admin, membership.trip_id, user.id, effectiveBody);
     } else {
+      // Either nothing came through, or media arrived that wasn't an image
+      // (voice memo, video, contact card) — effectiveMedia filtered it out.
       return reply(say.unsupportedMediaReply());
     }
 
