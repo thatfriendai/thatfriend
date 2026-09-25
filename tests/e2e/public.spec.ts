@@ -37,7 +37,12 @@ for (const path of BAD_INVITES) {
     const errors = watchForErrors(page);
     const res = await page.goto(path);
     expect(res?.status(), "a dead link should be a friendly page, not a 500").toBeLessThan(500);
-    await expectHealthyPage(page, errors);
+    // A dead /j/<token> link now returns a real 404 (see src/proxy.ts) —
+    // the browser logs its own top-level navigation status to the console
+    // for that, which isn't a bug to catch here.
+    const filtered =
+      res?.status() === 404 ? errors.filter((e) => !/responded with a status of 404/.test(e)) : errors;
+    await expectHealthyPage(page, filtered);
   });
 }
 
