@@ -34,6 +34,7 @@ export async function POST(
       .select("trip_id")
       .eq("trip_id", tripId)
       .eq("user_id", user.id)
+      .eq("status", "active")
       .maybeSingle();
     if (!membership) return NextResponse.json({ error: "This trip isn't public." }, { status: 403 });
   }

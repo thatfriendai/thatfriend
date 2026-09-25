@@ -31,7 +31,9 @@ export async function computeHomeAttention(admin: SupabaseClient, userId: string
   const { data: membershipRows } = await admin
     .from("planner_memberships")
     .select("role, planner_trips(*)")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    // Active only — a trip you left or were removed from isn't yours to act on.
+    .eq("status", "active");
 
   const memberships = (membershipRows ?? [])
     .map((m) => ({
@@ -92,7 +94,9 @@ export async function computeTripsToRate(admin: SupabaseClient, userId: string):
   const { data: membershipRows } = await admin
     .from("planner_memberships")
     .select("planner_trips(id, name, end_date)")
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    // Active only — don't ask someone who left or was removed to rate the trip.
+    .eq("status", "active");
 
   const trips = (membershipRows ?? [])
     .map((m) => m.planner_trips as unknown as { id: string; name: string; end_date: string | null } | null)

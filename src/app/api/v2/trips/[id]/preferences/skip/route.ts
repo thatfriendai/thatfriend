@@ -8,6 +8,7 @@ async function requireOwner(admin: ReturnType<typeof createAdminClient>, tripId:
     .select("role")
     .eq("trip_id", tripId)
     .eq("user_id", userId)
+    .eq("status", "active")
     .maybeSingle();
   if (!membership) return { error: "Not a member of this trip.", status: 403 as const };
   if (membership.role !== "owner") {

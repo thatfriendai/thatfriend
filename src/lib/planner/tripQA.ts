@@ -6,6 +6,7 @@ import { computeOverlap } from "./convergence";
 import type { PlannerDay } from "@/lib/supabase/planner-types";
 import { formatPhoneDisplay } from "./phone";
 import { addDays, todayIn } from "./calendarDate";
+import { activeMembersOf } from "./membership";
 
 const SMS_TIME_ZONE = "America/Los_Angeles";
 
@@ -174,16 +175,14 @@ async function answerBudgetQuestion(admin: SupabaseClient, tripId: string): Prom
 async function answerRosterQuestion(admin: SupabaseClient, tripId: string): Promise<string> {
   const { data: trip } = await admin.from("planner_trips").select("name").eq("id", tripId).maybeSingle();
 
-  const { data: memberRows } = await admin
-    .from("planner_memberships")
-    .select("user_id, planner_users(name, phone)")
-    .eq("trip_id", tripId);
-  const members = (memberRows ?? []).map((m) => {
-    const person = m.planner_users as unknown as { name: string | null; phone: string | null } | null;
+  // Active members only — "who's coming" shouldn't list someone who left
+  // or was removed. activeMembersOf also carries the FK hint a bare
+  // planner_users embed now needs (removed_by made it ambiguous, PGRST201).
+  const members = (await activeMembersOf(admin, tripId)).map((m) => {
     // Someone who joined by phone and hasn't set a name yet is still a
     // real person on the trip — show the number rather than "someone".
-    const label = person?.name?.split(" ")[0] || (person?.phone ? formatPhoneDisplay(person.phone) : "someone");
-    return { id: m.user_id as string, label };
+    const label = m.name?.split(" ")[0] || (m.phone ? formatPhoneDisplay(m.phone) : "someone");
+    return { id: m.user_id, label };
   });
 
   if (members.length <= 1) {

@@ -48,7 +48,9 @@ export default async function HomePage() {
     admin
       .from("planner_memberships")
       .select("role, planner_trips(id, name, destination, start_date, end_date, dates_locked_at)")
-      .eq("user_id", user.id),
+      .eq("user_id", user.id)
+      // Active only — a trip you left or were removed from drops off home.
+      .eq("status", "active"),
     computeHomeAttention(admin, user.id),
     computeTripsToRate(admin, user.id),
   ]);
@@ -73,7 +75,9 @@ export default async function HomePage() {
   const { data: memberCountRows } = await admin
     .from("planner_memberships")
     .select("trip_id")
-    .in("trip_id", tripIds.length > 0 ? tripIds : ["00000000-0000-0000-0000-000000000000"]);
+    .in("trip_id", tripIds.length > 0 ? tripIds : ["00000000-0000-0000-0000-000000000000"])
+    // Departed members don't count toward "N travelers".
+    .eq("status", "active");
   const travelerCountByTrip = new Map<string, number>();
   for (const r of memberCountRows ?? []) {
     travelerCountByTrip.set(r.trip_id, (travelerCountByTrip.get(r.trip_id) ?? 0) + 1);

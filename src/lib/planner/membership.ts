@@ -72,6 +72,26 @@ export async function isActiveMember(admin: SupabaseClient, tripId: string, user
 }
 
 /**
+ * Whether someone with this (possibly absent) membership row may become
+ * active on the trip again. Someone who left on their own can walk back in
+ * through any door — the code, the share link, an invite. Someone an
+ * organizer removed may only come back through a targeted invite (their own
+ * phone or email) made *after* the removal: a join code or share link they
+ * still have from before is exactly what removing them was meant to shut.
+ * A removed row with no left_at (shouldn't exist — departMember always sets
+ * it) can't be dated, so any targeted invite is taken as the way back.
+ */
+export function mayRejoinTrip(
+  existing: { status: string; left_at: string | null } | null,
+  targetedInviteCreatedAt: string | null | undefined
+): boolean {
+  if (!existing || existing.status !== "removed") return true;
+  if (!targetedInviteCreatedAt) return false;
+  if (!existing.left_at) return true;
+  return new Date(targetedInviteCreatedAt).getTime() > new Date(existing.left_at).getTime();
+}
+
+/**
  * "LEAVE" texted alone — an exact match, not a substring, same reasoning
  * as STOP/START (src/lib/planner/consent.ts): "leave" is an ordinary word
  * in real conversation ("can't wait to leave"), so only the bare word by
@@ -164,19 +184,23 @@ export async function transferOwner(
 ): Promise<TransferOutcome> {
   if (!(await isActiveMember(admin, tripId, toUserId))) return { outcome: "not_member" };
 
-  const { error: demoteError } = await admin
-    .from("planner_memberships")
-    .update({ role: "member" })
-    .eq("trip_id", tripId)
-    .eq("user_id", fromUserId);
-  if (demoteError) return { outcome: "error", error: demoteError.message };
-
+  // Promote first, then demote: if the second write fails the trip briefly
+  // has two owners (harmless, and the old owner can retry), rather than the
+  // other order's failure mode — a trip with no owner at all, which nobody
+  // can manage or hand back.
   const { error: promoteError } = await admin
     .from("planner_memberships")
     .update({ role: "owner" })
     .eq("trip_id", tripId)
     .eq("user_id", toUserId);
   if (promoteError) return { outcome: "error", error: promoteError.message };
+
+  const { error: demoteError } = await admin
+    .from("planner_memberships")
+    .update({ role: "member" })
+    .eq("trip_id", tripId)
+    .eq("user_id", fromUserId);
+  if (demoteError) return { outcome: "error", error: demoteError.message };
 
   await admin.from("planner_trips").update({ created_by: toUserId }).eq("id", tripId);
   return { outcome: "ok" };

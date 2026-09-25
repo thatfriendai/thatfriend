@@ -14,7 +14,7 @@ async function load(tripId: string, dayId: string) {
   if (!user) return { error: NextResponse.json({ error: "Not signed in." }, { status: 401 }) } as const;
   const admin = createAdminClient();
   const [{ data: membership }, { data: day }] = await Promise.all([
-    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).eq("status", "active").maybeSingle(),
     admin.from("planner_days").select("*").eq("id", dayId).eq("trip_id", tripId).maybeSingle(),
   ]);
   if (!membership) return { error: NextResponse.json({ error: "Not a member of this trip." }, { status: 403 }) } as const;

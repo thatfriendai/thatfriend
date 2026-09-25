@@ -1,5 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { activeMembersOf } from "./membership";
 
 export interface JoinPreviewData {
   tripId: string;
@@ -12,20 +13,20 @@ export interface JoinPreviewData {
 
 /** Everything the "Join <trip>" page shows above the button, from one trip id. */
 export async function loadJoinPreview(admin: SupabaseClient, tripId: string): Promise<JoinPreviewData | null> {
-  const [{ data: trip }, { data: members }] = await Promise.all([
+  const [{ data: trip }, members] = await Promise.all([
     admin.from("planner_trips").select("id, name, destination, start_date, end_date, created_by").eq("id", tripId).maybeSingle(),
-    admin.from("planner_memberships").select("user_id, planner_users(name, email)").eq("trip_id", tripId),
+    // Active members only — someone who left or was removed isn't "going",
+    // and activeMembersOf carries the FK hint the removed_by column made
+    // necessary (a bare planner_users embed now fails with PGRST201).
+    activeMembersOf(admin, tripId),
   ]);
   if (!trip) return null;
 
   const { data: owner } = await admin.from("planner_users").select("name, email").eq("id", trip.created_by).maybeSingle();
   const ownerName = owner?.name?.split(" ")[0] || owner?.email?.split("@")[0] || "Someone";
 
-  const memberNames = (members ?? [])
-    .map((m) => {
-      const u = m.planner_users as unknown as { name: string | null; email: string | null } | null;
-      return u?.name?.split(" ")[0] || u?.email?.split("@")[0] || null;
-    })
+  const memberNames = members
+    .map((m) => m.name?.split(" ")[0] || m.email?.split("@")[0] || null)
     .filter((n): n is string => Boolean(n));
 
   const dateRange =

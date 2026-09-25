@@ -19,6 +19,7 @@ export async function POST(
     .select("trip_id")
     .eq("trip_id", tripId)
     .eq("user_id", user.id)
+    .eq("status", "active")
     .maybeSingle();
   if (!membership) {
     return NextResponse.json({ error: "Not a member of this trip." }, { status: 403 });
@@ -68,7 +69,17 @@ export async function POST(
     .select("*")
     .maybeSingle();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) {
+    // 23514 = check constraint: status "tied" needs
+    // supabase/migrations/2026-09-29-tied-decisions.sql. Don't show a
+    // tester the raw Postgres message.
+    console.error("[close decision] update failed", decisionId, error);
+    const message =
+      error.code === "23514" && isTied
+        ? "This vote is tied, and ties can't be saved until the latest database update is applied. Break the tie with one more vote and close it again."
+        : "Couldn't close this decision — try again in a moment.";
+    return NextResponse.json({ error: message }, { status: error.code === "23514" ? 409 : 500 });
+  }
   if (!updated) return NextResponse.json({ error: "Already closed." }, { status: 409 });
 
   const { data: trip } = await admin

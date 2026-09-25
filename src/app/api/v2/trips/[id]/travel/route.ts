@@ -16,6 +16,7 @@ async function member(tripId: string) {
     .select("trip_id")
     .eq("trip_id", tripId)
     .eq("user_id", user.id)
+    .eq("status", "active")
     .maybeSingle();
   if (!membership) return { error: NextResponse.json({ error: "Not a member of this trip." }, { status: 403 }) } as const;
   return { user, admin } as const;
