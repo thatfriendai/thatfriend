@@ -750,6 +750,42 @@ alter table planner_processed_messages enable row level security;
 grant all on planner_processed_messages to anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
+-- planner_sms_trip_context — which trip a phone's next ambiguous 1:1 text
+-- routes to, when they're on more than one active trip and haven't just
+-- named one. Set whenever a trip is resolved by an explicit mention or a
+-- "switch to X"; read before every routing decision; treated as expired
+-- after ACTIVE_TRIP_WINDOW_HOURS (config/limits.ts) of inactivity, checked
+-- in code rather than as a database TTL.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_sms_trip_context (
+  phone text primary key,
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  updated_at timestamptz not null default now()
+);
+
+alter table planner_sms_trip_context enable row level security;
+grant all on planner_sms_trip_context to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
+-- planner_sms_pending_messages — a 1:1 text held, unanswered, because which
+-- of the phone's several active trips it's about couldn't be told apart.
+-- Applied to whichever trip the next reply names, so the person never has
+-- to resend it; overwritten (not queued) if another ambiguous text arrives
+-- first, since only the most recent one is worth asking about.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_sms_pending_messages (
+  phone text primary key,
+  candidate_trip_ids uuid[] not null,
+  body text not null default '',
+  -- [{url, contentType}, ...] for a held MMS — see downloadTwilioMedia.
+  media jsonb not null default '[]',
+  created_at timestamptz not null default now()
+);
+
+alter table planner_sms_pending_messages enable row level security;
+grant all on planner_sms_pending_messages to anon, authenticated, service_role;
+
+-- ---------------------------------------------------------------------------
 -- planner_trip_invites — one row per (trip, phone) the organizer has
 -- actually invited, replacing the trip-wide join_code as the thing that's
 -- actually sent. Lets a "that.fr/j/<token>" link be scoped to a specific

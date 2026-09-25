@@ -26,10 +26,18 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
   remove email invites from the new-trip form.
 - **P1 · Nobody can leave a trip or be removed from one.** There's no route
   for either. A tester who joins the wrong trip is stuck there.
-- **P1 · Texts from people on several trips go to the trip they joined most
-  recently.** A Lisbon restaurant texted by someone who later joined Miami
-  lands in Miami, with a "doesn't look nearby" warning. Options: route to
-  the nearest trip, or ask "which trip?".
+- ~~**P1 · Texts from people on several trips go to the trip they joined
+  most recently.**~~ — **fixed 2026-09-26 (P1-C).** 1:1 texts now resolve
+  by: the message naming a trip (name, destination city, or join code),
+  then a 24h active-trip context (also settable with "switch to X"), then
+  asking which trip and holding the message until answered — never a
+  guess. Every reply is prefixed with the trip name whenever the sender is
+  on more than one active trip. One real platform limit found along the
+  way, not fully fixable at the app layer: Twilio only allows one phone
+  number to be bound to one group Conversation at a time, so a person in
+  two trips' group threads can only ever receive one trip's group texts —
+  now logged and texted to the organizer when it happens, instead of
+  silently dropped.
 - **P2 · A single-day overlap is never proposed.** `MIN_WINDOW = 2` in
   `dates.ts`. Setting it to 1 would propose single days, since the
   tie-break already prefers longer windows.

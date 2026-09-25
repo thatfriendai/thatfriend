@@ -25,3 +25,6 @@ export const MAX_TRAVELERS_PER_TRIP = 30;
 
 /** How many stay (lodging) decisions one trip can have open at once. */
 export const MAX_STAYS_PER_TRIP = 10;
+
+/** How long a phone's "active trip" SMS-routing context lasts without another message before it's treated as expired. */
+export const ACTIVE_TRIP_WINDOW_HOURS = 24;

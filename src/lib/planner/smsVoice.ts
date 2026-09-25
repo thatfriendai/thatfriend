@@ -1,5 +1,6 @@
 import "server-only";
 import { TRENDING_CITIES } from "./guides";
+import { joinNames } from "./travel";
 
 /**
  * Every conversational reply That Friend texts back, in one place, so the
@@ -96,6 +97,15 @@ export function alreadyMemberReply(tripName: string) {
 
 export function joinCodeNotFoundReply() {
   return `hmm, that code doesn't match a trip — double-check it, or ask whoever sent it to resend.`;
+}
+
+/** Sent when a text could be about any of the sender's active trips and nothing in it says which. The original message is held and applied once they answer — see smsTripRouting.ts. */
+export function whichTripReply(tripNames: string[]) {
+  return `which trip is this for: ${joinNames(tripNames)}?`;
+}
+
+export function switchedTripReply(tripName: string) {
+  return `switched — texts go to ${tripName} from here.`;
 }
 
 export function lookupFailedReply() {
