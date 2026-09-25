@@ -94,6 +94,9 @@ export function hashPercent(seed: string): { x: number; y: number } {
 export function formatDayLabel(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return d
-    .toLocaleDateString(undefined, { weekday: "short", day: "numeric" })
+    // "en-US" pinned: this renders in client components too, and a
+    // browser in en-GB/tr-TR formatted it differently from the server
+    // ("SAT 17" vs "17 SAT"), tripping a hydration error on the itinerary.
+    .toLocaleDateString("en-US", { weekday: "short", day: "numeric" })
     .toUpperCase();
 }

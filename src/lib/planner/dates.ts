@@ -3,6 +3,44 @@ import { addDays, dateRange, todayIn } from "./calendarDate";
 import { MIN_DATE_WINDOW } from "@/config/limits";
 
 const MAX_WINDOW = 10;
+const PREFERRED_MIN_WINDOW = 2;
+
+interface Window {
+  start: number;
+  len: number;
+  score: number;
+  sum: number;
+}
+
+/**
+ * The best window of `minLen`–MAX_WINDOW days: scored by its weakest day,
+ * ties broken by length and then total coverage. Null when no window has
+ * anyone free.
+ */
+function bestWindow(coverage: DateCoverageDay[], minLen: number): Window | null {
+  let best: Window | null = null;
+  for (let start = 0; start < coverage.length; start++) {
+    let minCount = Infinity;
+    let sum = 0;
+    for (let len = 1; len <= MAX_WINDOW && start + len <= coverage.length; len++) {
+      const count = coverage[start + len - 1].count;
+      minCount = Math.min(minCount, count);
+      sum += count;
+      if (len < minLen) continue;
+
+      const candidate = { start, len, score: minCount, sum };
+      if (
+        !best ||
+        candidate.score > best.score ||
+        (candidate.score === best.score && candidate.len > best.len) ||
+        (candidate.score === best.score && candidate.len === best.len && candidate.sum > best.sum)
+      ) {
+        best = candidate;
+      }
+    }
+  }
+  return best && best.score > 0 ? best : null;
+}
 
 export interface DateProposal {
   start_date: string;
@@ -40,7 +78,8 @@ export function upcomingMarks<T extends { date: string }>(marks: T[], earliest: 
  * Every contiguous window of 2-10 days within the marked span is scored by
  * its weakest day (a stretch is only as good as the day fewest people can
  * make), then the highest-scoring window wins — longer windows and higher
- * total coverage break ties. Mirrors convergence's floor/comfy language:
+ * total coverage break ties. A single day is proposed only when no 2+ day
+ * stretch works for most of the group and the day gets more people there. Mirrors convergence's floor/comfy language:
  * a full-coverage window "works for all N", otherwise "works for N of M".
  */
 export function computeDateProposal(
@@ -68,30 +107,18 @@ export function computeDateProposal(
     count: countByDate.get(date) ?? 0,
   }));
 
-  let best: { start: number; len: number; score: number; sum: number } | null = null;
+  // A stretch of 2+ days that most of the group can make beats any single
+  // day: scoring one-day windows alongside longer ones let a single day
+  // everyone can make beat a whole weekend that works for 3 of 4 (the
+  // Austin weekend got proposed as Saturday alone). A single day
+  // (MIN_DATE_WINDOW) only wins when no stretch works for a majority and
+  // the day gets more people there — two ranges that just touch.
+  const multi = bestWindow(coverage, PREFERRED_MIN_WINDOW);
+  const single = bestWindow(coverage, MIN_DATE_WINDOW);
+  const best =
+    multi && (multi.score * 2 > totalMembers || !single || single.score <= multi.score) ? multi : single;
 
-  for (let start = 0; start < span.length; start++) {
-    let minCount = Infinity;
-    let sum = 0;
-    for (let len = 1; len <= MAX_WINDOW && start + len <= span.length; len++) {
-      const count = coverage[start + len - 1].count;
-      minCount = Math.min(minCount, count);
-      sum += count;
-      if (len < MIN_DATE_WINDOW) continue;
-
-      const candidate = { start, len, score: minCount, sum };
-      if (
-        !best ||
-        candidate.score > best.score ||
-        (candidate.score === best.score && candidate.len > best.len) ||
-        (candidate.score === best.score && candidate.len === best.len && candidate.sum > best.sum)
-      ) {
-        best = candidate;
-      }
-    }
-  }
-
-  if (!best || best.score === 0) return { proposal: null, coverage };
+  if (!best) return { proposal: null, coverage };
 
   const start_date = span[best.start];
   const end_date = span[best.start + best.len - 1];

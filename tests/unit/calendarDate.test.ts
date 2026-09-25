@@ -46,3 +46,12 @@ describe("todayIn", () => {
     ["Not/AZone", "2026-10-17"],
   ])("%s -> %s", (tz, expected) => expect(todayIn(tz, now)).toBe(expected));
 });
+
+describe("formatDateRange", () => {
+  it("shows a day trip as one date, not 'Oct 24–24'", async () => {
+    const { formatDateRange } = await import("@/lib/planner/calendarDate");
+    expect(formatDateRange("2026-10-24", "2026-10-24")).toBe("Oct 24");
+    expect(formatDateRange("2026-10-16", "2026-10-18")).toBe("Oct 16–18");
+    expect(formatDateRange("2026-12-30", "2027-01-02")).toBe("Dec 30–Jan 2");
+  });
+});

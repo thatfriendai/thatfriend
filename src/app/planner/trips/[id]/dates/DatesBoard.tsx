@@ -22,6 +22,7 @@ function formatRange(start: string, end: string) {
   // otherwise format this differently and trip a hydration warning.
   const monthName = (d: Date) => d.toLocaleDateString("en-US", { month: "long" });
   const sameMonth = s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear();
+  if (start === end) return `${s.getDate()} ${monthName(s)}`;
   if (sameMonth) return `${s.getDate()}–${e.getDate()} ${monthName(e)}`;
   return `${s.getDate()} ${monthName(s)} – ${e.getDate()} ${monthName(e)}`;
 }
@@ -29,6 +30,12 @@ function formatRange(start: string, end: string) {
 function dayCount(start: string, end: string) {
   const ms = new Date(end + "T00:00:00").getTime() - new Date(start + "T00:00:00").getTime();
   return Math.round(ms / 86400000) + 1;
+}
+
+/** "these 3 days" / "this day" — a single-day proposal read "these 1 days". */
+function theseDays(start: string, end: string) {
+  const n = dayCount(start, end);
+  return n === 1 ? "this day" : `these ${n} days`;
 }
 
 // "Nina" / "Nina and Tom" / "Nina, Tom and Priya" — no Oxford comma, matches
@@ -439,9 +446,9 @@ export function DatesBoard({
           </p>
           <p className="mb-4 text-[15px] leading-relaxed text-body">
             {isFull
-              ? `All ${totalMembers} of you are free these ${dayCount(proposal.start_date, proposal.end_date)} days. Confirm them and the trip stops asking about dates — flights, stays and the itinerary all build on them. Anyone can still reopen it.`
+              ? `All ${totalMembers} of you are free ${theseDays(proposal.start_date, proposal.end_date)}. Confirm them and the trip stops asking about dates — flights, stays and the itinerary all build on them. Anyone can still reopen it.`
               : isPartial
-                ? `These ${dayCount(proposal.start_date, proposal.end_date)} days work for the ${proposal.score} who answered. They can still move.`
+                ? `${dayCount(proposal.start_date, proposal.end_date) === 1 ? "This day works" : `These ${dayCount(proposal.start_date, proposal.end_date)} days work`} for the ${proposal.score} who answered. They can still move.`
                 : "The days you marked. This narrows once your friends mark theirs."}
           </p>
           {isFull && (

@@ -142,10 +142,12 @@ export function formatDateRange(
 ): string {
   const sameMonth = start.slice(0, 7) === end.slice(0, 7);
   const fmt = (date: string, withMonth: boolean) =>
-    new Date(toUtcMs(date)).toLocaleDateString(undefined, {
+    new Date(toUtcMs(date)).toLocaleDateString("en-US", {
       timeZone: "UTC",
       day: "numeric",
       ...(withMonth ? { month } : {}),
     });
+  // A day trip is one date, not "Oct 24–24".
+  if (start === end) return fmt(start, true);
   return `${fmt(start, true)}${separator}${fmt(end, !sameMonth)}`;
 }

@@ -81,3 +81,19 @@ describe("computeDateProposal", () => {
     expect(proposal).toMatchObject({ start_date: days[0], end_date: days[days.length - 1] });
   });
 });
+
+describe("computeDateProposal — single days never beat a real weekend", () => {
+  it("proposes the 3-day weekend that works for 3 of 4, not the one day all 4 can make", () => {
+    const weekend = ["2026-10-16", "2026-10-17", "2026-10-18"];
+    const { proposal } = computeDateProposal(
+      [...marks("organizer", weekend), ...marks("newbie", weekend), ...marks("smsOnly", weekend), ...marks("flaky", ["2026-10-17"])],
+      4
+    );
+    expect(proposal).toMatchObject({ start_date: "2026-10-16", end_date: "2026-10-18", label: "works for 3 of 4" });
+  });
+
+  it("still proposes a single day when nobody shares two days in a row", () => {
+    const { proposal } = computeDateProposal([...marks("a", ["2026-10-24"]), ...marks("b", ["2026-10-24", "2026-10-26"])], 2);
+    expect(proposal).toMatchObject({ start_date: "2026-10-24", end_date: "2026-10-24", label: "works for all 2" });
+  });
+});
