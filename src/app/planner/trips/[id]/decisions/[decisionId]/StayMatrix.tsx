@@ -50,6 +50,7 @@ export function StayMatrix({
   isTied,
   isOwner,
   onDecide,
+  onDeleteOption,
   onOptionsChange,
 }: {
   tripId: string;
@@ -66,6 +67,8 @@ export function StayMatrix({
   isOwner?: boolean;
   /** Settles a tie by picking optionId as the winner. Only called when isTied && isOwner. */
   onDecide?: (optionId: string) => Promise<void>;
+  /** Removes an option from the comparison — any member, same as editing (P2-4). Omitted entirely where the caller has no delete route wired up. */
+  onDeleteOption?: (optionId: string, label: string) => Promise<void>;
   /** Fired whenever the option list changes (e.g. a paste adds one) — lets DecisionDetail's sidebar summary name a freshly-added option without a reload. */
   onOptionsChange?: (options: { id: string; label: string }[]) => void;
 }) {
@@ -76,6 +79,7 @@ export function StayMatrix({
   const [pending, setPending] = useState(false);
   const [voting, setVoting] = useState(false);
   const [deciding, setDeciding] = useState(false);
+  const [deletingOptionId, setDeletingOptionId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [voteError, setVoteError] = useState<string | null>(null);
   const [diffsOnly, setDiffsOnly] = useState(false);
@@ -108,6 +112,20 @@ export function StayMatrix({
       setVoteError("Your vote didn't go through. Try again.");
     } finally {
       setVoting(false);
+    }
+  }
+
+  async function removeOption(optionId: string, label: string) {
+    if (!onDeleteOption || deletingOptionId) return;
+    setDeletingOptionId(optionId);
+    setVoteError(null);
+    try {
+      await onDeleteOption(optionId, label);
+      await refresh();
+    } catch {
+      setVoteError("Couldn't remove that option. Try again.");
+    } finally {
+      setDeletingOptionId(null);
     }
   }
 
@@ -357,6 +375,16 @@ export function StayMatrix({
                     {o.sub && <div className="mb-1 text-[12px] leading-snug text-muted">{o.sub}</div>}
                     {o.source && (
                       <div className="font-mono text-[9.5px] tracking-[0.08em] text-faint uppercase">{o.source}</div>
+                    )}
+                    {onDeleteOption && !isDecided && (
+                      <button
+                        type="button"
+                        onClick={() => removeOption(o.id, o.label)}
+                        disabled={deletingOptionId === o.id}
+                        className="mt-1.5 text-[11px] text-faint hover:text-red-700 disabled:opacity-50"
+                      >
+                        {deletingOptionId === o.id ? "Removing…" : "Remove"}
+                      </button>
                     )}
                   </div>
                 );

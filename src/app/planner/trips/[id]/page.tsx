@@ -598,7 +598,12 @@ export default async function PlannerTripPage({
           isOwner={membership.role === "owner"}
         />
 
-        <DecisionsSection tripId={id} decisions={decisions} totalMembers={roster.length} />
+        <DecisionsSection
+          tripId={id}
+          decisions={decisions}
+          totalMembers={roster.length}
+          isOwner={membership.role === "owner"}
+        />
 
         <SourcesSection resources={resources} />
       </div>

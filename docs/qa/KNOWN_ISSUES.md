@@ -90,9 +90,23 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
   one-at-a-time adds both enforced now — adding used to have no cap at
   all), 10 stay decisions per trip. Every new cap shows a specific message
   naming the limit, not a generic error.
-- **P2 · There's no way to delete a decision or remove a stay option,** and
-  no way to set nights after creating a stay decision. Without nights,
-  per-person prices stay "—".
+- ~~**P2 · There's no way to delete a decision or remove a stay
+  option.**~~ — **fixed 2026-09-29 (P2-4).** Hard delete, this app's
+  convention everywhere except `planner_memberships` — cascades to the
+  decision's options/votes/notes (all FK'd `on delete cascade`).
+  Deleting a whole decision is owner-only (like the tie-break "decide"
+  action — a bigger, less reversible call than the day-to-day collaborative
+  actions on it); removing one option from a comparison is open to any
+  member, same as editing one, and is blocked only when it's the option a
+  closed decision was actually decided on (delete the whole decision
+  instead, or reopen it first). Both leave a low-key note in
+  `planner_trip_activity`, the same in-app, trip-wide feed P1-B's
+  leave/remove uses — there's no per-user notification/inbox mechanism in
+  this app to target "just the voters" specifically, so that's what
+  "voters get a notice" resolves to today. Confirmed via `window.confirm`,
+  same pattern as removing a place. Still no way to set nights after
+  creating a stay decision — that's P2-5, not part of this one. Without
+  nights, per-person prices stay "—".
 - **P2 · Mixed currencies:** "best cost" is simply not marked, rather than
   converting between currencies.
 - **P2 · Nudges have no cooldown.** Any member can re-text everyone who
