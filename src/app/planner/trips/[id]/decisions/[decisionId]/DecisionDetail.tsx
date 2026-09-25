@@ -11,6 +11,7 @@ import type {
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 import { celebrateDecisionClosed } from "@/lib/planner/confetti";
 import { initialsOf } from "@/lib/planner/initials";
+import { stayNightsFromDates } from "@/lib/planner/calendarDate";
 
 const AVATAR_COLORS = DAY_COLORS;
 
@@ -68,6 +69,10 @@ export function DecisionDetail({
   const [reopening, setReopening] = useState(false);
   const [deletingDecision, setDeletingDecision] = useState(false);
   const [deletingOptionId, setDeletingOptionId] = useState<string | null>(null);
+  const [editingNights, setEditingNights] = useState(false);
+  const [checkInDraft, setCheckInDraft] = useState("");
+  const [checkOutDraft, setCheckOutDraft] = useState("");
+  const [savingNights, setSavingNights] = useState(false);
   const router = useRouter();
   const [notes, setNotes] = useState(initialNotes);
   // StayMatrix manages its own option list (a stay option can be pasted in
@@ -202,6 +207,38 @@ export function DecisionDetail({
     }
   }
 
+  async function saveNights() {
+    if (savingNights) return;
+    const { error: nightsError } = stayNightsFromDates(checkInDraft, checkOutDraft);
+    if (nightsError) {
+      setError(nightsError);
+      return;
+    }
+    setSavingNights(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ check_in: checkInDraft || "", check_out: checkOutDraft || "" }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't save those dates.");
+        return;
+      }
+      if (data.warning) window.alert(data.warning);
+      // Reloads so StayMatrix's server-computed per-person prices pick up
+      // the new nights — it has no external refresh hook, same reasoning
+      // as decideWinner/reopenDecision elsewhere in this file.
+      window.location.reload();
+    } catch {
+      setError("Couldn't save those dates.");
+    } finally {
+      setSavingNights(false);
+    }
+  }
+
   async function deleteDecision() {
     if (deletingDecision) return;
     if (!window.confirm(`Delete "${decision.title}"? Every vote and note on it goes too. This can't be undone.`)) {
@@ -312,6 +349,60 @@ export function DecisionDetail({
       </h1>
       {decision.why && (
         <p className="mb-9 max-w-[36em] text-[16.5px] leading-relaxed text-body">{decision.why}</p>
+      )}
+
+      {decision.kind === "stay" && (
+        <div className="mb-6 flex flex-wrap items-center gap-3 text-[14.5px] text-body">
+          {editingNights ? (
+            <>
+              <input
+                type="date"
+                value={checkInDraft}
+                onChange={(e) => setCheckInDraft(e.target.value)}
+                className="rounded-lg border border-input-border bg-card px-3 py-1.5 text-[14px] text-ink outline-none focus:border-ink"
+              />
+              <span className="text-muted">to</span>
+              <input
+                type="date"
+                value={checkOutDraft}
+                onChange={(e) => setCheckOutDraft(e.target.value)}
+                className="rounded-lg border border-input-border bg-card px-3 py-1.5 text-[14px] text-ink outline-none focus:border-ink"
+              />
+              <button
+                onClick={saveNights}
+                disabled={savingNights}
+                className="rounded-full bg-ink px-3.5 py-1.5 text-[13px] text-cream hover:bg-accent disabled:opacity-50"
+              >
+                {savingNights ? "Saving…" : "Save"}
+              </button>
+              <button
+                onClick={() => setEditingNights(false)}
+                disabled={savingNights}
+                className="text-[13px] text-muted hover:text-ink"
+              >
+                Cancel
+              </button>
+            </>
+          ) : (
+            <>
+              <span>
+                {decision.nights
+                  ? `${decision.nights} night${decision.nights === 1 ? "" : "s"}`
+                  : "Nights not set — per-person prices stay blank until they are"}
+              </span>
+              <button
+                onClick={() => {
+                  setCheckInDraft("");
+                  setCheckOutDraft("");
+                  setEditingNights(true);
+                }}
+                className="text-[13px] text-muted hover:text-ink"
+              >
+                {decision.nights ? "Edit dates" : "Set dates"}
+              </button>
+            </>
+          )}
+        </div>
       )}
 
       {decision.kind === "stay" && initialComparison ? (

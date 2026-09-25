@@ -104,9 +104,22 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
   leave/remove uses — there's no per-user notification/inbox mechanism in
   this app to target "just the voters" specifically, so that's what
   "voters get a notice" resolves to today. Confirmed via `window.confirm`,
-  same pattern as removing a place. Still no way to set nights after
-  creating a stay decision — that's P2-5, not part of this one. Without
-  nights, per-person prices stay "—".
+  same pattern as removing a place.
+- ~~**P2 · No way to set nights on a stay.**~~ — **fixed 2026-09-29
+  (P2-5).** Never typed as a raw number — a check-in/check-out date pair,
+  both optional together ("can set later"), derives it
+  (`stayNightsFromDates` in `calendarDate.ts`). Giving only one of the two
+  is the actual error, not silently ignored; a check-out on or before
+  check-in is rejected outright. Dates falling outside the trip's own
+  dates warn (via `window.alert`, this app's existing native-dialog
+  convention) but don't block — the booking's real. Settable at creation
+  (both `NewDecisionModal` and the "already booked" form) and editable any
+  time after via a new `PATCH .../decisions/[decisionId]` — any member,
+  same reasoning as editing an option. The actual check-in/check-out dates
+  aren't stored anywhere, only the derived night count (`nights`, already
+  a column) — editing re-enters both dates from scratch rather than
+  prefilling the old ones; nothing else in the app tracks a stay's real
+  booking dates today, so there was nothing to prefill from.
 - **P2 · Mixed currencies:** "best cost" is simply not marked, rather than
   converting between currencies.
 - **P2 · Nudges have no cooldown.** Any member can re-text everyone who

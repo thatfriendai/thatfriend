@@ -276,6 +276,7 @@ export default async function PlannerTripPage({
     status: "open" | "closed" | "tied";
     deadline: string | null;
     decidedOptionLabel: string | null;
+    nights: number | null;
     comparison: Awaited<ReturnType<typeof buildStayComparison>> & { read: string | null };
   } | null = null;
   if (stayDecisionRow) {
@@ -287,6 +288,7 @@ export default async function PlannerTripPage({
       status: stayDecisionRow.status,
       deadline: stayDecisionRow.deadline,
       decidedOptionLabel: stayDecisionRow.decidedLabel,
+      nights: stayDecisionRow.nights,
       comparison: { ...comparison, read },
     };
   }

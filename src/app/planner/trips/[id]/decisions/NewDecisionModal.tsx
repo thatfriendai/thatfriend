@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { stayNightsFromDates } from "@/lib/planner/calendarDate";
 
 interface OptionDraft {
   label: string;
@@ -30,7 +31,8 @@ export function NewDecisionModal({
   const [kind, setKind] = useState<"general" | "stay">(initialKind);
   const [title, setTitle] = useState("");
   const [why, setWhy] = useState("");
-  const [nights, setNights] = useState("");
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
   const [options, setOptions] = useState<OptionDraft[]>([blankOption(), blankOption()]);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -41,7 +43,8 @@ export function NewDecisionModal({
     setKind(initialKind);
     setTitle("");
     setWhy("");
-    setNights("");
+    setCheckIn("");
+    setCheckOut("");
     setOptions([blankOption(), blankOption()]);
     setError(null);
   }
@@ -70,6 +73,13 @@ export function NewDecisionModal({
       setError("A title and at least two options are required.");
       return;
     }
+    if (kind === "stay") {
+      const { error: nightsError } = stayNightsFromDates(checkIn, checkOut);
+      if (nightsError) {
+        setError(nightsError);
+        return;
+      }
+    }
 
     setPending(true);
     setError(null);
@@ -80,7 +90,8 @@ export function NewDecisionModal({
         title,
         why,
         kind,
-        nights: kind === "stay" && nights.trim() ? Number(nights) : undefined,
+        check_in: kind === "stay" ? checkIn || undefined : undefined,
+        check_out: kind === "stay" ? checkOut || undefined : undefined,
         options: kind === "stay" ? [] : cleanOptions,
       }),
     });
@@ -92,6 +103,7 @@ export function NewDecisionModal({
       return;
     }
 
+    if (data.warning) window.alert(data.warning);
     router.push(`/planner/trips/${tripId}/decisions/${data.decision.id}`);
   }
 
@@ -171,16 +183,29 @@ export function NewDecisionModal({
                 </p>
                 <div className="mt-3">
                   <label className="mb-1.5 block text-sm font-medium text-ink">
-                    Nights <span className="text-muted">(for per-person pricing — can set later)</span>
+                    Check-in / check-out <span className="text-muted">(for per-person pricing — can set later)</span>
                   </label>
-                  <input
-                    type="number"
-                    min={1}
-                    value={nights}
-                    onChange={(e) => setNights(e.target.value)}
-                    placeholder="4"
-                    className="w-24 rounded-lg border border-input-border bg-card px-3.5 py-2.5 text-[14.5px] text-ink outline-none focus:border-ink"
-                  />
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="date"
+                      value={checkIn}
+                      onChange={(e) => setCheckIn(e.target.value)}
+                      className="rounded-lg border border-input-border bg-card px-3.5 py-2.5 text-[14.5px] text-ink outline-none focus:border-ink"
+                    />
+                    <span className="text-muted">to</span>
+                    <input
+                      type="date"
+                      value={checkOut}
+                      onChange={(e) => setCheckOut(e.target.value)}
+                      className="rounded-lg border border-input-border bg-card px-3.5 py-2.5 text-[14.5px] text-ink outline-none focus:border-ink"
+                    />
+                  </div>
+                  {(() => {
+                    const { nights, error: nightsPreviewError } = stayNightsFromDates(checkIn, checkOut);
+                    if (nightsPreviewError) return <p className="mt-1.5 text-[12.5px] text-red-700">{nightsPreviewError}</p>;
+                    if (nights) return <p className="mt-1.5 text-[12.5px] text-muted">{nights} night{nights === 1 ? "" : "s"}</p>;
+                    return null;
+                  })()}
                 </div>
               </>
             )}
