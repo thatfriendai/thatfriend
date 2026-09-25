@@ -66,8 +66,18 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
 - **P2 · A single-day overlap is never proposed.** `MIN_WINDOW = 2` in
   `dates.ts`. Setting it to 1 would propose single days, since the
   tie-break already prefers longer windows.
-- **P2 · Tied votes go to the first-listed option**, and the summary says
-  so. The alternative is to block Close and ask the group to break the tie.
+- ~~**P2 · Tied votes go to the first-listed option**~~ — **fixed 2026-09-29
+  (P2-2).** Closing a decision with two or more options tied for the top
+  vote count (and at least one vote actually cast — zero votes still
+  defaults to the first-listed option, since nothing was really decided)
+  now lands on a new `tied` status instead of silently picking one.
+  Voting stays closed while tied. The trip owner gets a "Pick this" action
+  on each option (decision page and the Where-we-stay matrix both), or
+  anyone can reopen it to keep voting — same Reopen action closed decisions
+  already have. The Decisions list gets a third tab for it, naming every
+  tied option, not just two. `planner_decisions.status` check constraint
+  needs a migration (`2026-09-29-tied-decisions.sql`) to accept the new
+  value.
 - ~~**P2 · Caps chosen during QA**~~ — **fixed 2026-09-25.** All of them
   moved into `src/config/limits.ts`, single source of truth. Existing:
   trips of at most 60 days, trip names of at most 120 characters,

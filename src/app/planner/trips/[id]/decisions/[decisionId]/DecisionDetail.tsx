@@ -39,6 +39,7 @@ export function DecisionDetail({
   waitingOn: initialWaitingOn,
   notes: initialNotes,
   initialComparison,
+  isOwner,
 }: {
   tripId: string;
   decisionId: string;
@@ -51,6 +52,7 @@ export function DecisionDetail({
   waitingOn: string[];
   notes: NoteWithWho[];
   initialComparison: StayComparisonData | null;
+  isOwner: boolean;
 }) {
   const [decision, setDecision] = useState(initialDecision);
   const [options, setOptions] = useState(initialOptions);
@@ -61,6 +63,8 @@ export function DecisionDetail({
   const [waitingOn, setWaitingOn] = useState(initialWaitingOn);
   const [voting, setVoting] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [deciding, setDeciding] = useState(false);
+  const [reopening, setReopening] = useState(false);
   const [notes, setNotes] = useState(initialNotes);
   // StayMatrix manages its own option list (a stay option can be pasted in
   // after this page loaded) and reports label changes back here, so the
@@ -75,7 +79,14 @@ export function DecisionDetail({
   const [noteError, setNoteError] = useState<string | null>(null);
 
   const isOpen = decision.status === "open";
+  const isTied = decision.status === "tied";
   const totalVotes = Object.values(optionVotes).reduce((n, v) => n + v.length, 0);
+  const maxVotesOnTie = isTied
+    ? Object.values(optionVotes).reduce((m, v) => Math.max(m, v.length), 0)
+    : 0;
+  const tieLeaders = isTied
+    ? options.filter((o) => (optionVotes[o.id]?.length ?? 0) === maxVotesOnTie && maxVotesOnTie > 0)
+    : [];
 
   async function castVote(optionId: string) {
     if (!isOpen || voting) return;
@@ -144,6 +155,49 @@ export function DecisionDetail({
     }
   }
 
+  async function decideWinner(optionId: string) {
+    if (deciding) return;
+    setDeciding(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/decide`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ option_id: optionId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't settle the tie.");
+        return;
+      }
+      setDecision(data.decision);
+      celebrateDecisionClosed();
+    } catch {
+      setError("Couldn't settle the tie.");
+    } finally {
+      setDeciding(false);
+    }
+  }
+
+  async function reopenDecision() {
+    if (reopening) return;
+    setReopening(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/reopen`, { method: "POST" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't reopen this decision.");
+        return;
+      }
+      setDecision(data.decision);
+    } catch {
+      setError("Couldn't reopen this decision.");
+    } finally {
+      setReopening(false);
+    }
+  }
+
   async function addNote(e: React.FormEvent) {
     e.preventDefault();
     const text = draftNote.trim();
@@ -175,11 +229,16 @@ export function DecisionDetail({
     <div className="mx-auto max-w-[940px] px-6 py-12 pb-30">
       <div className="mb-3.5 flex items-center gap-3">
         <span className="font-mono text-[10.5px] tracking-[0.14em] text-muted uppercase">
-          Decision &middot; {decision.status === "closed" ? "decided" : "open"}
+          Decision &middot; {decision.status === "closed" ? "decided" : isTied ? "tied" : "open"}
         </span>
         {decision.status === "closed" && (
           <span className="rounded-full bg-[#EDF0EA] px-2.5 py-0.5 font-mono text-[10px] tracking-[0.08em] text-[#5B7357] uppercase">
             Closed
+          </span>
+        )}
+        {isTied && (
+          <span className="rounded-full bg-[#F3E9D8] px-2.5 py-0.5 font-mono text-[10px] tracking-[0.08em] text-[#8A6A2A] uppercase">
+            Tied
           </span>
         )}
       </div>
@@ -200,6 +259,9 @@ export function DecisionDetail({
           myUserId={myUserId}
           totalMembers={totalMembers}
           onVote={castVote}
+          isTied={isTied}
+          isOwner={isOwner}
+          onDecide={decideWinner}
           onOptionsChange={(opts) =>
             setStayOptionLabels(Object.fromEntries(opts.map((o) => [o.id, o.label])))
           }
@@ -210,13 +272,14 @@ export function DecisionDetail({
           const voters = optionVotes[o.id] ?? [];
           const isMine = myVote === o.id;
           const isDecided = decision.decided_option_id === o.id;
+          const isTiedLeader = isTied && tieLeaders.some((l) => l.id === o.id);
           return (
             <div
               key={o.id}
               className="min-w-[260px] flex-1 rounded-2xl border p-5.5"
               style={{
-                borderColor: isDecided ? "#6E8C6A" : isMine ? "#1B1917" : "#E4DED2",
-                background: isDecided ? "#F2F7F0" : "#FFFDF9",
+                borderColor: isDecided ? "#6E8C6A" : isTiedLeader ? "#C9A227" : isMine ? "#1B1917" : "#E4DED2",
+                background: isDecided ? "#F2F7F0" : isTiedLeader ? "#FBF3DE" : "#FFFDF9",
               }}
             >
               <div className="mb-4.5 flex items-start justify-between gap-4">
@@ -276,6 +339,22 @@ export function DecisionDetail({
                 >
                   {isMine ? "Your pick" : "Vote for this"}
                 </button>
+              ) : isTied ? (
+                isOwner ? (
+                  <button
+                    onClick={() => decideWinner(o.id)}
+                    disabled={deciding}
+                    className="w-full rounded-full bg-[#C9A227] px-5 py-3 text-center text-[15px] text-cream transition-colors hover:bg-[#B6911E] disabled:opacity-60"
+                  >
+                    {deciding ? "Picking…" : isTiedLeader ? "Pick this to settle the tie" : "Pick this instead"}
+                  </button>
+                ) : (
+                  isTiedLeader && (
+                    <div className="rounded-full bg-[#F3E9D8] px-5 py-3 text-center text-[15px] text-[#8A6A2A]">
+                      Tied for the top
+                    </div>
+                  )
+                )
               ) : (
                 isDecided && (
                   <div className="rounded-full bg-[#6E8C6A] px-5 py-3 text-center text-[15px] text-cream">
@@ -347,6 +426,22 @@ export function DecisionDetail({
               </button>
               {error && <p className="mt-3 text-[13px] text-red-700">{error}</p>}
             </>
+          ) : isTied ? (
+            <div className="text-[14px] leading-relaxed text-body">
+              <p className="mb-3">
+                It&rsquo;s a tie between{" "}
+                <span className="text-ink">{tieLeaders.map((l) => l.label).join(" and ")}</span>.
+                {isOwner ? " Pick one above to settle it, or reopen to keep voting." : " Waiting on the trip owner to pick, or someone can reopen it to keep voting."}
+              </p>
+              <button
+                onClick={reopenDecision}
+                disabled={reopening}
+                className="w-full rounded-full border border-input-border bg-card px-5 py-2.5 text-[14px] text-ink hover:border-ink disabled:opacity-50"
+              >
+                {reopening ? "Reopening…" : "Reopen to keep voting"}
+              </button>
+              {error && <p className="mt-3 text-[13px] text-red-700">{error}</p>}
+            </div>
           ) : (
             <div className="text-[14px] leading-relaxed text-body">
               This decision is closed. The group went with{" "}

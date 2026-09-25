@@ -32,7 +32,7 @@ export default async function DecisionPage({
     { data: noteRows },
     { data: members },
   ] = await Promise.all([
-    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).eq("status", "active").maybeSingle(),
+    admin.from("planner_memberships").select("trip_id, role").eq("trip_id", tripId).eq("user_id", user.id).eq("status", "active").maybeSingle(),
     admin.from("planner_trips").select("name").eq("id", tripId).maybeSingle(),
     admin.from("planner_decisions").select("*").eq("id", decisionId).eq("trip_id", tripId).maybeSingle(),
     admin.from("planner_decision_options").select("*").eq("decision_id", decisionId).order("position", { ascending: true }),
@@ -98,6 +98,7 @@ export default async function DecisionPage({
         waitingOn={waitingOn}
         notes={notes}
         initialComparison={initialComparison}
+        isOwner={membership.role === "owner"}
       />
     </div>
   );

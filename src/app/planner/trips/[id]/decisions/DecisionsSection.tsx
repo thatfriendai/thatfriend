@@ -42,9 +42,21 @@ function describeOutcome(
     return `Uncontested — ${top.count} vote${top.count === 1 ? "" : "s"}.`;
   }
   if (second.count === top.count) {
-    return `Tied ${top.count}–${second.count} with ${second.label}; it went to the option listed first.`;
+    return `Tied ${top.count}–${second.count} with ${second.label}; the trip owner settled it.`;
   }
   return `${top.count} vote${top.count === 1 ? "" : "s"} to ${second.count} against ${second.label}.`;
+}
+
+// optionVotes is sorted highest first; on a tie, more than one option
+// shares that top count — this names every one of them, not just the
+// first, since the app no longer picks a "winner" silently.
+function describeTie(optionVotes: { label: string; count: number }[]): string {
+  const top = optionVotes[0]?.count ?? 0;
+  const leaders = optionVotes.filter((o) => o.count === top);
+  const names = leaders.map((o) => o.label);
+  const label =
+    names.length <= 2 ? names.join(" and ") : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+  return `Tied ${top}-${top} between ${label}.`;
 }
 
 function ReopenButton({ tripId, decisionId }: { tripId: string; decisionId: string }) {
@@ -80,7 +92,7 @@ export function DecisionsSection({
   totalMembers: number;
 }) {
   const [open, setOpen] = useState(false);
-  const [tab, setTab] = useState<"open" | "closed">("open");
+  const [tab, setTab] = useState<"open" | "tied" | "closed">("open");
   const searchParams = useSearchParams();
   const openAddParam = searchParams.get("openAdd");
   const [handledOpenAdd, setHandledOpenAdd] = useState<string | null>(null);
@@ -90,7 +102,9 @@ export function DecisionsSection({
   }
 
   const openDecisions = decisions.filter((d) => d.status === "open");
+  const tiedDecisions = decisions.filter((d) => d.status === "tied");
   const closedDecisions = decisions.filter((d) => d.status === "closed");
+  const tabCount = { open: openDecisions.length, tied: tiedDecisions.length, closed: closedDecisions.length };
 
   return (
     <div id="decisions" className="mb-14">
@@ -99,7 +113,7 @@ export function DecisionsSection({
         <span className="text-[25px] font-display text-ink">Decisions</span>
         {decisions.length > 0 && (
           <div className="ml-auto flex items-center gap-1 rounded-full border border-border bg-warm-bg p-0.5">
-            {(["open", "closed"] as const).map((t) => (
+            {(["open", "tied", "closed"] as const).map((t) => (
               <button
                 key={t}
                 type="button"
@@ -108,7 +122,7 @@ export function DecisionsSection({
                   tab === t ? "bg-ink text-cream" : "text-body"
                 }`}
               >
-                {t} &middot; {t === "open" ? openDecisions.length : closedDecisions.length}
+                {t} &middot; {tabCount[t]}
               </button>
             ))}
           </div>
@@ -158,6 +172,39 @@ export function DecisionsSection({
                   </div>
                 </div>
               </Link>
+            ))}
+          </div>
+        )
+      ) : tab === "tied" ? (
+        tiedDecisions.length === 0 ? (
+          <p className="text-[14.5px] text-muted">Nothing tied right now.</p>
+        ) : (
+          <div className="flex flex-col gap-2.5">
+            <p className="mb-1 max-w-[46em] text-[14px] leading-relaxed text-muted">
+              Closed with two or more options in the lead — the trip owner needs to pick, or anyone can reopen it.
+            </p>
+            {tiedDecisions.map((d) => (
+              <div key={d.id} className="rounded-xl border border-border bg-card px-5 py-4.5">
+                <div className="mb-2 flex items-baseline gap-3">
+                  <Link
+                    href={`/planner/trips/${tripId}/decisions/${d.id}`}
+                    className="text-[15.5px] text-ink-body hover:text-accent"
+                  >
+                    {d.title}
+                  </Link>
+                  <div className="ml-auto flex-none font-mono text-[10.5px] tracking-[0.08em] text-[#8A6A2A] uppercase">
+                    Tied
+                  </div>
+                </div>
+                <p className="mb-2.5 text-[13.5px] leading-relaxed text-muted">{describeTie(d.optionVotes)}</p>
+                <Link
+                  href={`/planner/trips/${tripId}/decisions/${d.id}`}
+                  className="mr-3 inline-block rounded-full bg-[#C9A227] px-3.5 py-1.5 text-[13px] text-cream hover:bg-[#B6911E]"
+                >
+                  Pick the winner
+                </Link>
+                <ReopenButton tripId={tripId} decisionId={d.id} />
+              </div>
             ))}
           </div>
         )

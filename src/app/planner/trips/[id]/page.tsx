@@ -273,7 +273,7 @@ export default async function PlannerTripPage({
   let stayDecision: {
     id: string;
     title: string;
-    status: "open" | "closed";
+    status: "open" | "closed" | "tied";
     deadline: string | null;
     decidedOptionLabel: string | null;
     comparison: Awaited<ReturnType<typeof buildStayComparison>> & { read: string | null };
@@ -590,7 +590,13 @@ export default async function PlannerTripPage({
           myUserId={user.id}
         />
 
-        <StaysSection tripId={id} stayDecision={stayDecision} myUserId={user.id} totalMembers={roster.length} />
+        <StaysSection
+          tripId={id}
+          stayDecision={stayDecision}
+          myUserId={user.id}
+          totalMembers={roster.length}
+          isOwner={membership.role === "owner"}
+        />
 
         <DecisionsSection tripId={id} decisions={decisions} totalMembers={roster.length} />
 
