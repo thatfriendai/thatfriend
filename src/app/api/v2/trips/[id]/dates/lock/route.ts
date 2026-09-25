@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { notifyTrip } from "@/lib/planner/notify";
-import { tripRangeError } from "@/lib/planner/calendarDate";
+import { formatDateRange, tripRangeError } from "@/lib/planner/calendarDate";
 import { earliestProposableDate } from "@/lib/planner/dates";
 
+// The group text's dates: "Oct 16–18", or "Oct 24" for a day trip (it used
+// to read "Oct 24–Oct 24").
 function shortDates(start: string, end: string) {
-  const opts: Intl.DateTimeFormatOptions = { month: "short", day: "numeric" };
-  const s = new Date(start + "T00:00:00").toLocaleDateString(undefined, opts);
-  const e = new Date(end + "T00:00:00").toLocaleDateString(undefined, opts);
-  return `${s}–${e}`;
+  return formatDateRange(start, end);
 }
 
 export async function POST(
@@ -27,6 +26,7 @@ export async function POST(
     .select("role")
     .eq("trip_id", tripId)
     .eq("user_id", user.id)
+    .eq("status", "active")
     .maybeSingle();
   if (!membership) {
     return NextResponse.json({ error: "Not a member of this trip." }, { status: 403 });
@@ -103,6 +103,7 @@ export async function DELETE(
     .select("role")
     .eq("trip_id", tripId)
     .eq("user_id", user.id)
+    .eq("status", "active")
     .maybeSingle();
   if (!membership) {
     return NextResponse.json({ error: "Not a member of this trip." }, { status: 403 });

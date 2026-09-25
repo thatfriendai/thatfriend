@@ -5,6 +5,9 @@ import { generateToken } from "@/lib/planner/tokens";
 import { slugify } from "@/lib/planner/slug";
 import { sendInviteEmail, sendWithRetry } from "@/lib/planner/email";
 import { invitePhoneToTrip, type PhoneInviteStatus } from "@/lib/planner/invitePhone";
+import { isActiveMember } from "@/lib/planner/membership";
+import { isInvitableEmail } from "@/lib/planner/joinLink";
+import { MAX_TRAVELERS_PER_TRIP, MAX_EMAIL_INVITES_PER_TRIP_PER_DAY } from "@/config/limits";
 
 interface InviteRequest {
   email?: string;
@@ -22,19 +25,23 @@ export async function POST(
 
   const admin = createAdminClient();
 
-  const { data: membership } = await admin
-    .from("planner_memberships")
-    .select("role")
-    .eq("trip_id", tripId)
-    .eq("user_id", user.id)
-    .maybeSingle();
-  if (!membership) {
+  // Active, not just "has a row" — someone who left or was removed keeps
+  // their membership row, and mustn't keep sending invites on its behalf.
+  if (!(await isActiveMember(admin, tripId, user.id))) {
     return NextResponse.json({ error: "Not a member of this trip." }, { status: 403 });
   }
 
   const body: InviteRequest[] = await request.json().catch(() => []);
   if (!Array.isArray(body) || body.length === 0) {
     return NextResponse.json({ error: "Provide a list of { email | phone }." }, { status: 400 });
+  }
+  // Nobody legitimately invites more people in one go than the trip can
+  // hold — anything bigger is someone using us to send mail/texts in bulk.
+  if (body.length > MAX_TRAVELERS_PER_TRIP) {
+    return NextResponse.json(
+      { error: `You can invite up to ${MAX_TRAVELERS_PER_TRIP} people at a time.` },
+      { status: 400 }
+    );
   }
 
   const { data: trip } = await admin
@@ -50,14 +57,42 @@ export async function POST(
   // email invite even if it also carries a phone.
   const emailAddresses: string[] = [];
   const phoneEntries: string[] = [];
+  const invalidEmails: string[] = [];
   for (const entry of body) {
-    const email = entry.email?.trim().toLowerCase();
+    if (!entry || typeof entry !== "object") continue;
+    const email = typeof entry.email === "string" ? entry.email.trim().toLowerCase() : "";
     if (email) {
-      emailAddresses.push(email);
+      // Checked up front so a bad address is never written or sent — and
+      // duplicates in one request only get one email.
+      if (!isInvitableEmail(email)) invalidEmails.push(email);
+      else if (!emailAddresses.includes(email)) emailAddresses.push(email);
       continue;
     }
-    const phone = entry.phone?.trim();
+    const phone = typeof entry.phone === "string" ? entry.phone.trim() : "";
     if (phone) phoneEntries.push(phone);
+  }
+  // A typo'd address fails on its own (reported back in emailResults) —
+  // rejecting the whole request cancelled every other invite, phones
+  // included, and the new-trip form showed nothing.
+
+  // A per-trip daily ceiling on email invites, counted from the rows this
+  // route writes — the per-request cap alone doesn't stop the same request
+  // being replayed all day. Checked before any send so a request that would
+  // cross the line sends nothing rather than half.
+  if (emailAddresses.length > 0) {
+    const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+    const { count: sentToday } = await admin
+      .from("planner_invites")
+      .select("id", { count: "exact", head: true })
+      .eq("trip_id", tripId)
+      .eq("channel", "email")
+      .gte("created_at", since);
+    if ((sentToday ?? 0) + emailAddresses.length > MAX_EMAIL_INVITES_PER_TRIP_PER_DAY) {
+      return NextResponse.json(
+        { error: `This trip has hit today's limit of ${MAX_EMAIL_INVITES_PER_TRIP_PER_DAY} email invites. Try again tomorrow, or share the trip link instead.` },
+        { status: 429 }
+      );
+    }
   }
 
   // The text itself, the invite row and the account provisioning all live
@@ -71,7 +106,11 @@ export async function POST(
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const slug = slugify(trip.destination ?? trip.name);
 
-  const emailResults: { email: string; status: "sent" | "failed"; error: string | null }[] = [];
+  const emailResults: { email: string; status: "sent" | "failed"; error: string | null }[] = invalidEmails.map((email) => ({
+    email: email.slice(0, 80),
+    status: "failed",
+    error: "That doesn't look like an email address.",
+  }));
   for (const email of emailAddresses) {
     const token = generateToken();
     const { data: invite, error: insertError } = await admin

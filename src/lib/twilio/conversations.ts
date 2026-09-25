@@ -96,10 +96,18 @@ export async function getOrCreateTripConversation(
     .update({ twilio_conversation_sid: conversation.sid })
     .eq("id", trip.id);
 
-  const { data: members } = await admin
+  // Active members only — otherwise someone who left or was removed gets
+  // bound right back into the group thread. Explicit FK name: planner_
+  // memberships has two relationships to planner_users (user_id, and
+  // removed_by), and a bare embed fails the query outright (PGRST201),
+  // leaving the new thread with nobody in it. Queried inline rather than
+  // via activeMembersOf because membership.ts imports this module.
+  const { data: members, error: membersError } = await admin
     .from("planner_memberships")
-    .select("user_id, planner_users(phone)")
-    .eq("trip_id", trip.id);
+    .select("user_id, planner_users!planner_memberships_user_id_fkey(phone)")
+    .eq("trip_id", trip.id)
+    .eq("status", "active");
+  if (membersError) console.error("[conversations] roster query failed", trip.id, membersError);
 
   const withPhone = (members ?? [])
     .map((m) => ({
@@ -130,9 +138,10 @@ export async function getOrCreateTripConversation(
       .join(", ");
     const { data: owner } = await admin
       .from("planner_memberships")
-      .select("planner_users(id, phone, whatsapp_opt_in, notify_sms)")
+      .select("planner_users!planner_memberships_user_id_fkey(id, phone, whatsapp_opt_in, notify_sms)")
       .eq("trip_id", trip.id)
       .eq("role", "owner")
+      .eq("status", "active")
       .maybeSingle();
     const ownerUser = owner?.planner_users as unknown as
       | { id: string; phone: string | null; whatsapp_opt_in: boolean; notify_sms: boolean }

@@ -5,6 +5,8 @@ import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { autoFriendTripMembers } from "./follows";
 import { toE164 } from "./phone";
 import { MAX_TRAVELERS_PER_TRIP } from "@/config/limits";
+import { mayRejoinTrip } from "./membership";
+import { setActiveTripContext } from "./smsTripRouting";
 
 /**
  * Whether the word after "join" was plausibly meant as a join code, so a
@@ -75,11 +77,34 @@ export async function createTripFromText(
   return { tripId: created.id, tripName: created.name, joinCode };
 }
 
-type JoinOutcome =
+export type JoinOutcome =
   | { outcome: "joined"; tripName: string }
   | { outcome: "already_member"; tripName: string }
+  // An organizer removed this person and hasn't invited them back since —
+  // see mayRejoinTrip. Carries the name so a caller can say which trip.
+  | { outcome: "removed"; tripName: string }
   | { outcome: "not_found" }
   | { outcome: "error"; error: string };
+
+export interface JoinOptions {
+  /**
+   * created_at of the targeted invite (a per-phone planner_trip_invites row
+   * for this person's phone, or an email planner_invites row sent to them)
+   * this join came through, if any. Only matters for someone who was
+   * removed: an invite made after their removal is the organizer's say-so
+   * to let them back in; a join code or trip-wide link is not.
+   */
+  targetedInviteCreatedAt?: string | null;
+}
+
+/**
+ * What to tell someone who was removed and tried to come back without a
+ * fresh invite. Lives here rather than smsVoice so the SMS webhooks and
+ * the web join path can share one wording.
+ */
+export function removedFromTripMessage(tripName: string): string {
+  return `You were removed from "${tripName}" — ask the organizer to invite you again if you'd like back in.`;
+}
 
 /**
  * The shared "make this user a member of this trip, over SMS" path — used
@@ -87,7 +112,12 @@ type JoinOutcome =
  * a bare "1"/"START" reply to a per-phone invite (src/app/api/v2/twilio),
  * which already knows the trip id directly and has no code to resolve.
  */
-export async function joinTripById(admin: SupabaseClient, user: PlannerUserLite, tripId: string): Promise<JoinOutcome> {
+export async function joinTripById(
+  admin: SupabaseClient,
+  user: PlannerUserLite,
+  tripId: string,
+  options: JoinOptions = {}
+): Promise<JoinOutcome> {
   const { data: trip } = await admin
     .from("planner_trips")
     .select("id, name, twilio_conversation_sid")
@@ -97,11 +127,17 @@ export async function joinTripById(admin: SupabaseClient, user: PlannerUserLite,
 
   const { data: existing } = await admin
     .from("planner_memberships")
-    .select("trip_id, status")
+    .select("trip_id, status, left_at")
     .eq("trip_id", trip.id)
     .eq("user_id", user.id)
     .maybeSingle();
   if (existing?.status === "active") return { outcome: "already_member", tripName: trip.name };
+  // Without this, removing someone was meaningless: the join code and the
+  // trip-wide share link both land here and would flip them straight back
+  // to active.
+  if (!mayRejoinTrip(existing ?? null, options.targetedInviteCreatedAt)) {
+    return { outcome: "removed", tripName: trip.name };
+  }
 
   const { count } = await admin
     .from("planner_memberships")
@@ -112,10 +148,10 @@ export async function joinTripById(admin: SupabaseClient, user: PlannerUserLite,
     return { outcome: "error", error: `This trip is already at its limit of ${MAX_TRAVELERS_PER_TRIP} travelers.` };
   }
 
-  // A left/removed row rejoining flips back to active (the composite PK
-  // would otherwise reject a second insert) rather than being blocked or
-  // duplicated — P1-B: "a removed or departed traveler can be re-invited
-  // through the normal invite flow."
+  // A left (or re-invited removed) row rejoining flips back to active (the
+  // composite PK would otherwise reject a second insert) rather than being
+  // blocked or duplicated — P1-B: "a removed or departed traveler can be
+  // re-invited through the normal invite flow."
   const { error } = existing
     ? await admin
         .from("planner_memberships")
@@ -143,6 +179,16 @@ export async function joinTripById(admin: SupabaseClient, user: PlannerUserLite,
       .eq("trip_id", trip.id)
       .eq("phone", toE164(user.phone))
       .is("joined_at", null);
+
+    // Their next unlabeled text is almost certainly about the trip they
+    // just joined — without this, someone already on another trip gets a
+    // "which trip?" on their very first question. Best-effort (it already
+    // swallows its own errors; the catch is belt-and-braces).
+    try {
+      await setActiveTripContext(admin, user.id, trip.id);
+    } catch {
+      // Routing just falls back to asking.
+    }
   }
 
   return { outcome: "joined", tripName: trip.name };
@@ -159,5 +205,21 @@ export async function joinTripByCode(admin: SupabaseClient, user: PlannerUserLit
   const { data: trip } = await admin.from("planner_trips").select("id").eq("join_code", code).maybeSingle();
   if (!trip) return { outcome: "not_found" };
 
-  return joinTripById(admin, user, trip.id);
+  // The code itself is trip-wide, so it never lets a removed member back in
+  // on its own — but someone the organizer has since re-invited by text,
+  // who types the code instead of replying "1", is still coming through
+  // their own invite. invitePhoneToTrip resets created_at on every re-send.
+  let targetedInviteCreatedAt: string | null = null;
+  if (user.phone) {
+    const { data: phoneInvite } = await admin
+      .from("planner_trip_invites")
+      .select("created_at")
+      .eq("trip_id", trip.id)
+      .eq("phone", toE164(user.phone))
+      .gt("expires_at", new Date().toISOString())
+      .maybeSingle();
+    targetedInviteCreatedAt = phoneInvite?.created_at ?? null;
+  }
+
+  return joinTripById(admin, user, trip.id, { targetedInviteCreatedAt });
 }

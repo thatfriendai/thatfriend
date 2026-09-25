@@ -45,15 +45,23 @@ function labelOf(person: { name: string | null; email: string | null } | null) {
  * own.
  */
 export async function loadDatesView(admin: SupabaseClient, tripId: string): Promise<DatesViewResult> {
-  const [user, { data: trip }, { data: memberRows }, { data: markRows }] = await Promise.all([
+  const [user, { data: trip }, { data: memberRows, error: memberRowsError }, { data: markRows }] = await Promise.all([
     getPlannerUser(),
     admin.from("planner_trips").select("*").eq("id", tripId).maybeSingle(),
-    admin.from("planner_memberships").select("user_id, role, planner_users(name, email)").eq("trip_id", tripId).eq("status", "active"),
+    // Explicit FK name: planner_memberships has two relationships to
+    // planner_users (user_id, and removed_by) — without the hint PostgREST
+    // fails the query (PGRST201), and a null roster reads as "not a member".
+    admin
+      .from("planner_memberships")
+      .select("user_id, role, planner_users!planner_memberships_user_id_fkey(name, email)")
+      .eq("trip_id", tripId)
+      .eq("status", "active"),
     admin.from("planner_availability_marks").select("user_id, date, created_at").eq("trip_id", tripId),
   ]);
 
   if (!user) return { status: "unauthenticated" };
   if (!trip) return { status: "not_found" };
+  if (memberRowsError) console.error("[datesView] roster query failed", tripId, memberRowsError);
 
   const members = memberRows ?? [];
   const mine = members.find((m) => m.user_id === user.id);
@@ -64,7 +72,12 @@ export async function loadDatesView(admin: SupabaseClient, tripId: string): Prom
     label: labelOf(m.planner_users as unknown as { name: string | null; email: string | null } | null),
   }));
 
-  const marks = markRows ?? [];
+  // Only people still on the trip count: someone who left or was removed
+  // keeps their marks in the table, and counting them against a roster
+  // that no longer includes them made "all 3 of you are free" true when
+  // one of the 3 couldn't go.
+  const onTrip = new Set(roster.map((m) => m.userId));
+  const marks = (markRows ?? []).filter((m) => onTrip.has(m.user_id));
   // Past days stay in myMarks/freeByDate (they're still what people said),
   // but only upcoming ones get a say in the proposal and its heatmap.
   const { proposal, coverage } = computeDateProposal(upcomingMarks(marks, earliestProposableDate()), roster.length);

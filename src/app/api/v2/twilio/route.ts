@@ -6,14 +6,20 @@ import { isConversationParticipant } from "@/lib/twilio/conversations";
 import { normalizePhoneDigits, toE164 } from "@/lib/planner/phone";
 import { findPlannerUserByPhone } from "@/lib/planner/plannerUser";
 import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib/planner/whatsappResource";
-import { classifyIntent } from "@/lib/planner/inboundIntent";
+import { classifyIntent, type InboundIntent } from "@/lib/planner/inboundIntent";
 import { answerTripQuestion } from "@/lib/planner/tripQA";
 import { sendNudge } from "@/lib/planner/nudge";
-import { createTripFromText, joinTripByCode, looksLikeJoinCode } from "@/lib/planner/smsTripStart";
+import { createTripFromText, joinTripByCode, looksLikeJoinCode, removedFromTripMessage } from "@/lib/planner/smsTripStart";
 import { acceptPendingInviteByReply, findPendingInvite } from "@/lib/planner/joinLink";
 import { invitePhoneToTrip, extractPhoneNumbers, looksLikeInviteList } from "@/lib/planner/invitePhone";
 import { recordConsentEvent, handleOptKeywordFromBody, applyOptKeyword, type ConsentMethod } from "@/lib/planner/consent";
-import { routeInboundMessage, type HeldMedia } from "@/lib/planner/smsTripRouting";
+import {
+  eligibleTripsForPhone,
+  matchNamedTrip,
+  routeInboundMessage,
+  type HeldMedia,
+  isBareTripAnswer,
+} from "@/lib/planner/smsTripRouting";
 import { departMember, isLeaveCommand } from "@/lib/planner/membership";
 import * as say from "@/lib/planner/smsVoice";
 
@@ -23,6 +29,10 @@ import * as say from "@/lib/planner/smsVoice";
 // message that misses gets the "that code doesn't match" reply — a
 // greeting that misses falls through to normal handling (see below).
 const JOIN_CODE_PATTERN = /^(?:hello|hi|join)\s+([a-z0-9]{4,20})[.!?]*$/i;
+
+// "LEAVE Lisbon in the fall" — membership.ts' isLeaveCommand only knows
+// bare LEAVE; naming the trip is how someone on several says which.
+const LEAVE_NAMED_PATTERN = /^leave\s+(.+?)[.!]*$/i;
 
 /**
  * Plain SMS/MMS webhook — the 1:1 thread with That Friend. Anyone bound to
@@ -211,6 +221,7 @@ export async function POST(request: Request) {
           const joined = await joinTripByCode(admin, user, joinMatch[1]);
           if (joined.outcome === "joined") return reply(say.joinedReply(joined.tripName));
           if (joined.outcome === "already_member") return reply(say.alreadyMemberReply(joined.tripName));
+          if (joined.outcome === "removed") return reply(removedFromTripMessage(joined.tripName));
           if (joined.outcome === "error") {
             console.error("[twilio] join by code failed", joined.error);
             return reply(say.lookupFailedReply());
@@ -223,11 +234,59 @@ export async function POST(request: Request) {
       }
     }
 
+    const leaveOrDepart = async (tripId: string, name: string) => {
+      const result = await departMember(admin, tripId, user.id, { kind: "left" });
+      if (result.outcome === "left") return reply(say.leftTripReply(name));
+      if (result.outcome === "must_transfer_first") return reply(say.mustTransferFirstReply());
+      if (result.outcome === "already_gone") return reply(say.leftTripReply(name));
+      return reply(say.lookupFailedReply());
+    };
+
+    // LEAVE from someone on several trips is resolved before routing: a
+    // bare LEAVE used to drop them from whichever trip routing remembered,
+    // unasked. It now needs the trip named ("LEAVE lisbon"). A "leave …"
+    // that names none of their trips ("leave at 9 tomorrow") isn't a
+    // command and falls through untouched. Single-trip bare LEAVE keeps
+    // the original path below.
+    if (body && numMedia === 0) {
+      const namedLeave = body.match(LEAVE_NAMED_PATTERN);
+      if (isLeaveCommand(body) || namedLeave) {
+        const eligible = await eligibleTripsForPhone(admin, user.id);
+        // Only "LEAVE <trip>" and nothing else: matchNamedTrip finds a trip
+        // name anywhere in the text, so "leave for austin at 9?" used to
+        // drop the sender from Austin weekend.
+        const named = namedLeave && !isLeaveCommand(body) ? matchNamedTrip(namedLeave[1], eligible) : null;
+        const target = named && isBareTripAnswer(namedLeave![1], named) ? named : null;
+        if (target) return leaveOrDepart(target.id, target.name);
+        if (isLeaveCommand(body) && eligible.length >= 2) {
+          return reply(say.leaveWhichTripReply(eligible.map((t) => t.name)));
+        }
+      }
+    }
+
+    // One classification per text, shared by the "does this even need a
+    // trip?" check inside routing and the intent handling further down.
+    const intentCache = new Map<string, Promise<InboundIntent>>();
+    const intentFor = (text: string, hasTrips: boolean) => {
+      if (!intentCache.has(text)) intentCache.set(text, classifyIntent(text, { hasTrips }));
+      return intentCache.get(text)!;
+    };
+
     const phone = toE164(user.phone ?? fromDigits);
-    const routing = await routeInboundMessage(admin, user.id, phone, body, buildHeldMedia());
+    const routing = await routeInboundMessage(admin, user.id, phone, body, buildHeldMedia(), {
+      // Someone on several trips texting "thanks", "hey" or "plan a trip to
+      // tokyo" was asked "which trip?" — and asked again for every reply
+      // that didn't name one. Chat and start_trip never needed a trip.
+      needsTrip: async () => {
+        if (!body || numMedia > 0) return true;
+        const intent = await intentFor(body, true);
+        return intent.kind !== "chat" && intent.kind !== "start_trip";
+      },
+    });
 
     if (routing.status === "switched") return reply(say.switchedTripReply(routing.trip.name));
     if (routing.status === "ambiguous") return reply(say.whichTripReply(routing.tripNames));
+    const multiTripNames = routing.status === "no_trip_needed" ? routing.tripNames : null;
 
     const trip =
       routing.status === "resolved" || routing.status === "resolved_from_pending" ? routing.trip : null;
@@ -248,11 +307,7 @@ export async function POST(request: Request) {
     // against effectiveBody so it still works when it was the message held
     // pending "which trip?" disambiguation.
     if (trip && effectiveBody && isLeaveCommand(effectiveBody)) {
-      const result = await departMember(admin, trip.id, user.id, { kind: "left" });
-      if (result.outcome === "left") return reply(say.leftTripReply(tripName));
-      if (result.outcome === "must_transfer_first") return reply(say.mustTransferFirstReply());
-      if (result.outcome === "already_gone") return reply(say.leftTripReply(tripName));
-      return reply(say.lookupFailedReply());
+      return leaveOrDepart(trip.id, tripName);
     }
 
     // Any inbound message from here on is itself affirmative consent — a
@@ -281,12 +336,13 @@ export async function POST(request: Request) {
         return reply(say.invitesSentReply(sent, tripName, alreadyIn, invalid));
       }
 
-      const intent = await classifyIntent(effectiveBody, { hasTrips: Boolean(membership) });
+      const intent = await intentFor(effectiveBody, Boolean(membership) || Boolean(multiTripNames));
 
       if (intent.kind === "chat") {
         if (intent.tone === "thanks") return reply(say.thanksReply());
         if (intent.tone !== "greeting") return silent();
         if (trip) return reply(say.returningGreetingReply(tripName));
+        if (multiTripNames) return reply(say.multiTripGreetingReply(multiTripNames));
         const pendingInvite = await findPendingInvite(admin, user);
         if (pendingInvite) return reply(say.invitedGreetingReply(pendingInvite.organizerFirstName, pendingInvite.tripName));
         return reply(say.firstTimeGreetingReply());

@@ -60,6 +60,7 @@ export function NewTripForm({
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: string; joinToken: string; finishLater: boolean } | null>(null);
   const [failedInviteEmails, setFailedInviteEmails] = useState<string[]>([]);
+  const [inviteError, setInviteError] = useState<string | null>(null);
 
   function addInvitee() {
     const v = newInvitee.trim();
@@ -110,6 +111,11 @@ export function NewTripForm({
             ),
           });
           const invitesData = await invitesRes.json().catch(() => ({}));
+          if (!invitesRes.ok) {
+            // e.g. the daily email-invite cap — nothing was sent, so say so
+            // rather than showing "Trip created." as if it had been.
+            setInviteError(invitesData.error ?? "The invites didn't go out — share the link above instead.");
+          }
           const failed = (invitesData.emailResults ?? [])
             .filter((r: { status: string }) => r.status === "failed")
             .map((r: { email: string }) => r.email);
@@ -139,6 +145,7 @@ export function NewTripForm({
         <CopyInviteLink
           url={`${typeof window !== "undefined" ? window.location.origin : ""}/planner/join/${created.joinToken}`}
         />
+        {inviteError && <p className="text-[13.5px] text-red-700">{inviteError}</p>}
         {failedInviteEmails.length > 0 && (
           <p className="text-[13.5px] text-red-700">
             The invite email to {failedInviteEmails.join(", ")} didn&rsquo;t go through — share the link above

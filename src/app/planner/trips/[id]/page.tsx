@@ -70,7 +70,7 @@ export default async function PlannerTripPage({
   const [
     { data: membership },
     { data: trip },
-    { data: members },
+    { data: members, error: membersError },
     { data: joinInvite },
     { data: myPref },
     { data: myAvailability },
@@ -89,7 +89,14 @@ export default async function PlannerTripPage({
   ] = await Promise.all([
     admin.from("planner_memberships").select("role").eq("trip_id", id).eq("user_id", user.id).eq("status", "active").maybeSingle(),
     admin.from("planner_trips").select("*").eq("id", id).maybeSingle(),
-    admin.from("planner_memberships").select("user_id, role, planner_users(name, email, phone)").eq("trip_id", id).eq("status", "active"),
+    // Explicit FK name: planner_memberships has two relationships to
+    // planner_users (user_id, and removed_by) — without the hint PostgREST
+    // fails the whole query with PGRST201 and the roster renders empty.
+    admin
+      .from("planner_memberships")
+      .select("user_id, role, planner_users!planner_memberships_user_id_fkey(name, email, phone)")
+      .eq("trip_id", id)
+      .eq("status", "active"),
     admin.from("planner_invites").select("token").eq("trip_id", id).eq("channel", "link").limit(1).maybeSingle(),
     admin.from("planner_preferences").select("*").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
     admin.from("planner_availability_marks").select("date").eq("trip_id", id).eq("user_id", user.id),
@@ -148,6 +155,7 @@ export default async function PlannerTripPage({
   ]);
   if (!membership) notFound();
   if (!trip) notFound();
+  if (membersError) console.error("[trip page] roster query failed", id, membersError);
 
   // These two depend on trip/days resolving above, so they stay sequential.
   const days = await ensureDays(admin, trip);

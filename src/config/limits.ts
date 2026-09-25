@@ -37,3 +37,9 @@ export const MAX_EMAIL_RETRIES = 2;
 
 /** How long after a nudge (web button, cron, or the "nudge" SMS intent — any of them) before another one for the same trip+stage is allowed. A spam guard, not a product cap anyone should ever cheerfully hit. */
 export const NUDGE_COOLDOWN_HOURS = 24;
+
+/** How long a text held for "which trip?" waits for its answer. Past this, a trip name in the next text is a new message, not an answer — replaying something from hours ago would be a surprise. */
+export const PENDING_TRIP_ANSWER_MINUTES = 30;
+
+/** How many email invites one trip can send in a rolling 24 hours — a spam guard on the invite form, well above any real group's needs. */
+export const MAX_EMAIL_INVITES_PER_TRIP_PER_DAY = 30;

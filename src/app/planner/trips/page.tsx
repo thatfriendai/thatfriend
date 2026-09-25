@@ -53,7 +53,9 @@ export default async function PlannerTripsPage() {
     admin
       .from("planner_memberships")
       .select("role, planner_trips(id, name, destination, start_date, end_date, created_at)")
-      .eq("user_id", user.id),
+      .eq("user_id", user.id)
+      // Active only — a trip you left or were removed from drops off your list.
+      .eq("status", "active"),
     admin.from("planner_trip_saves").select("trip_id, created_at").eq("user_id", user.id),
     admin.from("planner_saved_places").select("*").eq("user_id", user.id).order("created_at", { ascending: false }),
   ]);
@@ -74,8 +76,9 @@ export default async function PlannerTripsPage() {
 
   // Phase 2: none of these depend on each other, only on the id lists above.
   const [{ data: memberRows }, { data: markRows }, { data: savedTripRows }] = await Promise.all([
+    // Active only — departed members don't count as travelers.
     currentTripIds.length
-      ? admin.from("planner_memberships").select("trip_id, user_id, role").in("trip_id", currentTripIds)
+      ? admin.from("planner_memberships").select("trip_id, user_id, role").in("trip_id", currentTripIds).eq("status", "active")
       : Promise.resolve({ data: [] as { trip_id: string; user_id: string; role: string }[] }),
     currentTripIds.length
       ? admin.from("planner_availability_marks").select("trip_id, user_id").in("trip_id", currentTripIds)

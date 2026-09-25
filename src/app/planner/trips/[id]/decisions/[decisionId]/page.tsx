@@ -30,7 +30,7 @@ export default async function DecisionPage({
     { data: optionRows },
     { data: voteRows },
     { data: noteRows },
-    { data: members },
+    { data: members, error: membersError },
   ] = await Promise.all([
     admin.from("planner_memberships").select("trip_id, role").eq("trip_id", tripId).eq("user_id", user.id).eq("status", "active").maybeSingle(),
     admin.from("planner_trips").select("name").eq("id", tripId).maybeSingle(),
@@ -42,11 +42,19 @@ export default async function DecisionPage({
       .select("*, planner_users(name, email)")
       .eq("decision_id", decisionId)
       .order("created_at", { ascending: true }),
-    admin.from("planner_memberships").select("user_id, planner_users(name, email)").eq("trip_id", tripId).eq("status", "active"),
+    // Explicit FK name: planner_memberships has two relationships to
+    // planner_users (user_id, and removed_by) — without the hint PostgREST
+    // fails the query (PGRST201) and "waiting on" silently goes empty.
+    admin
+      .from("planner_memberships")
+      .select("user_id, planner_users!planner_memberships_user_id_fkey(name, email)")
+      .eq("trip_id", tripId)
+      .eq("status", "active"),
   ]);
   if (!membership) notFound();
   if (!trip) notFound();
   if (!decision) notFound();
+  if (membersError) console.error("[decision page] roster query failed", tripId, membersError);
 
   const roster = (members ?? []).map((m) => ({
     userId: m.user_id,

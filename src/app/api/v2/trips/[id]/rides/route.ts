@@ -15,6 +15,7 @@ async function member(tripId: string) {
     .select("trip_id")
     .eq("trip_id", tripId)
     .eq("user_id", user.id)
+    .eq("status", "active")
     .maybeSingle();
   if (!membership) return { error: NextResponse.json({ error: "Not a member of this trip." }, { status: 403 }) } as const;
   return { user, admin } as const;
@@ -36,11 +37,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: "Pick at least two people." }, { status: 400 });
   }
 
-  // Only people actually on the trip can ride in one of its groups.
+  // Only people actually on the trip (still active — not left/removed)
+  // can ride in one of its groups.
   const { data: members } = await admin
     .from("planner_memberships")
     .select("user_id")
     .eq("trip_id", tripId)
+    .eq("status", "active")
     .in("user_id", requested);
   const memberIds = (members ?? []).map((m) => m.user_id as string);
   if (memberIds.length < 2) return NextResponse.json({ error: "Pick at least two people." }, { status: 400 });

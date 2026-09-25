@@ -1,6 +1,6 @@
 import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { joinTripById } from "./smsTripStart";
+import { joinTripById, removedFromTripMessage, type JoinOutcome } from "./smsTripStart";
 import { recordConsentEvent, type ConsentMethod } from "./consent";
 import { toE164 } from "./phone";
 
@@ -12,8 +12,19 @@ interface JoiningUser {
 }
 
 export type ResolvedInvite =
-  | { tripId: string; source: "link"; inviteId: string }
-  | { tripId: string; source: "phone"; inviteId: string; phone: string; clickedAt: string | null };
+  | {
+      tripId: string;
+      source: "link";
+      inviteId: string;
+      // planner_invites rows are both the trip-wide share link (channel
+      // "link") and one-person email invites (channel "email") — same
+      // token shape, very different reach. See acceptInviteToken.
+      channel: string;
+      sentTo: string | null;
+      acceptedBy: string | null;
+      createdAt: string;
+    }
+  | { tripId: string; source: "phone"; inviteId: string; phone: string; clickedAt: string | null; createdAt: string };
 
 /**
  * A join token is one of two things: the trip-wide share link
@@ -25,12 +36,26 @@ export type ResolvedInvite =
 export async function resolveInviteToken(admin: SupabaseClient, token: string): Promise<ResolvedInvite | null> {
   if (!token) return null;
 
-  const { data: link } = await admin.from("planner_invites").select("id, trip_id").eq("token", token).maybeSingle();
-  if (link) return { tripId: link.trip_id, source: "link", inviteId: link.id };
+  const { data: link } = await admin
+    .from("planner_invites")
+    .select("id, trip_id, channel, sent_to, accepted_by, created_at")
+    .eq("token", token)
+    .maybeSingle();
+  if (link) {
+    return {
+      tripId: link.trip_id,
+      source: "link",
+      inviteId: link.id,
+      channel: link.channel,
+      sentTo: link.sent_to ?? null,
+      acceptedBy: link.accepted_by ?? null,
+      createdAt: link.created_at,
+    };
+  }
 
   const { data: phoneInvite } = await admin
     .from("planner_trip_invites")
-    .select("id, trip_id, phone, clicked_at, expires_at")
+    .select("id, trip_id, phone, clicked_at, expires_at, created_at")
     .eq("token", token)
     .maybeSingle();
   if (phoneInvite && new Date(phoneInvite.expires_at) > new Date()) {
@@ -40,6 +65,7 @@ export async function resolveInviteToken(admin: SupabaseClient, token: string): 
       inviteId: phoneInvite.id,
       phone: phoneInvite.phone,
       clickedAt: phoneInvite.clicked_at,
+      createdAt: phoneInvite.created_at,
     };
   }
   return null;
@@ -49,6 +75,41 @@ export async function resolveInviteToken(admin: SupabaseClient, token: string): 
 export function inviteIsForPhone(invitePhone: string, userPhone: string | null): boolean {
   if (!userPhone) return false;
   return toE164(userPhone) === toE164(invitePhone);
+}
+
+// Same shape as the web form's own check (src/app/api/v2/users/me/email),
+// plus RFC 5321's 254-character ceiling so a pasted essay can't be "sent to".
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+/** Whether `email` (already trimmed/lowercased) is plausible enough to send an invite to. */
+export function isInvitableEmail(email: string): boolean {
+  return email.length <= 254 && EMAIL_RE.test(email);
+}
+
+/**
+ * Whether a planner_invites row is a one-person email invite that someone
+ * else has already used. The share link (channel "link") is meant for
+ * many people; an email invite was sent to one, so after its first accept
+ * it stops working for anyone else — otherwise a forwarded email is a
+ * trip-wide link forever. The original acceptor re-opening it still works.
+ */
+export function emailInviteUsedBySomeoneElse(
+  invite: { channel: string; acceptedBy: string | null },
+  userId: string
+): boolean {
+  return invite.channel === "email" && invite.acceptedBy !== null && invite.acceptedBy !== userId;
+}
+
+/**
+ * joinTripById's "removed" outcome, folded into the shape AcceptOutcome's
+ * callers already handle. Those callers (the join API route, the auth
+ * callbacks, both SMS webhooks) treat anything that isn't joined/
+ * already_member as "didn't get in" and either show `error` or fall
+ * through — adding a new outcome there would hand a removed person a
+ * redirect to a trip page they can't see.
+ */
+function foldRemoved(joined: JoinOutcome): Exclude<JoinOutcome, { outcome: "removed" }> {
+  return joined.outcome === "removed" ? { outcome: "error", error: removedFromTripMessage(joined.tripName) } : joined;
 }
 
 export type AcceptOutcome =
@@ -84,11 +145,30 @@ export async function acceptInviteToken(
     return { outcome: "wrong_phone" };
   }
 
-  const joined = await joinTripById(admin, user, invite.tripId);
+  if (invite.source === "link" && emailInviteUsedBySomeoneElse(invite, user.id)) return { outcome: "not_found" };
+
+  // Only an invite aimed at this person can bring back someone who was
+  // removed (see mayRejoinTrip) — their own number's text invite, or an
+  // email invite sent to their address. The share link never can.
+  let targetedInviteCreatedAt: string | null = null;
+  if (invite.source === "phone") {
+    if (inviteIsForPhone(invite.phone, user.phone)) targetedInviteCreatedAt = invite.createdAt;
+  } else if (invite.channel === "email" && invite.sentTo) {
+    const { data: account } = await admin.from("planner_users").select("email").eq("id", user.id).maybeSingle();
+    if (account?.email && account.email.trim().toLowerCase() === invite.sentTo.trim().toLowerCase()) {
+      targetedInviteCreatedAt = invite.createdAt;
+    }
+  }
+
+  const joined = foldRemoved(await joinTripById(admin, user, invite.tripId, { targetedInviteCreatedAt }));
   if (joined.outcome === "not_found") return { outcome: "not_found" };
   if (joined.outcome === "error") return joined;
 
-  if (invite.source === "link") {
+  if (invite.source === "link" && invite.channel === "email") {
+    // First accept claims it — the conditional update keeps a concurrent
+    // second accept from overwriting who it belongs to.
+    await admin.from("planner_invites").update({ accepted_by: user.id }).eq("id", invite.inviteId).is("accepted_by", null);
+  } else if (invite.source === "link") {
     await admin.from("planner_invites").update({ accepted_by: user.id }).eq("id", invite.inviteId);
   }
 
@@ -138,7 +218,7 @@ export async function acceptPendingInviteByReply(
 
   const { data: pendingInvite } = await admin
     .from("planner_trip_invites")
-    .select("id, trip_id, clicked_at")
+    .select("id, trip_id, clicked_at, created_at")
     .eq("phone", toE164(user.phone))
     .is("joined_at", null)
     .gt("expires_at", new Date().toISOString())
@@ -149,7 +229,10 @@ export async function acceptPendingInviteByReply(
 
   const method: ConsentMethod = pendingInvite.clicked_at ? "link_tap" : "join_code";
   await recordConsentEvent(admin, user, method, pendingInvite.trip_id);
-  const joined = await joinTripById(admin, user, pendingInvite.trip_id);
+  // Keyed on their own phone, so this is always a targeted invite.
+  const joined = foldRemoved(
+    await joinTripById(admin, user, pendingInvite.trip_id, { targetedInviteCreatedAt: pendingInvite.created_at })
+  );
   if (joined.outcome === "not_found" || joined.outcome === "error") return joined;
   return { outcome: joined.outcome, tripId: pendingInvite.trip_id, tripName: joined.tripName };
 }

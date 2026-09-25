@@ -10,11 +10,11 @@ import { addResourceFromWhatsAppText, addResourceFromWhatsAppImage } from "@/lib
 import { classifyIntent } from "@/lib/planner/inboundIntent";
 import { answerTripQuestion } from "@/lib/planner/tripQA";
 import { sendNudge } from "@/lib/planner/nudge";
-import { createTripFromText, joinTripByCode, looksLikeJoinCode } from "@/lib/planner/smsTripStart";
+import { createTripFromText, joinTripByCode, looksLikeJoinCode, removedFromTripMessage } from "@/lib/planner/smsTripStart";
 import { acceptPendingInviteByReply } from "@/lib/planner/joinLink";
 import { invitePhoneToTrip, extractPhoneNumbers, looksLikeInviteList } from "@/lib/planner/invitePhone";
 import { recordConsentEvent, handleOptKeywordFromBody } from "@/lib/planner/consent";
-import { departMember, isLeaveCommand } from "@/lib/planner/membership";
+import { departMember, isActiveMember, isLeaveCommand } from "@/lib/planner/membership";
 import * as say from "@/lib/planner/smsVoice";
 
 const ASSISTANT_AUTHOR = "That Friend";
@@ -186,6 +186,10 @@ export async function POST(request: Request) {
     const joinMatch = body.match(JOIN_CODE_PATTERN);
     if (joinMatch && media.length === 0) {
       const joined = await joinTripByCode(admin, user, joinMatch[1]);
+      if (joined.outcome === "removed") {
+        await replyPrivately(removedFromTripMessage(joined.tripName));
+        return ok();
+      }
       if (joined.outcome === "joined" || joined.outcome === "already_member") {
         await replyPrivately(
           joined.outcome === "joined" ? say.joinedReply(joined.tripName) : say.alreadyMemberReply(joined.tripName)
@@ -201,6 +205,15 @@ export async function POST(request: Request) {
         await replyPrivately(say.joinCodeNotFoundReply());
         return ok();
       }
+    }
+
+    // Someone who left or was removed can still be bound to this thread if
+    // departMember's unbind failed (it's best-effort). Invite replies,
+    // STOP/START, LEAVE and join codes above still work for them — they may
+    // be joining another trip — but nothing they text from here on saves
+    // places, votes or posts into a trip they're no longer on.
+    if (!(await isActiveMember(admin, trip.id, user.id))) {
+      return ok();
     }
 
     // A join code for another trip was handled above, so anything else

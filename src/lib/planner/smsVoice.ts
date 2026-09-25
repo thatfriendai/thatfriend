@@ -1,6 +1,5 @@
 import "server-only";
 import { TRENDING_CITIES } from "./guides";
-import { joinNames } from "./travel";
 
 /**
  * Every conversational reply That Friend texts back, in one place, so the
@@ -101,7 +100,24 @@ export function joinCodeNotFoundReply() {
 
 /** Sent when a text could be about any of the sender's active trips and nothing in it says which. The original message is held and applied once they answer — see smsTripRouting.ts. */
 export function whichTripReply(tripNames: string[]) {
-  return `which trip is this for: ${joinNames(tripNames)}?`;
+  return `which trip is this for: ${orNames(tripNames)}?`;
+}
+
+/** A bare LEAVE from someone on several trips — never guess which one to drop them from. */
+export function leaveWhichTripReply(tripNames: string[]) {
+  return `leave which one: ${orNames(tripNames)}? text LEAVE and the trip name, like "LEAVE ${tripNames[0] ?? ""}".`;
+}
+
+/** A greeting from someone on several trips, none picked yet — same as returningGreetingReply, without guessing a trip. */
+export function multiTripGreetingReply(tripNames: string[]) {
+  return `hey! what've you got — for ${orNames(tripNames)}? a link, a place, a question — anything works.`;
+}
+
+// "A, B or C" — a choice. travel.ts' joinNames ("A and B") reads as a list of
+// everything (it made "which trip is this for: A and B?" sound like both).
+function orNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  return `${names.slice(0, -1).join(", ")} or ${names[names.length - 1]}`;
 }
 
 export function switchedTripReply(tripName: string) {

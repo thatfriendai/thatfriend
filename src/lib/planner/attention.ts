@@ -45,7 +45,7 @@ export async function computeAttention(
 
   // All six queries in this function depend only on tripId — one round
   // trip instead of two sequential ones.
-  const [{ data: decisionRows }, { data: placeRows }, { data: allDayRows }, { data: memberRows }, { data: prefRows }, { data: trip }] =
+  const [{ data: decisionRows }, { data: placeRows }, { data: allDayRows }, { data: memberRows, error: memberRowsError }, { data: prefRows }, { data: trip }] =
     await Promise.all([
       admin
         .from("planner_decisions")
@@ -54,7 +54,15 @@ export async function computeAttention(
         .eq("status", "open"),
       admin.from("planner_places").select("id, name, lat, lng, resource_id").eq("trip_id", tripId),
       admin.from("planner_days").select("id, date").eq("trip_id", tripId).order("date", { ascending: true }),
-      admin.from("planner_memberships").select("planner_users(id, phone)").eq("trip_id", tripId),
+      // Explicit FK name: planner_memberships has two relationships to
+      // planner_users (user_id, and removed_by) — without the hint PostgREST
+      // fails the query (PGRST201). Active only: a departed member isn't
+      // someone to nudge for preferences.
+      admin
+        .from("planner_memberships")
+        .select("planner_users!planner_memberships_user_id_fkey(id, phone)")
+        .eq("trip_id", tripId)
+        .eq("status", "active"),
       admin.from("planner_preferences").select("user_id").eq("trip_id", tripId),
       admin.from("planner_trips").select("start_date, end_date").eq("id", tripId).maybeSingle(),
     ]);
@@ -145,6 +153,7 @@ export async function computeAttention(
     }
   }
 
+  if (memberRowsError) console.error("[attention] roster query failed", tripId, memberRowsError);
   const membersWithPhone = (memberRows ?? [])
     .map((m) => m.planner_users as unknown as { id: string; phone: string | null } | null)
     .filter((m): m is { id: string; phone: string | null } => Boolean(m?.phone));

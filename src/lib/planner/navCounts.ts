@@ -6,6 +6,8 @@ export async function getNavCounts(admin: SupabaseClient, userId: string): Promi
   const { count: tripsCount } = await admin
     .from("planner_memberships")
     .select("trip_id", { count: "exact", head: true })
-    .eq("user_id", userId);
+    .eq("user_id", userId)
+    // Active only — a trip you left or were removed from isn't yours anymore.
+    .eq("status", "active");
   return { tripsCount: tripsCount ?? 0 };
 }

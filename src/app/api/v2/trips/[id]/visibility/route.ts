@@ -17,6 +17,7 @@ export async function PATCH(
     .select("role")
     .eq("trip_id", tripId)
     .eq("user_id", user.id)
+    .eq("status", "active")
     .maybeSingle();
   if (!membership) return NextResponse.json({ error: "Not a member of this trip." }, { status: 403 });
   if (membership.role !== "owner") {

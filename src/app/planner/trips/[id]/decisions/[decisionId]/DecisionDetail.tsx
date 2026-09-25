@@ -156,7 +156,8 @@ export function DecisionDetail({
         return;
       }
       setDecision(data.decision);
-      celebrateDecisionClosed();
+      // A tie isn't a decision yet — no confetti until the owner settles it.
+      if (data.decision?.status !== "tied") celebrateDecisionClosed();
     } catch {
       setError("Couldn't close this decision.");
     } finally {
