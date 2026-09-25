@@ -16,7 +16,9 @@ interface DecisionSummary extends PlannerDecision {
 
 function formatClosedDate(iso: string | null) {
   if (!iso) return null;
-  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  // "en-US" pinned: the browser's own locale would format this
+  // differently from the server's render and trip a hydration warning.
+  return new Date(iso).toLocaleDateString("en-US", { day: "numeric", month: "short" });
 }
 
 // A real sentence built from the actual per-option vote tally — never a

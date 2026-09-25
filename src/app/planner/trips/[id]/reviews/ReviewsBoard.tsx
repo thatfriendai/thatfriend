@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDayLabel } from "@/lib/planner/itinerary";
+import { todayIn } from "@/lib/planner/calendarDate";
 import { Stars } from "@/components/planner/Stars";
 import { ShareItinerary } from "./ShareItinerary";
 import type {
@@ -172,7 +173,9 @@ export function ReviewsBoard({
     }
   }
 
-  const hasEnded = endDate ? endDate < new Date().toISOString().slice(0, 10) : false;
+  // Fixed zone, not the browser's: SSR and hydration must agree, or this
+  // flips mid-hydration (see calendarDate.todayIn for the tradeoff).
+  const hasEnded = endDate ? endDate < todayIn("America/New_York") : false;
 
   return (
     <div className="mx-auto max-w-[820px] px-6 py-9.5 pb-28">

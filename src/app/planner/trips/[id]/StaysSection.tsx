@@ -330,7 +330,7 @@ export function StaysSection({
           <span className="ml-auto text-[13.5px] text-muted">
             {decision.comparison.options.length} option{decision.comparison.options.length === 1 ? "" : "s"} &middot;{" "}
             {totalMembers} people staying
-            {decision.deadline ? ` · Decision closing ${new Date(decision.deadline).toLocaleDateString(undefined, { weekday: "short" })}` : ""}
+            {decision.deadline ? ` · Decision closing ${new Date(decision.deadline).toLocaleDateString("en-US", { weekday: "short" })}` : ""}
           </span>
         )}
       </div>

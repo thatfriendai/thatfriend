@@ -18,7 +18,9 @@ const PERSON_COLORS = ["#8A5A7A", "#C9A227", "#3F6E7A", "#B4664A", "#4A453E", "#
 function formatRange(start: string, end: string) {
   const s = new Date(start + "T00:00:00");
   const e = new Date(end + "T00:00:00");
-  const monthName = (d: Date) => d.toLocaleDateString(undefined, { month: "long" });
+  // "en-US" pinned, not the browser's own locale: SSR and hydration would
+  // otherwise format this differently and trip a hydration warning.
+  const monthName = (d: Date) => d.toLocaleDateString("en-US", { month: "long" });
   const sameMonth = s.getMonth() === e.getMonth() && s.getFullYear() === e.getFullYear();
   if (sameMonth) return `${s.getDate()}–${e.getDate()} ${monthName(e)}`;
   return `${s.getDate()} ${monthName(s)} – ${e.getDate()} ${monthName(e)}`;
@@ -601,7 +603,7 @@ export function DatesBoard({
             {months.map((mo) => (
               <div key={mo.key}>
                 <p className="mb-2.5 text-sm font-medium text-ink">
-                  {new Date(mo.y, mo.m - 1, 1).toLocaleDateString(undefined, { month: "long" })}
+                  {new Date(mo.y, mo.m - 1, 1).toLocaleDateString("en-US", { month: "long" })}
                 </p>
                 <div className="grid grid-cols-7 gap-y-1 text-center">
                   {["M", "T", "W", "T", "F", "S", "S"].map((w, i) => (

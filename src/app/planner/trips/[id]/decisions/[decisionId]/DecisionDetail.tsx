@@ -62,6 +62,13 @@ export function DecisionDetail({
   const [voting, setVoting] = useState(false);
   const [closing, setClosing] = useState(false);
   const [notes, setNotes] = useState(initialNotes);
+  // StayMatrix manages its own option list (a stay option can be pasted in
+  // after this page loaded) and reports label changes back here, so the
+  // "group went with X" summary below can name a freshly-added option
+  // without a reload.
+  const [stayOptionLabels, setStayOptionLabels] = useState<Record<string, string>>(
+    Object.fromEntries((initialComparison?.options ?? []).map((o) => [o.id, o.label]))
+  );
   const [draftNote, setDraftNote] = useState("");
   const [postingNote, setPostingNote] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,6 +200,9 @@ export function DecisionDetail({
           myUserId={myUserId}
           totalMembers={totalMembers}
           onVote={castVote}
+          onOptionsChange={(opts) =>
+            setStayOptionLabels(Object.fromEntries(opts.map((o) => [o.id, o.label])))
+          }
         />
       ) : (
       <div className="mb-8.5 flex flex-wrap gap-4">
@@ -341,7 +351,9 @@ export function DecisionDetail({
             <div className="text-[14px] leading-relaxed text-body">
               This decision is closed. The group went with{" "}
               <span className="text-ink">
-                {options.find((o) => o.id === decision.decided_option_id)?.label ?? "an option"}
+                {(decision.decided_option_id && stayOptionLabels[decision.decided_option_id]) ??
+                  options.find((o) => o.id === decision.decided_option_id)?.label ??
+                  "an option"}
               </span>
               .
             </div>

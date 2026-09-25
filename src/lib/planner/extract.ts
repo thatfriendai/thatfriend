@@ -86,11 +86,25 @@ export async function extractPlacesFromImage(
   base64: string,
   mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif"
 ): Promise<ExtractedPlace[]> {
+  return extractPlacesFromImages([{ base64, mediaType }]);
+}
+
+/** Same as extractPlacesFromImage, but for an MMS/multi-screenshot send — one call, so the model can also skip a place repeated across shots. */
+export async function extractPlacesFromImages(
+  images: { base64: string; mediaType: "image/jpeg" | "image/png" | "image/webp" | "image/gif" }[]
+): Promise<ExtractedPlace[]> {
+  if (images.length === 0) return [];
   return runExtraction([
+    ...images.map(({ base64, mediaType }) => ({
+      type: "image" as const,
+      source: { type: "base64" as const, media_type: mediaType, data: base64 },
+    })),
     {
-      type: "image",
-      source: { type: "base64", media_type: mediaType, data: base64 },
+      type: "text",
+      text:
+        images.length > 1
+          ? `Find the places across these ${images.length} screenshots.`
+          : "Find the places in this screenshot.",
     },
-    { type: "text", text: "Find the places in this screenshot." },
   ]);
 }

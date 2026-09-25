@@ -28,15 +28,30 @@ function describe(code: number, rainChance: number | null): string {
 
 async function locate(place: string): Promise<{ lat: number; lng: number; us: boolean } | null> {
   // "Lisbon, Portugal" → "Lisbon": the geocoder matches place names, not addresses.
-  const name = place.split(",")[0].trim();
+  const [namePart, ...rest] = place.split(",");
+  const name = namePart.trim();
   if (!name) return null;
+  // Whatever followed the first comma ("Maine", "Portugal") — used below to
+  // pick the right same-named city out of several candidates, e.g. so
+  // "Portland, Maine" doesn't silently resolve to Portland, OR.
+  const qualifier = rest.join(",").trim().toLowerCase();
   try {
     const res = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=1`,
+      `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(name)}&count=${qualifier ? 10 : 1}`,
       opts()
     );
-    const hit = (await res.json())?.results?.[0];
-    if (!hit) return null;
+    const results = (await res.json())?.results as
+      | { latitude: number; longitude: number; country_code: string; admin1?: string; country?: string }[]
+      | undefined;
+    if (!results?.length) return null;
+    const hit =
+      (qualifier &&
+        results.find(
+          (r) =>
+            (r.admin1 && qualifier.includes(r.admin1.toLowerCase())) ||
+            (r.country && qualifier.includes(r.country.toLowerCase()))
+        )) ||
+      results[0];
     return { lat: hit.latitude, lng: hit.longitude, us: hit.country_code === "US" };
   } catch {
     return null;

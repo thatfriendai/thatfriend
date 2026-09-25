@@ -2,7 +2,7 @@ import "server-only";
 import { randomUUID } from "crypto";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { KIND_OPTIONS, hashPercent } from "./itinerary";
-import { extractPlacesFromText, extractPlacesFromImage, type ExtractedPlace } from "./extract";
+import { extractPlacesFromText, extractPlacesFromImages, type ExtractedPlace } from "./extract";
 import { fetchPageText, deriveLabelFromUrl } from "./fetchPage";
 import { loadExistingPlaces, findDuplicatePlace } from "./placeDedupe";
 import { geocodePlace } from "./geocode";
@@ -154,14 +154,17 @@ export async function addResourceFromWhatsAppImage(
   admin: SupabaseClient,
   tripId: string,
   userId: string,
-  base64: string,
-  mimeType: string
+  images: { base64: string; mimeType: string }[]
 ): Promise<AddResult | { error: string }> {
-  const mediaType = ["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mimeType)
-    ? (mimeType as "image/jpeg" | "image/png" | "image/webp" | "image/gif")
-    : "image/jpeg";
-  const candidates = await extractPlacesFromImage(base64, mediaType);
-  return persistCandidates(admin, tripId, userId, "screenshot", "Screenshot", null, candidates);
+  const normalized = images.map(({ base64, mimeType }) => ({
+    base64,
+    mediaType: (["image/jpeg", "image/png", "image/webp", "image/gif"].includes(mimeType)
+      ? mimeType
+      : "image/jpeg") as "image/jpeg" | "image/png" | "image/webp" | "image/gif",
+  }));
+  const candidates = await extractPlacesFromImages(normalized);
+  const label = images.length > 1 ? `${images.length} screenshots` : "Screenshot";
+  return persistCandidates(admin, tripId, userId, "screenshot", label, null, candidates);
 }
 
 async function persistCandidates(
@@ -228,11 +231,26 @@ async function persistCandidates(
   // A trip's own name often names its city informally ("Thanksgiving
   // Miami") even when the dedicated destination field was never filled
   // in — worth a second attempt before giving up on the far-away check
-  // entirely, since a null destGeo silently disables it below.
+  // entirely, since a null destGeo silently disables it below. But a name
+  // like "Bach Weekend" still resolves to *something* on Places — only
+  // trust that guess as a real anchor point when it actually looks like a
+  // place (a locality/region), not a business or landmark, or it spams
+  // "doesn't look nearby" on every place saved from a trip with no
+  // destination field set.
+  const LOCALITY_TYPES = new Set([
+    "locality",
+    "sublocality",
+    "administrative_area_level_1",
+    "administrative_area_level_2",
+    "administrative_area_level_3",
+    "country",
+  ]);
   const destGeo = destination
     ? await geocodePlace(destination, { wantPhoto: false })
     : trip?.name
-      ? await geocodePlace(trip.name, { wantPhoto: false })
+      ? await geocodePlace(trip.name, { wantPhoto: false }).then((g) =>
+          g && g.types.some((t) => LOCALITY_TYPES.has(t)) ? g : null
+        )
       : null;
   const bias = destGeo ? { lat: destGeo.lat, lng: destGeo.lng } : undefined;
   const geocodedCandidates = await Promise.all(
