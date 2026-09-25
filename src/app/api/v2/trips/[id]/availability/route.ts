@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
-import { MAX_MARKS, sanitizeMarkDates, todayIn } from "@/lib/planner/calendarDate";
+import { sanitizeMarkDates, todayIn } from "@/lib/planner/calendarDate";
+import { MAX_AVAILABILITY_MARKS } from "@/config/limits";
 
 export async function PUT(
   request: Request,
@@ -26,7 +27,7 @@ export async function PUT(
   const body = await request.json().catch(() => ({}));
   const dates = sanitizeMarkDates(body.dates, todayIn());
   if (!dates) {
-    return NextResponse.json({ error: `You can mark at most ${MAX_MARKS} days.` }, { status: 400 });
+    return NextResponse.json({ error: `You can mark at most ${MAX_AVAILABILITY_MARKS} days.` }, { status: 400 });
   }
 
   // Write the new set before removing anything, so a failed write leaves

@@ -2,11 +2,10 @@ import { describe, expect, it } from "vitest";
 import {
   formatDateRange,
   isValidCalendarDate,
-  MAX_MARKS,
-  MAX_TRIP_DAYS,
   sanitizeMarkDates,
   tripRangeError,
 } from "@/lib/planner/calendarDate";
+import { MAX_AVAILABILITY_MARKS as MAX_MARKS, MAX_TRIP_DAYS } from "@/config/limits";
 import { computeDateProposal, earliestProposableDate, upcomingMarks } from "@/lib/planner/dates";
 import { inTripRange } from "@/lib/planner/days";
 import { PEOPLE } from "../../qa/fixtures";

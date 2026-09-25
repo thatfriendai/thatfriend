@@ -4,6 +4,7 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { autoFriendTripMembers } from "@/lib/planner/follows";
 import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { toE164 } from "@/lib/planner/phone";
+import { MAX_TRAVELERS_PER_TRIP } from "@/config/limits";
 
 /** Owner accepts or declines a join request. Accepting creates the membership directly — no separate invite/accept round-trip needed since the request itself was already an explicit ask. */
 export async function PATCH(
@@ -39,6 +40,19 @@ export async function PATCH(
   if (!joinRequest) return NextResponse.json({ error: "Request not found." }, { status: 404 });
   if (joinRequest.status !== "pending") {
     return NextResponse.json({ error: "Already handled." }, { status: 400 });
+  }
+
+  if (decision === "accepted") {
+    const { count } = await admin
+      .from("planner_memberships")
+      .select("user_id", { count: "exact", head: true })
+      .eq("trip_id", tripId);
+    if ((count ?? 0) >= MAX_TRAVELERS_PER_TRIP) {
+      return NextResponse.json(
+        { error: `This trip is already at its limit of ${MAX_TRAVELERS_PER_TRIP} travelers.` },
+        { status: 400 }
+      );
+    }
   }
 
   await admin.from("planner_join_requests").update({ status: decision }).eq("id", requestId);

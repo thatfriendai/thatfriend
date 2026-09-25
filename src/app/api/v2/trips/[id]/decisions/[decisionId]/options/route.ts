@@ -4,6 +4,7 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { fetchPageText } from "@/lib/planner/fetchPage";
 import { extractLodgingOption } from "@/lib/planner/extractLodging";
 import type { StayAmenities, StaySource } from "@/lib/supabase/planner-types";
+import { MAX_OPTIONS_PER_DECISION } from "@/config/limits";
 
 const SOURCE_VALUES: StaySource[] = ["airbnb", "hotel", "aparthotel", "other"];
 const AMENITY_KEYS = ["kitchen", "ac", "washer", "pool", "breakfast", "wifi"] as const;
@@ -81,6 +82,13 @@ export async function POST(
     .from("planner_decision_options")
     .select("id", { count: "exact", head: true })
     .eq("decision_id", decisionId);
+
+  if ((count ?? 0) >= MAX_OPTIONS_PER_DECISION) {
+    return NextResponse.json(
+      { error: `A decision can have at most ${MAX_OPTIONS_PER_DECISION} options.` },
+      { status: 400 }
+    );
+  }
 
   const { data: option, error } = await admin
     .from("planner_decision_options")

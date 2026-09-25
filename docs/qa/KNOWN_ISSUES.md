@@ -35,13 +35,15 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
   tie-break already prefers longer windows.
 - **P2 · Tied votes go to the first-listed option**, and the summary says
   so. The alternative is to block Close and ask the group to break the tie.
-- **P2 · Caps chosen during QA:**
-  - trips of at most 60 days
-  - trip names of at most 120 characters
-  - availability marks from 1 year back to 2 years ahead, 366 at most
-  - at most 12 places confirmed from one link
-
-  The last one drops extras silently.
+- ~~**P2 · Caps chosen during QA**~~ — **fixed 2026-09-25.** All of them
+  moved into `src/config/limits.ts`, single source of truth. Existing:
+  trips of at most 60 days, trip names of at most 120 characters,
+  availability marks 366 at most, at most 12 places confirmed from one link
+  (still drops extras silently, by design). New, didn't exist before: at
+  most 30 travelers per trip, 10 options per decision (creation and
+  one-at-a-time adds both enforced now — adding used to have no cap at
+  all), 10 stay decisions per trip. Every new cap shows a specific message
+  naming the limit, not a generic error.
 - **P2 · There's no way to delete a decision or remove a stay option,** and
   no way to set nights after creating a stay decision. Without nights,
   per-person prices stay "—".
