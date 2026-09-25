@@ -1,8 +1,15 @@
 import { createServerClient } from "@supabase/ssr";
+import type { User } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
-/** Refreshes the organizer's auth session cookie on every request. */
-export async function updateSession(request: NextRequest) {
+/**
+ * Refreshes the organizer's auth session cookie on every request, and hands
+ * back the resolved auth user so proxy.ts's route guards don't need a
+ * second, redundant auth.getUser() call.
+ */
+export async function updateSession(
+  request: NextRequest
+): Promise<{ response: NextResponse; user: User | null }> {
   let supabaseResponse = NextResponse.next({ request });
 
   const supabase = createServerClient(
@@ -41,8 +48,8 @@ export async function updateSession(request: NextRequest) {
   if (user?.email && request.nextUrl.pathname === "/") {
     const redirectResponse = NextResponse.redirect(new URL("/planner/home", request.url));
     supabaseResponse.cookies.getAll().forEach((cookie) => redirectResponse.cookies.set(cookie));
-    return redirectResponse;
+    return { response: redirectResponse, user };
   }
 
-  return supabaseResponse;
+  return { response: supabaseResponse, user };
 }
