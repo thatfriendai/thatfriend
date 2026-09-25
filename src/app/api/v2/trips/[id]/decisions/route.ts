@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { MAX_OPTIONS_PER_DECISION, MAX_STAYS_PER_TRIP } from "@/config/limits";
+import { stayNightsFromDates, outsideTripRangeWarning } from "@/lib/planner/calendarDate";
 
 interface IncomingOption {
   label?: unknown;
@@ -45,7 +46,8 @@ export async function POST(
   const title = typeof body.title === "string" ? body.title.trim().slice(0, 200) : "";
   const why = typeof body.why === "string" ? body.why.trim().slice(0, 1000) : null;
   const kind = body.kind === "stay" ? "stay" : "general";
-  const nights = Number.isInteger(body.nights) && body.nights > 0 ? body.nights : null;
+  const { nights, error: nightsError } = stayNightsFromDates(body.check_in, body.check_out);
+  if (nightsError) return NextResponse.json({ error: nightsError }, { status: 400 });
   const partySize = Number.isInteger(body.party_size) && body.party_size > 0 ? body.party_size : null;
   const rawOptions: IncomingOption[] = Array.isArray(body.options) ? body.options : [];
   const options = rawOptions
@@ -82,6 +84,12 @@ export async function POST(
     }
   }
 
+  let warning: string | null = null;
+  if (nights !== null) {
+    const { data: trip } = await admin.from("planner_trips").select("start_date, end_date").eq("id", tripId).maybeSingle();
+    warning = outsideTripRangeWarning(body.check_in, body.check_out, trip?.start_date ?? null, trip?.end_date ?? null);
+  }
+
   const { data: decision, error: decisionError } = await admin
     .from("planner_decisions")
     .insert({ trip_id: tripId, title, why, created_by: user.id, kind, nights, party_size: partySize })
@@ -91,7 +99,7 @@ export async function POST(
   if (decisionError) return NextResponse.json({ error: decisionError.message }, { status: 500 });
 
   if (options.length === 0) {
-    return NextResponse.json({ decision, options: [] });
+    return NextResponse.json({ decision, options: [], warning });
   }
 
   const { data: createdOptions, error: optionsError } = await admin
@@ -111,5 +119,5 @@ export async function POST(
     return NextResponse.json({ error: optionsError.message }, { status: 500 });
   }
 
-  return NextResponse.json({ decision, options: createdOptions });
+  return NextResponse.json({ decision, options: createdOptions, warning });
 }

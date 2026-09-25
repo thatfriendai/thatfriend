@@ -76,6 +76,46 @@ export function tripRangeError(start: unknown, end: unknown): string | null {
 }
 
 /**
+ * A stay decision's nights, derived from check-in/check-out rather than
+ * typed as a raw number — the message is fit to show when they don't work,
+ * `nights: null, error: null` means "left blank, set it later" (both
+ * fields are optional together), and giving only one of the two is the
+ * actual error case, not silently ignored.
+ */
+export function stayNightsFromDates(
+  checkIn: unknown,
+  checkOut: unknown
+): { nights: number | null; error: string | null } {
+  const hasIn = typeof checkIn === "string" && checkIn.trim().length > 0;
+  const hasOut = typeof checkOut === "string" && checkOut.trim().length > 0;
+  if (!hasIn && !hasOut) return { nights: null, error: null };
+  if (hasIn !== hasOut) return { nights: null, error: "Give both a check-in and a check-out date, or leave both blank." };
+  if (!isValidCalendarDate(checkIn) || !isValidCalendarDate(checkOut)) {
+    return { nights: null, error: "Those dates don't look right." };
+  }
+  if (checkIn >= checkOut) return { nights: null, error: "Check-out has to be after check-in." };
+  return { nights: daysBetween(checkIn, checkOut), error: null };
+}
+
+/**
+ * Non-blocking: does a check-in/check-out pair fall outside the trip's own
+ * dates? Null (no warning) when the trip has no dates locked yet, or
+ * everything fits — the stay is allowed either way, this only surfaces it.
+ */
+export function outsideTripRangeWarning(
+  checkIn: string,
+  checkOut: string,
+  tripStart: string | null,
+  tripEnd: string | null
+): string | null {
+  if (!tripStart || !tripEnd) return null;
+  if (checkIn < tripStart || checkOut > tripEnd) {
+    return `${formatDateRange(checkIn, checkOut)} falls outside the trip's own dates (${formatDateRange(tripStart, tripEnd)}).`;
+  }
+  return null;
+}
+
+/**
  * The availability dates a request may save: real calendar dates,
  * deduped, within about a year back (a stale tab re-saving old marks
  * shouldn't fail) to two years out. Null when there are more than

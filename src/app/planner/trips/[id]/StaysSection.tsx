@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { StayMatrix, type StayComparisonData } from "./decisions/[decisionId]/StayMatrix";
 import { NewDecisionModal } from "./decisions/NewDecisionModal";
+import { stayNightsFromDates } from "@/lib/planner/calendarDate";
 
 export interface StayDecisionSummary {
   id: string;
@@ -11,6 +12,7 @@ export interface StayDecisionSummary {
   status: "open" | "closed" | "tied";
   deadline: string | null;
   decidedOptionLabel: string | null;
+  nights: number | null;
   comparison: StayComparisonData;
 }
 
@@ -22,6 +24,8 @@ function AlreadyBookedForm({ tripId, onDone }: { tripId: string; onDone: () => v
   const [cost, setCost] = useState("");
   const [currency, setCurrency] = useState("USD");
   const [note, setNote] = useState("");
+  const [checkIn, setCheckIn] = useState("");
+  const [checkOut, setCheckOut] = useState("");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Remembered across retries: if the option or close step fails after the
@@ -78,6 +82,12 @@ function AlreadyBookedForm({ tripId, onDone }: { tripId: string; onDone: () => v
       }
     }
 
+    const { error: nightsError } = stayNightsFromDates(checkIn, checkOut);
+    if (nightsError) {
+      setError(nightsError);
+      return;
+    }
+
     setPending(true);
     setError(null);
     try {
@@ -86,7 +96,12 @@ function AlreadyBookedForm({ tripId, onDone }: { tripId: string; onDone: () => v
         const decisionRes = await fetch(`/api/v2/trips/${tripId}/decisions`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ title: "Where we stay", kind: "stay" }),
+          body: JSON.stringify({
+            title: "Where we stay",
+            kind: "stay",
+            check_in: checkIn || undefined,
+            check_out: checkOut || undefined,
+          }),
         });
         const decisionData = await decisionRes.json().catch(() => ({}));
         if (!decisionRes.ok) {
@@ -95,6 +110,7 @@ function AlreadyBookedForm({ tripId, onDone }: { tripId: string; onDone: () => v
         }
         id = decisionData.decision.id as string;
         setDecisionId(id);
+        if (decisionData.warning) window.alert(decisionData.warning);
       }
 
       if (!optionAdded) {
@@ -247,6 +263,30 @@ function AlreadyBookedForm({ tripId, onDone }: { tripId: string; onDone: () => v
       </div>
       <div className="flex gap-2.5">
         <div className="flex-1">
+          <p className="mb-1.5 font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">
+            Check-in <span className="normal-case text-faint">(optional)</span>
+          </p>
+          <input
+            type="date"
+            value={checkIn}
+            onChange={(e) => setCheckIn(e.target.value)}
+            className="w-full rounded-full border border-input-border bg-card px-4 py-2 text-[14.5px] text-ink outline-none focus:border-ink"
+          />
+        </div>
+        <div className="flex-1">
+          <p className="mb-1.5 font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">
+            Check-out <span className="normal-case text-faint">(optional)</span>
+          </p>
+          <input
+            type="date"
+            value={checkOut}
+            onChange={(e) => setCheckOut(e.target.value)}
+            className="w-full rounded-full border border-input-border bg-card px-4 py-2 text-[14.5px] text-ink outline-none focus:border-ink"
+          />
+        </div>
+      </div>
+      <div className="flex gap-2.5">
+        <div className="flex-1">
           <p className="mb-1.5 font-mono text-[10.5px] tracking-[0.08em] text-faint uppercase">Total cost</p>
           <input
             value={cost}
@@ -372,8 +412,19 @@ export function StaysSection({
           <span className="ml-auto text-[13.5px] text-muted">
             {decision.comparison.options.length} option{decision.comparison.options.length === 1 ? "" : "s"} &middot;{" "}
             {totalMembers} people staying
+            {decision.nights
+              ? ` · ${decision.nights} night${decision.nights === 1 ? "" : "s"}`
+              : " · nights not set — per-person prices stay blank until they are"}
             {decision.deadline ? ` · Decision closing ${new Date(decision.deadline).toLocaleDateString("en-US", { weekday: "short" })}` : ""}
           </span>
+        )}
+        {decision && decision.status !== "closed" && (
+          <Link
+            href={`/planner/trips/${tripId}/decisions/${decision.id}`}
+            className="text-[13px] text-muted hover:text-ink"
+          >
+            {decision.nights ? "Edit dates" : "Set dates"}
+          </Link>
         )}
         {decision && decision.status !== "closed" && isOwner && (
           <button
