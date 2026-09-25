@@ -27,12 +27,8 @@ export type RoutingResult =
   | { status: "ambiguous"; tripNames: string[]; candidateTripIds: string[] };
 
 /**
- * Every trip this phone's texts could currently be about — active
- * membership, trip not yet ended. A departed/removed member never reaches
- * here in the first place (findPlannerUserByPhone resolves the person, not
- * the membership), so "active" here is just "hasn't ended" — the
- * membership-status half of this (P1-B) narrows it further once that
- * column exists.
+ * Every trip this phone's texts could currently be about — an active
+ * membership (not left/removed, P1-B) on a trip that hasn't ended.
  */
 export async function eligibleTripsForPhone(admin: SupabaseClient, userId: string): Promise<EligibleTrip[]> {
   const today = todayIn("America/New_York");
@@ -40,6 +36,7 @@ export async function eligibleTripsForPhone(admin: SupabaseClient, userId: strin
     .from("planner_memberships")
     .select("joined_at, planner_trips(id, name, destination, join_code, twilio_conversation_sid, end_date)")
     .eq("user_id", userId)
+    .eq("status", "active")
     .order("joined_at", { ascending: false });
 
   type Row = { planner_trips: (EligibleTrip & { end_date: string | null }) | null };

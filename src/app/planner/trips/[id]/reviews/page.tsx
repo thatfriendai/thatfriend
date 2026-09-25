@@ -28,7 +28,7 @@ export default async function ReviewsPage({
   // Phase 1: only depends on tripId/user.id — one round trip instead of
   // four sequential ones.
   const [{ data: membership }, { data: trip }, { data: myReview }, visits, lessons] = await Promise.all([
-    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).eq("status", "active").maybeSingle(),
     admin.from("planner_trips").select("*").eq("id", tripId).maybeSingle(),
     admin.from("planner_trip_reviews").select("*").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
     listVisits(admin, tripId),

@@ -82,10 +82,10 @@ export default async function ConvergencePage({
   // five sequential ones. total/prefRows are wasted in the rare case one
   // of the guards below fails, which is a fine trade for the common case.
   const [{ data: membership }, { data: trip }, { data: myPref }, { count: total }, { data: prefRows }] = await Promise.all([
-    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_memberships").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).eq("status", "active").maybeSingle(),
     admin.from("planner_trips").select("name, privacy").eq("id", tripId).maybeSingle(),
     admin.from("planner_preferences").select("trip_id").eq("trip_id", tripId).eq("user_id", user.id).maybeSingle(),
-    admin.from("planner_memberships").select("*", { count: "exact", head: true }).eq("trip_id", tripId),
+    admin.from("planner_memberships").select("*", { count: "exact", head: true }).eq("trip_id", tripId).eq("status", "active"),
     admin.from("planner_preferences").select("*, planner_users(id, name, email)").eq("trip_id", tripId),
   ]);
   if (!membership) notFound();

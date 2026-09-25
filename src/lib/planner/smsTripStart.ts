@@ -97,23 +97,32 @@ export async function joinTripById(admin: SupabaseClient, user: PlannerUserLite,
 
   const { data: existing } = await admin
     .from("planner_memberships")
-    .select("trip_id")
+    .select("trip_id, status")
     .eq("trip_id", trip.id)
     .eq("user_id", user.id)
     .maybeSingle();
-  if (existing) return { outcome: "already_member", tripName: trip.name };
+  if (existing?.status === "active") return { outcome: "already_member", tripName: trip.name };
 
   const { count } = await admin
     .from("planner_memberships")
     .select("user_id", { count: "exact", head: true })
-    .eq("trip_id", trip.id);
+    .eq("trip_id", trip.id)
+    .eq("status", "active");
   if ((count ?? 0) >= MAX_TRAVELERS_PER_TRIP) {
     return { outcome: "error", error: `This trip is already at its limit of ${MAX_TRAVELERS_PER_TRIP} travelers.` };
   }
 
-  const { error } = await admin
-    .from("planner_memberships")
-    .insert({ trip_id: trip.id, user_id: user.id, role: "member" });
+  // A left/removed row rejoining flips back to active (the composite PK
+  // would otherwise reject a second insert) rather than being blocked or
+  // duplicated — P1-B: "a removed or departed traveler can be re-invited
+  // through the normal invite flow."
+  const { error } = existing
+    ? await admin
+        .from("planner_memberships")
+        .update({ role: "member", status: "active", left_at: null, removed_by: null })
+        .eq("trip_id", trip.id)
+        .eq("user_id", user.id)
+    : await admin.from("planner_memberships").insert({ trip_id: trip.id, user_id: user.id, role: "member" });
   if (error) return { outcome: "error", error: error.message };
 
   await autoFriendTripMembers(admin, trip.id, user.id);

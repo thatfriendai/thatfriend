@@ -28,6 +28,22 @@ export async function addParticipantToConversation(conversationSid: string, phon
 }
 
 /**
+ * Removes a phone number from a trip's group conversation, so texts there
+ * stop reaching them immediately (P1-B) — the membership row's own status
+ * alone doesn't do that, Twilio is the actual source of truth for who's
+ * bound to the thread. A no-op if they were never a participant.
+ */
+export async function removeParticipantFromConversation(conversationSid: string, phoneE164: string) {
+  const client = createTwilioClient();
+  const participants = await client.conversations.v1.conversations(conversationSid).participants.list();
+  const match = participants.find(
+    (p) => (p.messagingBinding as { address?: string } | null)?.address === phoneE164
+  );
+  if (!match) return;
+  await client.conversations.v1.conversations(conversationSid).participants(match.sid).remove();
+}
+
+/**
  * Whether this phone is currently bound (through our SMS number) to any
  * active group conversation. When it is, Twilio delivers the person's
  * texts into that Conversation — and, with the number's own inbound

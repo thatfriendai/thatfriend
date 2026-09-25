@@ -20,6 +20,7 @@ export async function GET(
     .select("trip_id")
     .eq("trip_id", tripId)
     .eq("user_id", user.id)
+    .eq("status", "active")
     .maybeSingle();
   if (!membership) {
     return NextResponse.json({ error: "Not a member of this trip." }, { status: 403 });
@@ -35,7 +36,8 @@ export async function GET(
   const { count: total } = await admin
     .from("planner_memberships")
     .select("*", { count: "exact", head: true })
-    .eq("trip_id", tripId);
+    .eq("trip_id", tripId)
+    .eq("status", "active");
 
   const { data: prefs } = await admin
     .from("planner_preferences")

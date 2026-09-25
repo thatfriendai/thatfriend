@@ -14,6 +14,7 @@ import { createTripFromText, joinTripByCode, looksLikeJoinCode } from "@/lib/pla
 import { acceptPendingInviteByReply } from "@/lib/planner/joinLink";
 import { invitePhoneToTrip, extractPhoneNumbers, looksLikeInviteList } from "@/lib/planner/invitePhone";
 import { recordConsentEvent, handleOptKeywordFromBody } from "@/lib/planner/consent";
+import { departMember, isLeaveCommand } from "@/lib/planner/membership";
 import * as say from "@/lib/planner/smsVoice";
 
 const ASSISTANT_AUTHOR = "That Friend";
@@ -161,6 +162,22 @@ export async function POST(request: Request) {
         await replyPrivately(say.optedBackInReply());
         return ok();
       }
+    }
+
+    // LEAVE — this thread is already trip-specific (Twilio only binds a
+    // phone to one Conversation), so no "which trip?" disambiguation is
+    // needed here, unlike the 1:1 route. Answered privately, and never
+    // posted to the group — same principle as STOP/START above.
+    if (body && isLeaveCommand(body)) {
+      const result = await departMember(admin, trip.id, user.id, { kind: "left" });
+      if (result.outcome === "left" || result.outcome === "already_gone") {
+        await replyPrivately(say.leftTripReply(trip.name));
+      } else if (result.outcome === "must_transfer_first") {
+        await replyPrivately(say.mustTransferFirstReply());
+      } else {
+        await replyPrivately(say.lookupFailedReply());
+      }
+      return ok();
     }
 
     // "join LISBON4K" for a different trip — same deterministic branch as

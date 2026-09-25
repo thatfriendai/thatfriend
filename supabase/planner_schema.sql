@@ -63,10 +63,31 @@ create table if not exists planner_memberships (
   user_id uuid not null references planner_users (id) on delete cascade,
   role text not null default 'member' check (role in ('owner', 'member')),
   joined_at timestamptz not null default now(),
+  -- P1-B: soft-delete only, never a hard membership delete — their votes,
+  -- and any cost history if that ever exists, need to persist. A
+  -- left/removed row is what makes rejoining (composite PK) possible.
+  status text not null default 'active' check (status in ('active', 'left', 'removed')),
+  left_at timestamptz,
+  removed_by uuid references planner_users (id) on delete set null,
   primary key (trip_id, user_id)
 );
 
 create index if not exists planner_memberships_user_idx on planner_memberships (user_id);
+
+-- ---------------------------------------------------------------------------
+-- planner_trip_activity — the low-key "X left the trip" / "X was removed"
+-- notice (P1-B). Deliberately not an SMS blast; shown in-app only.
+-- ---------------------------------------------------------------------------
+create table if not exists planner_trip_activity (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  text text not null,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists planner_trip_activity_trip_idx on planner_trip_activity (trip_id);
+alter table planner_trip_activity enable row level security;
+grant all on planner_trip_activity to anon, authenticated, service_role;
 
 -- ---------------------------------------------------------------------------
 -- planner_invites
