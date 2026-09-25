@@ -63,9 +63,12 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
   two trips' group threads can only ever receive one trip's group texts —
   now logged and texted to the organizer when it happens, instead of
   silently dropped.
-- **P2 · A single-day overlap is never proposed.** `MIN_WINDOW = 2` in
-  `dates.ts`. Setting it to 1 would propose single days, since the
-  tie-break already prefers longer windows.
+- ~~**P2 · A single-day overlap is never proposed.**~~ — **fixed
+  2026-09-28 (P2-1).** `MIN_WINDOW` moved to `config/limits.ts` as
+  `MIN_DATE_WINDOW` and set to 1 — the existing tie-break (prefers a
+  longer window on an equal score) already kept a real multi-day overlap
+  from getting crowded out, confirmed with a test for exactly that case
+  (two ranges that only touch at one day).
 - ~~**P2 · Tied votes go to the first-listed option**~~ — **fixed 2026-09-29
   (P2-2).** Closing a decision with two or more options tied for the top
   vote count (and at least one vote actually cast — zero votes still
