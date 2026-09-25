@@ -129,7 +129,7 @@ export default async function PreferencesPage({
                 className="flex h-7.5 w-7.5 items-center justify-center rounded-full text-[10.5px] text-cream"
                 style={{
                   background: d.answered ? d.color : "#EDE8DD",
-                  color: d.answered ? undefined : "#8C8478",
+                  color: d.answered ? undefined : "var(--color-ink-muted)",
                 }}
               >
                 {d.initials}

@@ -86,7 +86,7 @@ export function TripCover({
                     fontSize: s.meta,
                     letterSpacing: "0.1em",
                     textTransform: "uppercase",
-                    color: "#8C8478",
+                    color: "var(--color-ink-muted)",
                   }}
                 >
                   {placeCount}

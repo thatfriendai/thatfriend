@@ -6,7 +6,7 @@ low-impact enough to batch for later. Check this list before a friends
 round. Anything a tester is likely to hit should also be mentioned in
 BETA_GUIDE.md.
 
-Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Minor, batch for later" section below — see git history for `qa-minor-bugs-batch`).
+Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Minor, batch for later" section and the muted-grey contrast issue below).
 
 ## Needs a console or config change (do these before the next round)
 
@@ -69,11 +69,22 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
 
 ## Accessibility
 
-- **Colour contrast:** the muted greys (`#8C8478` and `#A19A8E` on the cream
-  backgrounds) measure 2.3–3.6:1 against the 4.5:1 WCAG AA minimum. They're
-  used for hints, captions and small labels on every page. This needs one
-  design-token change, not a per-page fix. The e2e a11y check reports it as
-  a warning instead of failing.
+**Fixed 2026-09-25:** the muted greys (`--color-ink-muted`/`--color-ink-faint`
+in `globals.css`, formerly `#8C8478`/`#A19A8E`) were 2.3–3.6:1 against the
+4.5:1 WCAG AA minimum; darkened to `#615C53`/`#70695D` (4.5–6.5:1 on every
+ground) at the same hue/saturation. Also caught and fixed along the way: a
+few components had the same two hex values hardcoded instead of referencing
+the token (`HeroDemo.tsx`, `TripCover.tsx`, `TravelCard.tsx`,
+`preferences/page.tsx`), and the login page's dark preview mockup
+(`TripPreviewCard.tsx`) had its own separate muted color (`#7E766C`,
+3.4–3.9:1) for the same reason. The e2e a11y check no longer reports a
+color-contrast warning on any of the 4 public pages.
+
+- **New, not yet fixed:** the member-avatar initials (white text on a
+  rotating tint palette — `#A9709A`, `#B08AA6`, etc.) fall as low as 2.7:1.
+  Different issue from the one above (a color palette, not the muted-grey
+  tokens) — found while re-running the a11y check on signed-in trip pages,
+  not part of the original sweep.
 
 ## Minor, batch for later
 

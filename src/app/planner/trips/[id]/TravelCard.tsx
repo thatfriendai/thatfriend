@@ -178,7 +178,7 @@ export function TravelCard({
             <div key={l.id} className="flex items-center gap-2.5">
               <span
                 className="flex h-5.5 w-5.5 flex-none items-center justify-center rounded-full font-mono text-[9px] text-on-accent"
-                style={{ background: colorOf.get(l.user_id) ?? "#8C8478" }}
+                style={{ background: colorOf.get(l.user_id) ?? "var(--color-ink-muted)" }}
               >
                 {initials(fullNameOf.get(l.user_id) ?? who)}
               </span>
