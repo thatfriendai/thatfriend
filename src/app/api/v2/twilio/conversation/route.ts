@@ -174,6 +174,8 @@ export async function POST(request: Request) {
         await replyPrivately(say.leftTripReply(trip.name));
       } else if (result.outcome === "must_transfer_first") {
         await replyPrivately(say.mustTransferFirstReply());
+      } else if (result.outcome === "deleted") {
+        await replyPrivately(say.tripDeletedReply(result.tripName));
       } else {
         await replyPrivately(say.lookupFailedReply());
       }

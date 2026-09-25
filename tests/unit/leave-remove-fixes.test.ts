@@ -48,12 +48,22 @@ function fakeAdmin(seed: {
           // before resolving against the last "user_id"/"userId" filter seen.
           select: () => {
             let userId: string | undefined;
+            let excluded: string | undefined;
             const builder = {
               eq: (col: string, val: string) => {
                 if (col === "user_id") userId = val;
                 return builder;
               },
+              neq: (col: string, val: string) => {
+                if (col === "user_id") excluded = val;
+                return builder;
+              },
               maybeSingle: async () => ({ data: userId && memberships[userId] ? { ...memberships[userId] } : null }),
+              // The owner's "anyone else still on the trip?" head count.
+              then: (resolve: (v: { count: number }) => unknown) =>
+                resolve({
+                  count: Object.entries(memberships).filter(([id, m]) => id !== excluded && m.status === "active").length,
+                }),
             };
             return builder;
           },
@@ -112,8 +122,10 @@ function fakeAdmin(seed: {
 }
 
 describe("departMember", () => {
-  it("refuses to depart the owner", async () => {
-    const { admin } = fakeAdmin({ memberships: { u1: { role: "owner", status: "active" } } });
+  it("refuses to depart an owner while anyone else is on the trip", async () => {
+    const { admin } = fakeAdmin({
+      memberships: { u1: { role: "owner", status: "active" }, u2: { role: "member", status: "active" } },
+    });
     const result = await departMember(admin, "trip1", "u1", { kind: "left" });
     expect(result).toEqual({ outcome: "must_transfer_first" });
   });
@@ -187,5 +199,23 @@ describe("transferOwner", () => {
     expect(result).toEqual({ outcome: "ok" });
     expect(memberships.owner1.role).toBe("member");
     expect(memberships.member1.role).toBe("owner");
+  });
+});
+
+describe("ownerDepartAction — a solo organizer leaving deletes the trip", () => {
+  it("deletes when the owner leaves and nobody else is on the trip", async () => {
+    const { ownerDepartAction } = await import("@/lib/planner/membership");
+    expect(ownerDepartAction("left", 0)).toBe("delete_trip");
+  });
+
+  it("still requires a hand-off when anyone else is on the trip", async () => {
+    const { ownerDepartAction } = await import("@/lib/planner/membership");
+    expect(ownerDepartAction("left", 1)).toBe("must_transfer_first");
+    expect(ownerDepartAction("left", 9)).toBe("must_transfer_first");
+  });
+
+  it("never deletes on a removal", async () => {
+    const { ownerDepartAction } = await import("@/lib/planner/membership");
+    expect(ownerDepartAction("removed", 0)).toBe("must_transfer_first");
   });
 });

@@ -238,6 +238,7 @@ export async function POST(request: Request) {
       const result = await departMember(admin, tripId, user.id, { kind: "left" });
       if (result.outcome === "left") return reply(say.leftTripReply(name));
       if (result.outcome === "must_transfer_first") return reply(say.mustTransferFirstReply());
+      if (result.outcome === "deleted") return reply(say.tripDeletedReply(result.tripName));
       if (result.outcome === "already_gone") return reply(say.leftTripReply(name));
       return reply(say.lookupFailedReply());
     };
