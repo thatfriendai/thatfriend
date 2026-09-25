@@ -484,7 +484,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
   const stayCols = options.map((o, i) => {
     const mine = vote === o.id;
     const votes = vote === o.id ? o.votes.concat("you") : o.votes;
-    const tint = "#8C8478";
+    const tint = "var(--color-ink-muted)";
     return {
       o,
       name: o.name,
@@ -883,12 +883,12 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             fontSize: 11,
             letterSpacing: "0.1em",
             textTransform: "uppercase",
-            color: "#A19A8E",
+            color: "var(--color-ink-faint)",
           }}
         >
           Lisbon &amp; the Algarve · 4 going
         </span>
-        <span style={{ fontSize: 13, color: "#8C8478" }}>{stepLabel}</span>
+        <span style={{ fontSize: 13, color: "var(--color-ink-muted)" }}>{stepLabel}</span>
       </div>
 
       {step === 0 && (
@@ -921,7 +921,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             >
               Start with the dates
             </button>
-            <a href="#demo" onClick={runAll} style={{ fontSize: 13.5, color: "#8C8478", textDecoration: "underline", textUnderlineOffset: 3 }}>
+            <a href="#demo" onClick={runAll} style={{ fontSize: 13.5, color: "var(--color-ink-muted)", textDecoration: "underline", textUnderlineOffset: 3 }}>
               Play it for me
             </a>
           </div>
@@ -931,7 +931,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
       {step === 1 && (
         <div style={{ padding: "18px 20px 20px" }}>
           <div style={{ fontSize: 15, color: "#2B2825", marginBottom: 4 }}>When could you go?</div>
-          <div style={{ fontSize: 13.5, color: "#8C8478", marginBottom: 14 }}>Drag the days that work for you.</div>
+          <div style={{ fontSize: 13.5, color: "var(--color-ink-muted)", marginBottom: 14 }}>Drag the days that work for you.</div>
 
           <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 9 }}>
             <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -955,11 +955,11 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                 ›
               </button>
             </span>
-            <span style={{ fontSize: 13, color: "#8C8478" }}>{rangeLabel}</span>
+            <span style={{ fontSize: 13, color: "var(--color-ink-muted)" }}>{rangeLabel}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 3, marginBottom: 4 }}>
             {["M", "T", "W", "T", "F", "S", "S"].map((w, i) => (
-              <div key={i} style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "#A19A8E" }}>
+              <div key={i} style={{ textAlign: "center", fontFamily: "'DM Mono', monospace", fontSize: 10, color: "var(--color-ink-faint)" }}>
                 {w}
               </div>
             ))}
@@ -987,7 +987,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
               <div key={a.key} style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div style={css(avatarStyle(PEOPLE[a.key], 26))}>{PEOPLE[a.key].initials}</div>
                 <span style={{ fontSize: 13.5, color: "#4A453E", flex: 1 }}>{PEOPLE[a.key].name}</span>
-                <span style={{ fontSize: 13, color: "#8C8478" }}>{a.window}</span>
+                <span style={{ fontSize: 13, color: "var(--color-ink-muted)" }}>{a.window}</span>
               </div>
             ))}
           </div>
@@ -1007,7 +1007,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             <a
               href="#demo"
               onClick={runAll}
-              style={{ fontSize: 13.5, color: "#8C8478", textDecoration: "underline", textUnderlineOffset: 3 }}
+              style={{ fontSize: 13.5, color: "var(--color-ink-muted)", textDecoration: "underline", textUnderlineOffset: 3 }}
             >
               Show me anyway
             </a>
@@ -1030,7 +1030,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
           </div>
           <div style={{ fontSize: 16, lineHeight: 1.5, color: "#4A3E46" }}>The one window all four can make.</div>
           <div style={{ height: 1, background: "#EBD8E6", margin: "24px 0 20px" }} />
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8C8478", marginBottom: 8 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-ink-muted)", marginBottom: 8 }}>
             Next up · decision 2
           </div>
           <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 30, lineHeight: 1.08, marginBottom: 8 }}>Where the four of you stay</div>
@@ -1070,7 +1070,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                 fontSize: 10.5,
                 letterSpacing: "0.11em",
                 textTransform: "uppercase",
-                color: "#A19A8E",
+                color: "var(--color-ink-faint)",
                 marginBottom: 5,
               }}
             >
@@ -1095,7 +1095,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
         <div style={{ padding: "18px 0 20px", animation: "tfRise 380ms ease-out both" }}>
           <div style={{ padding: "0 20px 14px" }}>
             <div style={{ fontSize: 15, color: "#2B2825", marginBottom: 4 }}>Where do we stay?</div>
-            <div style={{ fontSize: 13.5, color: "#8C8478" }}>Priced for your {r.nights} nights. Vote, or add one.</div>
+            <div style={{ fontSize: 13.5, color: "var(--color-ink-muted)" }}>Priced for your {r.nights} nights. Vote, or add one.</div>
           </div>
 
           <div style={{ overflowX: "auto", padding: "0 20px 2px" }}>
@@ -1133,7 +1133,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                       <span style={c.sourceStyle}>{c.source}</span>
                     </div>
                     <div style={{ fontSize: 13.5, lineHeight: 1.25, minHeight: 34, marginBottom: 2 }}>{c.name}</div>
-                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "#A19A8E" }}>
+                    <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 9.5, letterSpacing: "0.06em", textTransform: "uppercase", color: "var(--color-ink-faint)" }}>
                       {c.meta}
                     </div>
                   </div>
@@ -1157,7 +1157,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                     }}
                   >
                     <div style={{ fontSize: 13.5, color: "#8A5A7A" }}>+ Paste a link</div>
-                    <div style={{ fontSize: 11.5, lineHeight: 1.4, color: "#8C8478" }}>Add a place you found</div>
+                    <div style={{ fontSize: 11.5, lineHeight: 1.4, color: "var(--color-ink-muted)" }}>Add a place you found</div>
                   </div>
                 )}
               </div>
@@ -1168,7 +1168,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                   {row.cells.map((c) => (
                     <div key={c.key} style={c.style}>
                       <div style={c.mainStyle}>{c.main}</div>
-                      <div style={{ fontSize: 11.5, lineHeight: 1.35, color: "#8C8478" }}>{c.sub}</div>
+                      <div style={{ fontSize: 11.5, lineHeight: 1.35, color: "var(--color-ink-muted)" }}>{c.sub}</div>
                     </div>
                   ))}
                   {!extraStay && (
@@ -1299,7 +1299,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                   >
                     Lock in {winner.name}
                   </button>
-                  <span style={{ fontSize: 13, color: "#8C8478" }}>
+                  <span style={{ fontSize: 13, color: "var(--color-ink-muted)" }}>
                     {winnerVotes} of 4, about ${perPerson} each for the trip
                   </span>
                 </div>
@@ -1322,7 +1322,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
           <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 33, lineHeight: 1.08, marginBottom: 8 }}>{winner.name}</div>
           <div style={{ fontSize: 16, lineHeight: 1.5, color: "#453E4C" }}>{winnerVotes} of 4 voted, and the reasoning stays with it.</div>
           <div style={{ height: 1, background: "#E0CBDD", margin: "24px 0 20px" }} />
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8C8478", marginBottom: 8 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-ink-muted)", marginBottom: 8 }}>
             Next up · decision 3
           </div>
           <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 30, lineHeight: 1.08, marginBottom: 8 }}>The places you actually want to go</div>
@@ -1355,7 +1355,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
                 fontSize: 10.5,
                 letterSpacing: "0.11em",
                 textTransform: "uppercase",
-                color: "#A19A8E",
+                color: "var(--color-ink-faint)",
                 marginBottom: 4,
               }}
             >
@@ -1364,7 +1364,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             <div style={{ fontSize: 15.5, color: "#1B1917" }}>{winner.name}</div>
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 12 }}>
-            <span style={{ fontSize: 13, color: "#8C8478" }}>{winnerVotes} of 4 voted</span>
+            <span style={{ fontSize: 13, color: "var(--color-ink-muted)" }}>{winnerVotes} of 4 voted</span>
             <button
               type="button"
               onClick={() => setStep(2)}
@@ -1379,7 +1379,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
       {step === 3 && (
         <div style={{ padding: "18px 20px 20px", animation: "tfRise 380ms ease-out both" }}>
           <div style={{ fontSize: 15, color: "#2B2825", marginBottom: 4 }}>The places you want to eat</div>
-          <div style={{ fontSize: 13.5, color: "#8C8478", marginBottom: 13 }}>Saved from your group chat. Hover a pin, or add your own.</div>
+          <div style={{ fontSize: 13.5, color: "var(--color-ink-muted)", marginBottom: 13 }}>Saved from your group chat. Hover a pin, or add your own.</div>
 
           <div
             ref={measureMap}
@@ -1519,7 +1519,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             </div>
             <div style={scaleBarStyle}>
               <div style={{ height: 3, background: "rgba(255,253,249,0.7)", border: "1px solid #B6AE9C", borderRadius: 2 }} />
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.08em", color: "#8C8478", alignSelf: "center" }}>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 9, letterSpacing: "0.08em", color: "var(--color-ink-muted)", alignSelf: "center" }}>
                 {scaleKm < 1 ? "500 m" : `${scaleKm} km`}
               </span>
             </div>
@@ -1545,7 +1545,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
               >
                 <span style={{ width: 11, height: 11, borderRadius: 999, flex: "none", background: p.tint }} />
                 <span style={{ fontSize: 13.5, color: "#1B1917", flex: 1, minWidth: 0 }}>{p.name}</span>
-                <span style={{ fontSize: 12.5, color: "#8C8478", whiteSpace: "nowrap" }}>{p.source === "WhatsApp" ? "From the group chat" : `Added by ${p.source}`}</span>
+                <span style={{ fontSize: 12.5, color: "var(--color-ink-muted)", whiteSpace: "nowrap" }}>{p.source === "WhatsApp" ? "From the group chat" : `Added by ${p.source}`}</span>
                 <span style={{ fontSize: 12.5, color: "#4A453E" }}>{p.walk}</span>
               </div>
             ))}
@@ -1575,7 +1575,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
             >
               Put them on the plan
             </button>
-            <span style={{ fontSize: 13, color: "#8C8478" }}>
+            <span style={{ fontSize: 13, color: "var(--color-ink-muted)" }}>
               {winner.inCity
                 ? `${allPlaces.length} places, timed from ${winner.name}`
                 : `${allPlaces.length} places on the Lisbon nights. Your coast nights at ${winner.name} are planned separately.`}
@@ -1592,7 +1592,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
           <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 33, lineHeight: 1.08, marginBottom: 8 }}>{allPlaces.length} places on the map</div>
           <div style={{ fontSize: 16, lineHeight: 1.5, color: "#413E4C" }}>Nothing double-booked, nothing across the river.</div>
           <div style={{ height: 1, background: "#D6CFE8", margin: "24px 0 20px" }} />
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "#8C8478", marginBottom: 8 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 12, letterSpacing: "0.12em", textTransform: "uppercase", color: "var(--color-ink-muted)", marginBottom: 8 }}>
             That&rsquo;s all three
           </div>
           <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 30, lineHeight: 1.08, marginBottom: 8 }}>Here is the trip you just planned</div>
@@ -1610,14 +1610,14 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
       {step === 4 && (
         <div style={{ animation: "tfRise 400ms ease-out both" }}>
           <div style={{ padding: "16px 20px 6px" }}>
-            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, letterSpacing: "0.11em", textTransform: "uppercase", color: "#A19A8E" }}>Itinerary</div>
+            <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, letterSpacing: "0.11em", textTransform: "uppercase", color: "var(--color-ink-faint)" }}>Itinerary</div>
           </div>
           {itinerary.map((i) => (
             <div key={i.key} style={i.style}>
-              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11.5, color: "#A19A8E", width: 34, flex: "none" }}>{i.day}</span>
+              <span style={{ fontFamily: "'DM Mono', monospace", fontSize: 11.5, color: "var(--color-ink-faint)", width: 34, flex: "none" }}>{i.day}</span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <div style={{ fontSize: 14.5, color: "#1B1917" }}>{i.title}</div>
-                <div style={{ fontSize: 13, color: "#8C8478", marginTop: 2 }}>{i.note}</div>
+                <div style={{ fontSize: 13, color: "var(--color-ink-muted)", marginTop: 2 }}>{i.note}</div>
               </div>
             </div>
           ))}

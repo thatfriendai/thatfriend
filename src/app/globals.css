@@ -21,8 +21,12 @@
   --color-ink: #1B1917;          /* headings, primary button bg */
   --color-ink-body: #2B2825;     /* body copy inside warm surfaces */
   --color-ink-soft: #4A453E;     /* body copy, secondary labels */
-  --color-ink-muted: #8C8478;    /* captions, helper text */
-  --color-ink-faint: #A19A8E;    /* mono eyebrow labels, metadata */
+  /* muted/faint: darkened from the design file's #8C8478/#A19A8E (2.3-3.6:1
+     on these grounds, below the 4.5:1 WCAG AA minimum for text) to the same
+     hue and saturation at a lower lightness — 4.5-6.5:1 on every ground
+     above, no grey introduced. See docs/qa/KNOWN_ISSUES.md, Accessibility. */
+  --color-ink-muted: #615C53;    /* captions, helper text */
+  --color-ink-faint: #70695D;    /* mono eyebrow labels, metadata */
   --color-ink-ghost: #C4BCAE;    /* "not rated", absent values */
   --color-on-dark: #F7F4EE;      /* text on --color-ink */
   --color-on-accent: #FFFDF9;    /* text on --color-accent */
