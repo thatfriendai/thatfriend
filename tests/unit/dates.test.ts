@@ -46,9 +46,20 @@ describe("computeDateProposal", () => {
     ]);
   });
 
-  it("needs at least two consecutive days to propose anything", () => {
+  it("proposes a single day when that's all there is (P2-1: MIN_DATE_WINDOW = 1)", () => {
+    // Two isolated marked days, five days apart — no consecutive-day window
+    // exists, but a lone day is itself now a proposable one-day window.
     const { proposal } = computeDateProposal(marks("a", ["2026-10-09", "2026-10-15"]), 1);
-    expect(proposal).toBeNull();
+    expect(proposal).toMatchObject({ start_date: "2026-10-09", end_date: "2026-10-09", score: 1 });
+  });
+
+  it("finds the one-day overlap where two people's ranges only just touch", () => {
+    // a: Oct 10-12, b: Oct 12-14 — only Oct 12 works for both.
+    const { proposal } = computeDateProposal(
+      [...marks("a", ["2026-10-10", "2026-10-11", "2026-10-12"]), ...marks("b", ["2026-10-12", "2026-10-13", "2026-10-14"])],
+      2
+    );
+    expect(proposal).toMatchObject({ start_date: "2026-10-12", end_date: "2026-10-12", score: 2 });
   });
 
   it("never proposes more than 10 days", () => {
