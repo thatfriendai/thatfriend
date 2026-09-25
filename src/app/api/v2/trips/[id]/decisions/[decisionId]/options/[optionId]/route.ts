@@ -88,3 +88,54 @@ export async function PATCH(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ option });
 }
+
+/**
+ * Any trip member, same as PATCH above — a comparison is a shared
+ * document. Blocked only when this is the decision's already-decided
+ * option (closed or tied-then-picked): deleting it would silently leave a
+ * "closed" decision with no winner, a state nothing in the app expects.
+ * Delete the whole decision instead, or reopen it first.
+ */
+export async function DELETE(
+  _request: Request,
+  { params }: { params: Promise<{ id: string; decisionId: string; optionId: string }> }
+) {
+  const { id: tripId, decisionId, optionId } = await params;
+  const user = await getPlannerUser();
+  if (!user) return NextResponse.json({ error: "Not signed in." }, { status: 401 });
+
+  const admin = createAdminClient();
+
+  const { data: membership } = await admin
+    .from("planner_memberships")
+    .select("trip_id")
+    .eq("trip_id", tripId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!membership) {
+    return NextResponse.json({ error: "Not a member of this trip." }, { status: 403 });
+  }
+
+  const [{ data: decision }, { data: option }] = await Promise.all([
+    admin.from("planner_decisions").select("id, title, decided_option_id").eq("id", decisionId).eq("trip_id", tripId).maybeSingle(),
+    admin.from("planner_decision_options").select("id, label").eq("id", optionId).eq("decision_id", decisionId).maybeSingle(),
+  ]);
+  if (!decision) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
+  if (!option) return NextResponse.json({ error: "Option not found." }, { status: 404 });
+  if (decision.decided_option_id === optionId) {
+    return NextResponse.json(
+      { error: "Can't remove the option this decision was decided on. Delete the whole decision, or reopen it first." },
+      { status: 400 }
+    );
+  }
+
+  const { error } = await admin.from("planner_decision_options").delete().eq("id", optionId);
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await admin.from("planner_trip_activity").insert({
+    trip_id: tripId,
+    text: `"${option.label}" was removed from "${decision.title}".`,
+  });
+
+  return NextResponse.json({ ok: true });
+}

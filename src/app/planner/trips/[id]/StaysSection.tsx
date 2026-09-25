@@ -343,6 +343,26 @@ export function StaysSection({
     if (res.ok) window.location.reload();
   }
 
+  async function deleteDecision() {
+    if (!decision) return;
+    if (!window.confirm(`Delete "${decision.title}"? Every vote and note on it goes too. This can't be undone.`)) {
+      return;
+    }
+    const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decision.id}`, { method: "DELETE" });
+    if (res.ok) window.location.reload();
+  }
+
+  async function deleteOption(optionId: string, label: string) {
+    if (!decision) return;
+    const voters = decision.comparison.options.find((o) => o.id === optionId)?.votes.length ?? 0;
+    const warning = voters > 0 ? ` ${voters} vote${voters === 1 ? "" : "s"} for it go too.` : "";
+    if (!window.confirm(`Remove "${label}"?${warning}`)) return;
+    const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decision.id}/options/${optionId}`, {
+      method: "DELETE",
+    });
+    if (!res.ok) throw new Error("Delete failed");
+  }
+
   return (
     <div id="stays" className="mb-14">
       <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
@@ -354,6 +374,15 @@ export function StaysSection({
             {totalMembers} people staying
             {decision.deadline ? ` · Decision closing ${new Date(decision.deadline).toLocaleDateString("en-US", { weekday: "short" })}` : ""}
           </span>
+        )}
+        {decision && decision.status !== "closed" && isOwner && (
+          <button
+            type="button"
+            onClick={deleteDecision}
+            className="text-[13px] text-muted hover:text-red-700"
+          >
+            Delete
+          </button>
         )}
       </div>
 
@@ -425,6 +454,7 @@ export function StaysSection({
             isTied={decision.status === "tied"}
             isOwner={isOwner}
             onDecide={decideWinner}
+            onDeleteOption={deleteOption}
           />
         </>
       ) : (

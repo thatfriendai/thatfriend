@@ -82,14 +82,58 @@ function ReopenButton({ tripId, decisionId }: { tripId: string; decisionId: stri
   );
 }
 
+function DeleteButton({
+  tripId,
+  decisionId,
+  title,
+  compact,
+}: {
+  tripId: string;
+  decisionId: string;
+  title: string;
+  /** Inline styling for a row that's a clickable Link (open tab) — no top margin, stops the click from navigating. */
+  compact?: boolean;
+}) {
+  const router = useRouter();
+  const [pending, setPending] = useState(false);
+
+  async function del(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (pending) return;
+    if (!window.confirm(`Delete "${title}"? Every vote and note on it goes too. This can't be undone.`)) return;
+    setPending(true);
+    const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}`, { method: "DELETE" });
+    if (res.ok) router.refresh();
+    else setPending(false);
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={del}
+      disabled={pending}
+      className={
+        compact
+          ? "text-[13px] text-muted hover:text-red-700 disabled:opacity-50"
+          : "mt-3 rounded-full border border-input-border bg-transparent px-3.5 py-1.5 text-[13px] text-muted hover:border-red-700 hover:text-red-700 disabled:opacity-50"
+      }
+    >
+      {pending ? "Deleting…" : "Delete"}
+    </button>
+  );
+}
+
 export function DecisionsSection({
   tripId,
   decisions,
   totalMembers,
+  isOwner,
 }: {
   tripId: string;
   decisions: DecisionSummary[];
   totalMembers: number;
+  isOwner: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"open" | "tied" | "closed">("open");
@@ -171,6 +215,7 @@ export function DecisionsSection({
                     {d.noteCount} {d.noteCount === 1 ? "note" : "notes"}
                   </div>
                 </div>
+                {isOwner && <DeleteButton tripId={tripId} decisionId={d.id} title={d.title} compact />}
               </Link>
             ))}
           </div>
@@ -204,6 +249,7 @@ export function DecisionsSection({
                   Pick the winner
                 </Link>
                 <ReopenButton tripId={tripId} decisionId={d.id} />
+                {isOwner && <DeleteButton tripId={tripId} decisionId={d.id} title={d.title} />}
               </div>
             ))}
           </div>
@@ -229,6 +275,7 @@ export function DecisionsSection({
               </div>
               <p className="text-[13px] leading-relaxed text-muted">{describeOutcome(d.optionVotes, d.decidedLabel)}</p>
               {d.kind !== "stay" && <ReopenButton tripId={tripId} decisionId={d.id} />}
+              {isOwner && <DeleteButton tripId={tripId} decisionId={d.id} title={d.title} />}
             </div>
           ))}
         </div>

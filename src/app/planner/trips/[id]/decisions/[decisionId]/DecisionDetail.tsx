@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { StayMatrix, type StayComparisonData } from "./StayMatrix";
 import type {
   PlannerDecision,
@@ -65,6 +66,9 @@ export function DecisionDetail({
   const [closing, setClosing] = useState(false);
   const [deciding, setDeciding] = useState(false);
   const [reopening, setReopening] = useState(false);
+  const [deletingDecision, setDeletingDecision] = useState(false);
+  const [deletingOptionId, setDeletingOptionId] = useState<string | null>(null);
+  const router = useRouter();
   const [notes, setNotes] = useState(initialNotes);
   // StayMatrix manages its own option list (a stay option can be pasted in
   // after this page loaded) and reports label changes back here, so the
@@ -198,6 +202,58 @@ export function DecisionDetail({
     }
   }
 
+  async function deleteDecision() {
+    if (deletingDecision) return;
+    if (!window.confirm(`Delete "${decision.title}"? Every vote and note on it goes too. This can't be undone.`)) {
+      return;
+    }
+    setDeletingDecision(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}`, { method: "DELETE" });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't delete this decision.");
+        return;
+      }
+      router.push(`/planner/trips/${tripId}#decisions`);
+    } catch {
+      setError("Couldn't delete this decision.");
+    } finally {
+      setDeletingDecision(false);
+    }
+  }
+
+  async function deleteOption(optionId: string, label: string) {
+    if (deletingOptionId) return;
+    const voters = optionVotes[optionId] ?? [];
+    const warning = voters.length > 0 ? ` ${voters.length} vote${voters.length === 1 ? "" : "s"} for it go too.` : "";
+    if (!window.confirm(`Remove "${label}"?${warning}`)) return;
+    setDeletingOptionId(optionId);
+    setError(null);
+    try {
+      const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decisionId}/options/${optionId}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error ?? "Couldn't remove that option.");
+        return;
+      }
+      setOptions((list) => list.filter((o) => o.id !== optionId));
+      setOptionVotes((v) => {
+        const next = { ...v };
+        delete next[optionId];
+        return next;
+      });
+      if (myVote === optionId) setMyVote(null);
+    } catch {
+      setError("Couldn't remove that option.");
+    } finally {
+      setDeletingOptionId(null);
+    }
+  }
+
   async function addNote(e: React.FormEvent) {
     e.preventDefault();
     const text = draftNote.trim();
@@ -241,6 +297,15 @@ export function DecisionDetail({
             Tied
           </span>
         )}
+        {isOwner && (
+          <button
+            onClick={deleteDecision}
+            disabled={deletingDecision}
+            className="ml-auto text-[13px] text-muted hover:text-red-700 disabled:opacity-50"
+          >
+            {deletingDecision ? "Deleting…" : "Delete this decision"}
+          </button>
+        )}
       </div>
       <h1 className="mb-3 text-[40px] leading-[1.08] font-display tracking-tight text-ink">
         {decision.title}
@@ -262,6 +327,7 @@ export function DecisionDetail({
           isTied={isTied}
           isOwner={isOwner}
           onDecide={decideWinner}
+          onDeleteOption={deleteOption}
           onOptionsChange={(opts) =>
             setStayOptionLabels(Object.fromEntries(opts.map((o) => [o.id, o.label])))
           }
@@ -287,11 +353,22 @@ export function DecisionDetail({
                   <div className="font-display text-[26px] leading-[1.15] text-ink">{o.label}</div>
                   {o.sub && <div className="mt-1 text-[13.5px] text-muted">{o.sub}</div>}
                 </div>
-                {o.cost && (
-                  <div className="font-mono text-[14px] whitespace-nowrap text-[#2B2825]">
-                    {o.cost}
-                  </div>
-                )}
+                <div className="flex flex-col items-end gap-1.5">
+                  {o.cost && (
+                    <div className="font-mono text-[14px] whitespace-nowrap text-[#2B2825]">
+                      {o.cost}
+                    </div>
+                  )}
+                  {!isDecided && (
+                    <button
+                      onClick={() => deleteOption(o.id, o.label)}
+                      disabled={deletingOptionId === o.id}
+                      className="text-[12px] whitespace-nowrap text-faint hover:text-red-700 disabled:opacity-50"
+                    >
+                      {deletingOptionId === o.id ? "Removing…" : "Remove"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="mb-4.5 flex items-center gap-3 border-y border-[#EDE4D4] py-3">
