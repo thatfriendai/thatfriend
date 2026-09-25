@@ -78,7 +78,14 @@ create table if not exists planner_invites (
   channel text not null check (channel in ('email', 'sms', 'link')),
   sent_to text,
   accepted_by uuid references planner_users (id) on delete set null,
-  created_at timestamptz not null default now()
+  created_at timestamptz not null default now(),
+  -- Real delivery state for an email invite (P1-A) — "delivered"/"bounced"
+  -- need a Resend webhook to ever be set; a synchronous send only ever
+  -- resolves to "sent" or "failed" on its own. Link/sms-channel rows stay
+  -- "pending" forever; nothing reads status for those.
+  status text not null default 'pending' check (status in ('pending', 'sent', 'delivered', 'failed', 'bounced')),
+  sent_at timestamptz,
+  error text
 );
 
 create index if not exists planner_invites_trip_idx on planner_invites (trip_id);

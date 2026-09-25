@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { generateToken } from "@/lib/planner/tokens";
+import { slugify } from "@/lib/planner/slug";
+import { sendInviteEmail, sendWithRetry } from "@/lib/planner/email";
 import { invitePhoneToTrip, type PhoneInviteStatus } from "@/lib/planner/invitePhone";
 
 interface InviteRequest {
@@ -46,12 +48,12 @@ export async function POST(
 
   // Same precedence as before: an entry with an email is treated as an
   // email invite even if it also carries a phone.
-  const emailRows: { trip_id: string; channel: "email"; sent_to: string; token: string }[] = [];
+  const emailAddresses: string[] = [];
   const phoneEntries: string[] = [];
   for (const entry of body) {
     const email = entry.email?.trim().toLowerCase();
     if (email) {
-      emailRows.push({ trip_id: tripId, channel: "email", sent_to: email, token: generateToken() });
+      emailAddresses.push(email);
       continue;
     }
     const phone = entry.phone?.trim();
@@ -66,12 +68,39 @@ export async function POST(
     phoneResults.push(await invitePhoneToTrip(admin, trip, organizerName, rawPhone));
   }
 
-  const { data: invites, error } =
-    emailRows.length > 0
-      ? await admin.from("planner_invites").insert(emailRows).select("*")
-      : { data: [], error: null };
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
+  const slug = slugify(trip.destination ?? trip.name);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  const emailResults: { email: string; status: "sent" | "failed"; error: string | null }[] = [];
+  for (const email of emailAddresses) {
+    const token = generateToken();
+    const { data: invite, error: insertError } = await admin
+      .from("planner_invites")
+      .insert({ trip_id: tripId, channel: "email", sent_to: email, token })
+      .select("id")
+      .single();
+    if (insertError || !invite) {
+      console.error("[invites] could not create invite row", { email, error: insertError?.message });
+      emailResults.push({ email, status: "failed", error: insertError?.message ?? "Could not save the invite." });
+      continue;
+    }
 
-  return NextResponse.json({ invites, phoneResults, delivered: true }, { status: 201 });
+    const joinUrl = `${siteUrl}/planner/join/${slug}/${token}`;
+    const sent = await sendWithRetry(async (attempt) => {
+      const result = await sendInviteEmail(email, organizerName, trip.name, joinUrl);
+      if (result.ok) {
+        console.log("[invites] sent", { inviteId: invite.id, email, attempt });
+      } else {
+        console.error("[invites] send failed", { inviteId: invite.id, email, attempt, kind: result.error.kind, error: result.error.message });
+      }
+      return result;
+    });
+    await admin
+      .from("planner_invites")
+      .update({ status: sent.status, sent_at: sent.status === "sent" ? new Date().toISOString() : null, error: sent.error })
+      .eq("id", invite.id);
+    emailResults.push({ email, status: sent.status, error: sent.error });
+  }
+
+  return NextResponse.json({ emailResults, phoneResults }, { status: 201 });
 }

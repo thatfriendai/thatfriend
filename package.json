@@ -26,6 +26,7 @@
     "next": "16.3.2",
     "react": "19.2.8",
     "react-dom": "19.2.8",
+    "resend": "^6.30.0",
     "server-only": "^0.0.1",
     "topojson-client": "^3.1.0",
     "twilio": "^6.1.0",

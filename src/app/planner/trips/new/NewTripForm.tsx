@@ -59,6 +59,7 @@ export function NewTripForm({
   const [pending, setPending] = useState<"invite" | "later" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: string; joinToken: string; finishLater: boolean } | null>(null);
+  const [failedInviteEmails, setFailedInviteEmails] = useState<string[]>([]);
 
   function addInvitee() {
     const v = newInvitee.trim();
@@ -98,14 +99,24 @@ export function NewTripForm({
 
       if (!finishLater && invitees.length > 0) {
         // The trip exists either way; a failed invite send shouldn't hide
-        // that (the share link on the next screen still works).
-        await fetch(`/api/v2/trips/${data.trip.id}/invites`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(
-            invitees.map((v) => (v.includes("@") ? { email: v } : { phone: v }))
-          ),
-        }).catch(() => null);
+        // that (the share link on the next screen still works) — but it's
+        // not swallowed either, see failedInviteEmails below.
+        try {
+          const invitesRes = await fetch(`/api/v2/trips/${data.trip.id}/invites`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(
+              invitees.map((v) => (v.includes("@") ? { email: v } : { phone: v }))
+            ),
+          });
+          const invitesData = await invitesRes.json().catch(() => ({}));
+          const failed = (invitesData.emailResults ?? [])
+            .filter((r: { status: string }) => r.status === "failed")
+            .map((r: { email: string }) => r.email);
+          if (failed.length > 0) setFailedInviteEmails(failed);
+        } catch (e) {
+          console.error("[new-trip] invite send failed", e);
+        }
       }
 
       setCreated({ id: data.trip.id, joinToken: data.joinToken, finishLater });
@@ -128,6 +139,12 @@ export function NewTripForm({
         <CopyInviteLink
           url={`${typeof window !== "undefined" ? window.location.origin : ""}/planner/join/${created.joinToken}`}
         />
+        {failedInviteEmails.length > 0 && (
+          <p className="text-[13.5px] text-red-700">
+            The invite email to {failedInviteEmails.join(", ")} didn&rsquo;t go through — share the link above
+            instead.
+          </p>
+        )}
         <button
           type="button"
           onClick={() =>
