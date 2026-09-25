@@ -229,5 +229,3 @@ Found in the 2026-09-25 sweep, not fixed (P2):
   can't save the choice.
 - **Consent:** `acceptPendingInviteByReply` records a consent event even
   when the person is refused because they were removed.
-- **Solo trips:** an owner on a one-person trip can't leave, since there's
-  nobody to transfer to and no delete. Needs a product decision.

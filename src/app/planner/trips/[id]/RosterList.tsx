@@ -29,9 +29,15 @@ export function RosterList({
   const [transferTo, setTransferTo] = useState("");
 
   const isOwner = roster.find((m) => m.userId === myUserId)?.role === "owner";
+  const others = roster.filter((m) => m.userId !== myUserId);
+  // Alone on the trip, the organizer can leave too — which deletes it.
+  const isSoloOwner = isOwner && others.length === 0;
 
   async function leave() {
-    if (!window.confirm("Leave this trip? You'll stop getting texts about it, and can be re-invited later.")) return;
+    const message = isSoloOwner
+      ? "Delete this trip? You're the only one on it, so leaving deletes it and everything in it — dates, places, votes. This can't be undone."
+      : "Leave this trip? You'll stop getting texts about it, and can be re-invited later.";
+    if (!window.confirm(message)) return;
     setPendingId(myUserId);
     setError(null);
     const res = await fetch(`/api/v2/trips/${tripId}/leave`, { method: "POST" });
@@ -80,7 +86,6 @@ export function RosterList({
     setTransferTo("");
   }
 
-  const others = roster.filter((m) => m.userId !== myUserId);
 
   return (
     <div className="flex flex-col gap-2">
@@ -94,14 +99,14 @@ export function RosterList({
           </div>
           <span className="text-[15px] text-ink-body">{m.label}</span>
           <span className="ml-auto font-mono text-[11px] tracking-[0.08em] text-muted uppercase">{m.role}</span>
-          {m.userId === myUserId && m.role !== "owner" && (
+          {m.userId === myUserId && (m.role !== "owner" || isSoloOwner) && (
             <button
               type="button"
               onClick={leave}
               disabled={pendingId === myUserId}
               className="text-[12.5px] text-muted hover:text-red-700 disabled:opacity-50"
             >
-              Leave
+              {isSoloOwner ? "Leave (deletes trip)" : "Leave"}
             </button>
           )}
           {isOwner && m.userId !== myUserId && (

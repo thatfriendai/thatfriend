@@ -18,11 +18,12 @@ export async function POST(
   if (result.outcome === "already_gone") return NextResponse.json({ error: "You've already left this trip." }, { status: 400 });
   if (result.outcome === "must_transfer_first") {
     return NextResponse.json(
-      { error: "Transfer the trip to someone else before leaving — an organizer can't just disappear." },
+      { error: "Hand the trip to someone else before leaving — you're the organizer." },
       { status: 400 }
     );
   }
   if (result.outcome === "error") return NextResponse.json({ error: result.error }, { status: 500 });
+  if (result.outcome === "deleted") return NextResponse.json({ ok: true, deleted: true });
 
   return NextResponse.json({ ok: true });
 }

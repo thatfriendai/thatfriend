@@ -106,7 +106,21 @@ export type DepartOutcome =
   | { outcome: "not_found" }
   | { outcome: "already_gone" }
   | { outcome: "must_transfer_first" }
+  | { outcome: "deleted"; tripName: string }
   | { outcome: "error"; error: string };
+
+/**
+ * What an owner's departure does. An organizer with anyone else still on
+ * the trip hands it off first (transferOwner); one who's alone on it and
+ * leaves takes the trip with them — there's nobody to hand it to, and a
+ * trip with no members is just clutter. Owners are never "removed".
+ */
+export function ownerDepartAction(
+  reasonKind: "left" | "removed",
+  otherActiveMembers: number
+): "delete_trip" | "must_transfer_first" {
+  return reasonKind === "left" && otherActiveMembers === 0 ? "delete_trip" : "must_transfer_first";
+}
 
 /**
  * Marks a membership left/removed. Shared by self-leave and organizer-
@@ -114,8 +128,9 @@ export type DepartOutcome =
  * (closed-decision votes stay as history — no DB cascade exists for this,
  * confirmed by investigation, so it's explicit here), unbinds them from
  * the trip's group Conversation so texts stop immediately, and leaves a
- * low-key note in the trip's activity. Refuses an owner outright — they
- * transfer the role first (see transferOwner below).
+ * low-key note in the trip's activity. An owner must transfer the role
+ * first (see transferOwner below) — unless they're alone on the trip and
+ * leaving, which deletes it (see ownerDepartAction).
  */
 export async function departMember(
   admin: SupabaseClient,
@@ -131,7 +146,16 @@ export async function departMember(
     .maybeSingle();
   if (!membership) return { outcome: "not_found" };
   if (membership.status !== "active") return { outcome: "already_gone" };
-  if (membership.role === "owner") return { outcome: "must_transfer_first" };
+  if (membership.role === "owner") {
+    const { count } = await admin
+      .from("planner_memberships")
+      .select("user_id", { count: "exact", head: true })
+      .eq("trip_id", tripId)
+      .eq("status", "active")
+      .neq("user_id", userId);
+    if (ownerDepartAction(reason.kind, count ?? 0) === "must_transfer_first") return { outcome: "must_transfer_first" };
+    return deleteSoloTrip(admin, tripId, userId);
+  }
 
   const { error } = await admin
     .from("planner_memberships")
@@ -171,6 +195,28 @@ export async function departMember(
   });
 
   return { outcome: reason.kind };
+}
+
+/**
+ * The last person on a trip leaving it: the trip row goes, and everything
+ * that hangs off it (days, places, decisions, votes, marks, invites) goes
+ * with it through the schema's on-delete cascades. Their group thread, if
+ * one exists, is left to lapse — it has nobody else in it — but they're
+ * unbound from it first so no more texts arrive there.
+ */
+async function deleteSoloTrip(admin: SupabaseClient, tripId: string, userId: string): Promise<DepartOutcome> {
+  const [{ data: trip }, { data: person }] = await Promise.all([
+    admin.from("planner_trips").select("name, twilio_conversation_sid").eq("id", tripId).maybeSingle(),
+    admin.from("planner_users").select("phone").eq("id", userId).maybeSingle(),
+  ]);
+  if (trip?.twilio_conversation_sid && person?.phone) {
+    await removeParticipantFromConversation(trip.twilio_conversation_sid, toE164(person.phone)).catch((e) => {
+      console.error("[membership] couldn't unbind from conversation before deleting trip", tripId, e);
+    });
+  }
+  const { error } = await admin.from("planner_trips").delete().eq("id", tripId);
+  if (error) return { outcome: "error", error: error.message };
+  return { outcome: "deleted", tripName: trip?.name ?? "the trip" };
 }
 
 export type TransferOutcome = { outcome: "ok" } | { outcome: "not_member" } | { outcome: "error"; error: string };

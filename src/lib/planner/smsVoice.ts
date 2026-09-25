@@ -128,6 +128,11 @@ export function leftTripReply(tripName: string) {
   return `you're out of ${tripName} — no more texts about it. you can be re-invited anytime.`;
 }
 
+/** The organizer was alone on the trip, so leaving deleted it. */
+export function tripDeletedReply(tripName: string) {
+  return `done — ${tripName} is deleted, since you were the only one on it. text me anytime to start a new one.`;
+}
+
 export function mustTransferFirstReply() {
   return `you're the organizer, so you can't just leave — hand the trip to someone else first from the app, then text LEAVE again.`;
 }
