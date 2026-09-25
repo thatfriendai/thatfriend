@@ -8,7 +8,7 @@ import { NewDecisionModal } from "./decisions/NewDecisionModal";
 export interface StayDecisionSummary {
   id: string;
   title: string;
-  status: "open" | "closed";
+  status: "open" | "closed" | "tied";
   deadline: string | null;
   decidedOptionLabel: string | null;
   comparison: StayComparisonData;
@@ -297,11 +297,13 @@ export function StaysSection({
   stayDecision,
   myUserId,
   totalMembers,
+  isOwner,
 }: {
   tripId: string;
   stayDecision: StayDecisionSummary | null;
   myUserId: string;
   totalMembers: number;
+  isOwner: boolean;
 }) {
   const decision = stayDecision;
   const [startOpen, setStartOpen] = useState(false);
@@ -321,12 +323,32 @@ export function StaysSection({
     if (!res.ok) throw new Error("Vote failed");
   }
 
+  // Reloads on success, same as AlreadyBookedForm's onDone — the decision
+  // is now closed, so the whole section's shape changes (matrix → booked
+  // card), not just one field worth patching in place.
+  async function decideWinner(optionId: string) {
+    if (!decision) return;
+    const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decision.id}/decide`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ option_id: optionId }),
+    });
+    if (!res.ok) throw new Error("Decide failed");
+    window.location.reload();
+  }
+
+  async function reopenDecision() {
+    if (!decision) return;
+    const res = await fetch(`/api/v2/trips/${tripId}/decisions/${decision.id}/reopen`, { method: "POST" });
+    if (res.ok) window.location.reload();
+  }
+
   return (
     <div id="stays" className="mb-14">
       <div className="mb-4.5 flex items-baseline gap-3.5 border-b border-border pb-3">
         <span className="font-mono text-[11px] text-faint">04</span>
         <span className="text-[25px] font-display text-ink">Where we stay</span>
-        {decision && decision.status === "open" && (
+        {decision && decision.status !== "closed" && (
           <span className="ml-auto text-[13.5px] text-muted">
             {decision.comparison.options.length} option{decision.comparison.options.length === 1 ? "" : "s"} &middot;{" "}
             {totalMembers} people staying
@@ -374,17 +396,37 @@ export function StaysSection({
             </div>
           </>
         )
-      ) : decision.status === "open" ? (
-        <StayMatrix
-          tripId={tripId}
-          decisionId={decision.id}
-          initial={decision.comparison}
-          isOpen
-          decidedOptionId={null}
-          myUserId={myUserId}
-          totalMembers={totalMembers}
-          onVote={castVote}
-        />
+      ) : decision.status === "open" || decision.status === "tied" ? (
+        <>
+          {decision.status === "tied" && (
+            <div className="mb-4 flex flex-wrap items-center gap-3">
+              <p className="text-[15px] leading-relaxed text-body">
+                It&rsquo;s a tie.{" "}
+                {isOwner ? "Pick one below to settle it, or reopen to keep voting." : "Waiting on the trip owner to pick, or someone can reopen it to keep voting."}
+              </p>
+              <button
+                type="button"
+                onClick={reopenDecision}
+                className="rounded-full border border-input-border bg-card px-3.5 py-1.5 text-[13px] text-muted hover:border-ink hover:text-ink"
+              >
+                Reopen
+              </button>
+            </div>
+          )}
+          <StayMatrix
+            tripId={tripId}
+            decisionId={decision.id}
+            initial={decision.comparison}
+            isOpen={decision.status === "open"}
+            decidedOptionId={null}
+            myUserId={myUserId}
+            totalMembers={totalMembers}
+            onVote={castVote}
+            isTied={decision.status === "tied"}
+            isOwner={isOwner}
+            onDecide={decideWinner}
+          />
+        </>
       ) : (
         <div className="rounded-2xl border border-border bg-card p-6">
           <div className="mb-3 flex items-center gap-3">

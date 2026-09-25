@@ -47,6 +47,9 @@ export function StayMatrix({
   myUserId,
   totalMembers,
   onVote,
+  isTied,
+  isOwner,
+  onDecide,
   onOptionsChange,
 }: {
   tripId: string;
@@ -57,6 +60,12 @@ export function StayMatrix({
   myUserId: string;
   totalMembers: number;
   onVote: (optionId: string) => Promise<void>;
+  /** True once this decision closed on a tie — voting is over, but nothing was picked. Only StaysSection's callers that can tie (the full decision page) pass this; the trip-page summary card doesn't route votes here once tied. */
+  isTied?: boolean;
+  /** Whether the viewer is the trip owner — gates the tie-break "Pick this" action. */
+  isOwner?: boolean;
+  /** Settles a tie by picking optionId as the winner. Only called when isTied && isOwner. */
+  onDecide?: (optionId: string) => Promise<void>;
   /** Fired whenever the option list changes (e.g. a paste adds one) — lets DecisionDetail's sidebar summary name a freshly-added option without a reload. */
   onOptionsChange?: (options: { id: string; label: string }[]) => void;
 }) {
@@ -66,6 +75,7 @@ export function StayMatrix({
   const [candidate, setCandidate] = useState<CandidateFields | null>(null);
   const [pending, setPending] = useState(false);
   const [voting, setVoting] = useState(false);
+  const [deciding, setDeciding] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [voteError, setVoteError] = useState<string | null>(null);
   const [diffsOnly, setDiffsOnly] = useState(false);
@@ -98,6 +108,19 @@ export function StayMatrix({
       setVoteError("Your vote didn't go through. Try again.");
     } finally {
       setVoting(false);
+    }
+  }
+
+  async function pickWinner(optionId: string) {
+    if (!onDecide || deciding) return;
+    setDeciding(true);
+    setVoteError(null);
+    try {
+      await onDecide(optionId);
+    } catch {
+      setVoteError("Couldn't settle the tie. Try again.");
+    } finally {
+      setDeciding(false);
     }
   }
 
@@ -459,34 +482,54 @@ export function StayMatrix({
               <div className="sticky left-0 z-10 bg-surface-sunk px-4 py-4 font-mono text-[10px] tracking-[0.08em] text-muted uppercase">
                 Votes
               </div>
-              {visibleOptions.map((o) => {
-                const isMine = o.votes.includes(myUserId);
-                const isDecided = decidedOptionId === o.id;
-                return (
-                  <div key={o.id} className="border-l border-border px-4 py-4">
-                    <div className="mb-2.5 text-[12.5px] text-muted">
-                      {o.votes.length} of {totalMembers} voted
+              {(() => {
+                const maxVotesOnTie = isTied ? Math.max(0, ...options.map((o) => o.votes.length)) : 0;
+                return visibleOptions.map((o) => {
+                  const isMine = o.votes.includes(myUserId);
+                  const isDecided = decidedOptionId === o.id;
+                  const isTiedLeader = isTied && maxVotesOnTie > 0 && o.votes.length === maxVotesOnTie;
+                  return (
+                    <div key={o.id} className="border-l border-border px-4 py-4">
+                      <div className="mb-2.5 text-[12.5px] text-muted">
+                        {o.votes.length} of {totalMembers} voted
+                      </div>
+                      {isOpen ? (
+                        <button
+                          onClick={() => castVote(o.id)}
+                          disabled={voting}
+                          className={`w-full rounded-full px-4 py-2.5 text-[13.5px] transition-colors disabled:opacity-60 ${
+                            isMine ? "bg-ink text-cream" : "border border-input-border bg-card text-ink hover:border-ink"
+                          }`}
+                        >
+                          {isMine ? "Your pick" : "Vote for this"}
+                        </button>
+                      ) : isTied ? (
+                        isOwner ? (
+                          <button
+                            onClick={() => pickWinner(o.id)}
+                            disabled={deciding}
+                            className="w-full rounded-full bg-[#C9A227] px-4 py-2.5 text-center text-[13.5px] text-cream transition-colors hover:bg-[#B6911E] disabled:opacity-60"
+                          >
+                            {deciding ? "Picking…" : "Pick this"}
+                          </button>
+                        ) : (
+                          isTiedLeader && (
+                            <div className="rounded-full bg-[#F3E9D8] px-4 py-2.5 text-center text-[13.5px] text-[#8A6A2A]">
+                              Tied for the top
+                            </div>
+                          )
+                        )
+                      ) : (
+                        isDecided && (
+                          <div className="rounded-full bg-positive px-4 py-2.5 text-center text-[13.5px] text-on-accent">
+                            Decided
+                          </div>
+                        )
+                      )}
                     </div>
-                    {isOpen ? (
-                      <button
-                        onClick={() => castVote(o.id)}
-                        disabled={voting}
-                        className={`w-full rounded-full px-4 py-2.5 text-[13.5px] transition-colors disabled:opacity-60 ${
-                          isMine ? "bg-ink text-cream" : "border border-input-border bg-card text-ink hover:border-ink"
-                        }`}
-                      >
-                        {isMine ? "Your pick" : "Vote for this"}
-                      </button>
-                    ) : (
-                      isDecided && (
-                        <div className="rounded-full bg-positive px-4 py-2.5 text-center text-[13.5px] text-on-accent">
-                          Decided
-                        </div>
-                      )
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                });
+              })()}
             </div>
           </div>
 

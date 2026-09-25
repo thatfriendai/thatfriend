@@ -227,14 +227,16 @@ alter table planner_places add column if not exists resource_id uuid references 
 -- casts at most one vote per decision (re-voting overwrites, enforced by the
 -- primary key on (decision_id, user_id)). `decided_option_id` is set when
 -- the decision is closed — the option with the most votes at close time,
--- computed in the route handler rather than in SQL.
+-- computed in the route handler rather than in SQL. A tie for the top spot
+-- (P2-2) lands on status `tied` with `decided_option_id` left null instead
+-- of guessing — only the trip owner can settle it from there.
 -- ---------------------------------------------------------------------------
 create table if not exists planner_decisions (
   id uuid primary key default gen_random_uuid(),
   trip_id uuid not null references planner_trips (id) on delete cascade,
   title text not null,
   why text,
-  status text not null default 'open' check (status in ('open', 'closed')),
+  status text not null default 'open' check (status in ('open', 'closed', 'tied')),
   decided_option_id uuid,
   created_by uuid references planner_users (id) on delete set null,
   created_at timestamptz not null default now(),

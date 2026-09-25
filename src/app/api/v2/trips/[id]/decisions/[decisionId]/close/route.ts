@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
 import { notifyTrip } from "@/lib/planner/notify";
+import { computeDecisionOutcome } from "@/lib/planner/decisionOutcome";
 
 export async function POST(
   _request: Request,
@@ -30,7 +31,7 @@ export async function POST(
     .eq("trip_id", tripId)
     .maybeSingle();
   if (!decision) return NextResponse.json({ error: "Decision not found." }, { status: 404 });
-  if (decision.status === "closed") {
+  if (decision.status !== "open") {
     return NextResponse.json({ error: "Already closed." }, { status: 409 });
   }
 
@@ -38,7 +39,7 @@ export async function POST(
     admin.from("planner_decision_votes").select("option_id").eq("decision_id", decisionId),
     admin
       .from("planner_decision_options")
-      .select("id")
+      .select("id, label")
       .eq("decision_id", decisionId)
       .order("position", { ascending: true })
       .order("created_at", { ascending: true }),
@@ -48,26 +49,20 @@ export async function POST(
   for (const v of votes ?? []) {
     tally.set(v.option_id, (tally.get(v.option_id) ?? 0) + 1);
   }
-  // Walk options in their listed order (position, then creation) and only
-  // replace the leader on a strictly higher count — so a tie always goes to
-  // the option listed first, not whichever vote row the database returned
-  // first. With no votes at all this also picks the first option.
-  let decidedOptionId: string | null = null;
-  let top = -1;
-  for (const o of optionRows ?? []) {
-    const count = tally.get(o.id) ?? 0;
-    if (count > top) {
-      top = count;
-      decidedOptionId = o.id;
-    }
-  }
+  const counts = (optionRows ?? []).map((o) => ({ id: o.id, label: o.label, count: tally.get(o.id) ?? 0 }));
+  const { isTied, decidedOptionId, leaders } = computeDecisionOutcome(counts);
+  const maxCount = leaders[0]?.count ?? 0;
 
   // `.eq("status", "open")` makes this a compare-and-set: if two closes
   // race, only one flips the row, and the loser gets a 409 instead of
-  // sending the group a second "decided" text.
+  // sending the group a second "decided"/"tied" text.
   const { data: updated, error } = await admin
     .from("planner_decisions")
-    .update({ status: "closed", decided_option_id: decidedOptionId, closed_at: new Date().toISOString() })
+    .update({
+      status: isTied ? "tied" : "closed",
+      decided_option_id: decidedOptionId,
+      closed_at: new Date().toISOString(),
+    })
     .eq("id", decisionId)
     .eq("status", "open")
     .select("*")
@@ -76,15 +71,28 @@ export async function POST(
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!updated) return NextResponse.json({ error: "Already closed." }, { status: 409 });
 
-  const [{ data: trip }, { data: winningOption }] = await Promise.all([
-    admin.from("planner_trips").select("id, name, twilio_conversation_sid").eq("id", tripId).maybeSingle(),
-    decidedOptionId
-      ? admin.from("planner_decision_options").select("label").eq("id", decidedOptionId).maybeSingle()
-      : Promise.resolve({ data: null }),
-  ]);
+  const { data: trip } = await admin
+    .from("planner_trips")
+    .select("id, name, twilio_conversation_sid")
+    .eq("id", tripId)
+    .maybeSingle();
   if (trip) {
-    const what = winningOption?.label ? `${decision.title}: ${winningOption.label}` : decision.title;
-    await notifyTrip(admin, trip, `The group decided on ${what}.`);
+    if (isTied) {
+      const names = leaders.map((l) => l.label);
+      const tieText =
+        names.length === 2
+          ? names.join(" and ")
+          : `${names.slice(0, -1).join(", ")}, and ${names[names.length - 1]}`;
+      await notifyTrip(
+        admin,
+        trip,
+        `${decision.title} is tied (${maxCount} vote${maxCount === 1 ? "" : "s"} each) between ${tieText} — the trip owner needs to pick.`
+      );
+    } else {
+      const winningLabel = counts.find((c) => c.id === decidedOptionId)?.label ?? null;
+      const what = winningLabel ? `${decision.title}: ${winningLabel}` : decision.title;
+      await notifyTrip(admin, trip, `The group decided on ${what}.`);
+    }
   }
 
   return NextResponse.json({ decision: updated });
