@@ -258,14 +258,19 @@ export async function POST(request: Request) {
 
     if (media.length > 0 && chatServiceSid) {
       // Voice memos, videos, contact cards — nothing the screenshot reader
-      // can use. Said privately: it's only news to the sender.
-      if (media[0].ContentType && !media[0].ContentType.toLowerCase().startsWith("image/")) {
+      // can use. Checked against every item, not just the first, since a
+      // send can mix a photo with something else. Said privately: it's
+      // only news to the sender.
+      const images = media.filter((m) => !m.ContentType || m.ContentType.toLowerCase().startsWith("image/"));
+      if (images.length === 0) {
         await replyPrivately(say.unsupportedMediaReply());
         return ok();
       }
       try {
-        const { base64, mimeType } = await downloadConversationMedia(chatServiceSid, media[0].Sid);
-        result = await addResourceFromWhatsAppImage(admin, trip.id, user.id, base64, mimeType);
+        const downloaded = await Promise.all(
+          images.map((m) => downloadConversationMedia(chatServiceSid, m.Sid))
+        );
+        result = await addResourceFromWhatsAppImage(admin, trip.id, user.id, downloaded);
       } catch (e) {
         result = { error: e instanceof Error ? e.message : "Could not download that image." };
       }

@@ -300,12 +300,19 @@ export async function POST(request: Request) {
 
     if (numMedia > 0 && params.MediaUrl0) {
       // A voice memo, video or contact card would otherwise be handed to
-      // the screenshot reader as a "jpeg" and fail or come back empty.
-      const contentType = (params.MediaContentType0 ?? "").toLowerCase();
-      if (contentType && !contentType.startsWith("image/")) return reply(say.unsupportedMediaReply());
+      // the screenshot reader as a "jpeg" and fail or come back empty —
+      // checked against every item, not just the first, since an MMS can
+      // mix a photo with something else.
+      const imageIndexes = Array.from({ length: numMedia }, (_, i) => i).filter((i) => {
+        const contentType = (params[`MediaContentType${i}`] ?? "").toLowerCase();
+        return !contentType || contentType.startsWith("image/");
+      });
+      if (imageIndexes.length === 0) return reply(say.unsupportedMediaReply());
       try {
-        const { base64, mimeType } = await downloadTwilioMedia(params.MediaUrl0);
-        result = await addResourceFromWhatsAppImage(admin, membership.trip_id, user.id, base64, mimeType);
+        const downloaded = await Promise.all(
+          imageIndexes.map((i) => downloadTwilioMedia(params[`MediaUrl${i}`]))
+        );
+        result = await addResourceFromWhatsAppImage(admin, membership.trip_id, user.id, downloaded);
       } catch (e) {
         result = { error: e instanceof Error ? e.message : "Could not download that image." };
       }

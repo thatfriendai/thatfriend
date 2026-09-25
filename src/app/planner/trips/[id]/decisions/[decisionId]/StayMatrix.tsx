@@ -47,6 +47,7 @@ export function StayMatrix({
   myUserId,
   totalMembers,
   onVote,
+  onOptionsChange,
 }: {
   tripId: string;
   decisionId: string;
@@ -56,6 +57,8 @@ export function StayMatrix({
   myUserId: string;
   totalMembers: number;
   onVote: (optionId: string) => Promise<void>;
+  /** Fired whenever the option list changes (e.g. a paste adds one) — lets DecisionDetail's sidebar summary name a freshly-added option without a reload. */
+  onOptionsChange?: (options: { id: string; label: string }[]) => void;
 }) {
   const [comparison, setComparison] = useState(initial);
   const [showPaste, setShowPaste] = useState(false);
@@ -79,6 +82,7 @@ export function StayMatrix({
     if (!res.ok) return;
     const data = await res.json();
     setComparison(data);
+    onOptionsChange?.(data.options.map((o: { id: string; label: string }) => ({ id: o.id, label: o.label })));
   }
 
   // onVote rejects when the write fails; try/finally so a failed or

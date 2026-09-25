@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
+import { todayIn } from "@/lib/planner/calendarDate";
 
 /**
  * Copies a trip's saved places into a brand-new trip the caller owns.
@@ -59,7 +60,7 @@ export async function POST(
   // got extracted and never visited, and copying all of it would carry
   // that noise into the next trip. A trip still being planned has nothing
   // to rate yet, so it copies everything, same as before.
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayIn("America/New_York");
   const hasEnded = Boolean(sourceTrip.end_date && sourceTrip.end_date < today);
 
   let ratedPlaceIds: Set<string> | null = null;

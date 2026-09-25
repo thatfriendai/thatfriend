@@ -160,7 +160,7 @@ async function handleMessage(admin: ReturnType<typeof createAdminClient>, messag
   } else if (message.type === "image" && message.image?.id) {
     try {
       const { base64, mimeType } = await downloadWhatsAppMedia(message.image.id);
-      result = await addResourceFromWhatsAppImage(admin, membership.trip_id, user.id, base64, mimeType);
+      result = await addResourceFromWhatsAppImage(admin, membership.trip_id, user.id, [{ base64, mimeType }]);
     } catch (e) {
       result = { error: e instanceof Error ? e.message : "Could not download that image." };
     }

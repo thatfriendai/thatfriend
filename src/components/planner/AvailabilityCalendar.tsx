@@ -9,7 +9,9 @@ function toISO(y: number, m: number, d: number) {
 }
 
 function monthLabel(y: number, m: number) {
-  return new Date(y, m, 1).toLocaleDateString(undefined, { month: "long" });
+  // "en-US" pinned, not the browser's own locale: SSR and hydration would
+  // otherwise format this differently and trip a hydration warning.
+  return new Date(y, m, 1).toLocaleDateString("en-US", { month: "long" });
 }
 
 function buildMonth(y: number, m: number) {

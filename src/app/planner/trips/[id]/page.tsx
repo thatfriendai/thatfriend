@@ -24,7 +24,7 @@ import { WorkspaceTopBar } from "./WorkspaceTopBar";
 import { TripVisibilityToggle } from "./TripVisibilityToggle";
 import { TripNameField } from "./TripNameField";
 import { ensureDays } from "@/lib/planner/days";
-import { formatDateRange } from "@/lib/planner/calendarDate";
+import { formatDateRange, todayIn } from "@/lib/planner/calendarDate";
 import { DAY_COLORS } from "@/lib/planner/itinerary";
 import { formatPhoneDisplay, toE164 } from "@/lib/planner/phone";
 import { generateToken } from "@/lib/planner/tokens";
@@ -282,7 +282,11 @@ export default async function PlannerTripPage({
     });
   }
 
-  const today = new Date().toISOString().slice(0, 10);
+  // No server-side way to know the viewer's real timezone — Eastern is the
+  // least-wrong single zone for a US-majority audience, since it's the
+  // first US zone to roll its calendar day over (closest to the server's
+  // UTC "today"), minimizing the hours a trip looks ended before it is.
+  const today = todayIn("America/New_York");
   const hasEnded = Boolean(trip.end_date && trip.end_date < today);
 
   const dateRange =

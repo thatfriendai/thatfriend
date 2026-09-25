@@ -11,7 +11,9 @@ export function hhmm(time: string): string {
 }
 
 export function addMinutes(time: string, delta: number): string {
-  const t = Math.min(Math.max(minutesOf(time) + delta, 0), 23 * 60 + 59);
+  // Wraps around midnight rather than clamping to it — a 01:00 departure
+  // minus two hours is 23:00 the day before, not 00:00 that same day.
+  const t = ((minutesOf(time) + delta) % 1440 + 1440) % 1440;
   return `${String(Math.floor(t / 60)).padStart(2, "0")}:${String(t % 60).padStart(2, "0")}`;
 }
 

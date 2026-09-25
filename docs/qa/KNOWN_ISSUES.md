@@ -6,7 +6,7 @@ low-impact enough to batch for later. Check this list before a friends
 round. Anything a tester is likely to hit should also be mentioned in
 BETA_GUIDE.md.
 
-Last full sweep: 2026-09-23. Last sweep: 2026-09-24 (marketing homepage rebuild and new icons; no app areas changed since the full sweep).
+Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Minor, batch for later" section below — see git history for `qa-minor-bugs-batch`).
 
 ## Needs a console or config change (do these before the next round)
 
@@ -77,22 +77,8 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-24 (marketing homepage rebuild 
 
 ## Minor, batch for later
 
-- The trip page's `hasEnded` and a few server-rendered "today" checks use
-  the UTC date, so for a few hours each evening in the US the past/upcoming
-  split is off.
-- `toLocaleDateString(undefined, …)` in components that are also rendered
-  on the server can cause a hydration warning for non-en-US browsers.
-- Weather looks up `destination.split(",")[0]`, so "Portland, Maine"
-  becomes Portland, OR.
-- Trips with no destination geocode pasted places against the trip *name*,
-  so they get spurious "doesn't look nearby" warnings.
-- Only the first image in an MMS is read. Screenshots 2 through N are
-  dropped.
-- `travel.ts` `addMinutes` clamps at midnight, so a 01:00 departure suggests
-  "heading off at 00:00".
-- On `/j/<token>`, a signed-in user whose account has a *different* number
-  still sees the Join button. Tapping it shows the "this invite is for
-  another number" message. Accounts with no phone yet are let in on
-  purpose; see `acceptInviteToken`.
-- A stay option pasted after the decision page loaded isn't in
-  DecisionDetail's sidebar summary until the page is reloaded.
+Nothing open right now — the previous batch (UTC "today"/`hasEnded` checks,
+`toLocaleDateString(undefined, …)` hydration warnings, the weather
+destination split, the trip-name geocode fallback, multi-image MMS,
+`addMinutes` midnight clamping, the `/j/<token>` wrong-number Join button,
+and `DecisionDetail`'s stale stay-option sidebar) was fixed 2026-09-25.
