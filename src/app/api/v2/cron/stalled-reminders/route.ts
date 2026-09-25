@@ -62,7 +62,7 @@ export async function GET(request: Request) {
       // Exactly one holdout left — the case a nudge actually helps.
       if (total < 2 || answered !== total - 1) continue;
 
-      const result = await sendNudge(admin, trip, stage, "individual");
+      const result = await sendNudge(admin, trip, stage, "individual", null);
       // Only a nudge that actually went out uses up this trip's one
       // reminder — a failed send (Twilio down, holdout has no phone yet)
       // is retried on the next daily run instead of silently never sent.

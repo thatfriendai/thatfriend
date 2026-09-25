@@ -314,7 +314,7 @@ export async function POST(request: Request) {
       }
 
       if (intent.kind === "nudge" && trip) {
-        const nudged = await sendNudge(admin, trip, "preferences", "individual");
+        const nudged = await sendNudge(admin, trip, "preferences", "individual", user.id);
         if ("error" in nudged) return reply(nudged.error);
         return reply(say.nudgedReply(nudged.sentCount, tripName));
       }

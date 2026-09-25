@@ -35,7 +35,7 @@ export async function POST(
     .maybeSingle();
   if (!trip) return NextResponse.json({ error: "Trip not found." }, { status: 404 });
 
-  const result = await sendNudge(admin, trip, stage, mode);
+  const result = await sendNudge(admin, trip, stage, mode, user.id);
   if ("error" in result) return NextResponse.json({ error: result.error });
   return NextResponse.json(result);
 }

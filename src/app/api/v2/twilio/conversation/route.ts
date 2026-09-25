@@ -259,7 +259,7 @@ export async function POST(request: Request) {
       }
 
       if (intent.kind === "nudge") {
-        const nudged = await sendNudge(admin, groupTrip, "preferences", "group");
+        const nudged = await sendNudge(admin, groupTrip, "preferences", "group", user.id);
         if (!("error" in nudged)) return ok(); // sendNudge already messaged the group
         await post(nudged.error);
         return ok();
