@@ -22,6 +22,7 @@ export async function PATCH(
     .select("role")
     .eq("trip_id", tripId)
     .eq("user_id", user.id)
+    .eq("status", "active")
     .maybeSingle();
   if (!membership || membership.role !== "owner") {
     return NextResponse.json({ error: "Only the trip owner can do that." }, { status: 403 });
@@ -46,7 +47,8 @@ export async function PATCH(
     const { count } = await admin
       .from("planner_memberships")
       .select("user_id", { count: "exact", head: true })
-      .eq("trip_id", tripId);
+      .eq("trip_id", tripId)
+      .eq("status", "active");
     if ((count ?? 0) >= MAX_TRAVELERS_PER_TRIP) {
       return NextResponse.json(
         { error: `This trip is already at its limit of ${MAX_TRAVELERS_PER_TRIP} travelers.` },
@@ -58,11 +60,14 @@ export async function PATCH(
   await admin.from("planner_join_requests").update({ status: decision }).eq("id", requestId);
 
   if (decision === "accepted") {
+    // A real upsert (not ignoreDuplicates) — a previously left/removed row
+    // (P1-B) needs to actually flip back to active on re-acceptance, not
+    // silently no-op and stay departed.
     await admin
       .from("planner_memberships")
       .upsert(
-        { trip_id: tripId, user_id: joinRequest.user_id, role: "member" },
-        { onConflict: "trip_id,user_id", ignoreDuplicates: true }
+        { trip_id: tripId, user_id: joinRequest.user_id, role: "member", status: "active", left_at: null, removed_by: null },
+        { onConflict: "trip_id,user_id" }
       );
     await autoFriendTripMembers(admin, tripId, joinRequest.user_id);
 

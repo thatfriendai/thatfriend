@@ -31,8 +31,26 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
   failures retry up to `MAX_EMAIL_RETRIES`; permanent ones don't. "Who's
   in" shows each pending email invite's status, and a failed one offers
   "copy link instead."
-- **P1 · Nobody can leave a trip or be removed from one.** There's no route
-  for either. A tester who joins the wrong trip is stuck there.
+- ~~**P1 · Nobody can leave a trip or be removed from one.**~~ — **fixed
+  2026-09-28 (P1-B).** Soft-delete only (`planner_memberships.status`:
+  `active`/`left`/`removed`) — votes and history never get hard-deleted.
+  Self "Leave trip" and organizer "Remove" both in "Who's in"
+  (`RosterList.tsx`), plus texting `LEAVE` (single active trip: leaves and
+  confirms; several: asks which one first, same as P1-C's routing — `STOP`
+  is unaffected, different code path). Leaving/removing withdraws votes on
+  still-open decisions only; closed-decision votes stay as history (no
+  cost history exists in this app to mark — confirmed, nothing to do
+  there). Unbinds them from the trip's group Conversation immediately
+  (Twilio's own participant list, not just the DB row, is what actually
+  stops texts) and leaves a low-key "X left/was removed" note. The owner
+  can't self-leave without transferring the role to another active member
+  first (new "Transfer organizer to…" action). A departed member's own
+  page access 404s, and they're excluded from nudges/proactive
+  texts/tallies/rosters everywhere that's load-bearing for these rules —
+  not an exhaustive audit of every membership-existence check in the app
+  (that's a larger, lower-urgency hardening pass, not blocking this).
+  Re-inviting a left/removed person now correctly flips them back to
+  `active` instead of silently no-oping or getting blocked.
 - ~~**P1 · Texts from people on several trips go to the trip they joined
   most recently.**~~ — **fixed 2026-09-26 (P1-C).** 1:1 texts now resolve
   by: the message naming a trip (name, destination city, or join code),

@@ -108,6 +108,14 @@ export function switchedTripReply(tripName: string) {
   return `switched — texts go to ${tripName} from here.`;
 }
 
+export function leftTripReply(tripName: string) {
+  return `you're out of ${tripName} — no more texts about it. you can be re-invited anytime.`;
+}
+
+export function mustTransferFirstReply() {
+  return `you're the organizer, so you can't just leave — hand the trip to someone else first from the app, then text LEAVE again.`;
+}
+
 export function lookupFailedReply() {
   return `something went wrong on my end — try that again in a bit.`;
 }

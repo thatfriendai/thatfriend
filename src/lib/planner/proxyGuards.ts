@@ -83,6 +83,7 @@ export async function isTripMember(
     .select("trip_id")
     .eq("trip_id", tripId)
     .eq("user_id", plannerUser.id)
+    .eq("status", "active")
     .maybeSingle();
   return Boolean(membership);
 }

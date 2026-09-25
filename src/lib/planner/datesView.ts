@@ -48,7 +48,7 @@ export async function loadDatesView(admin: SupabaseClient, tripId: string): Prom
   const [user, { data: trip }, { data: memberRows }, { data: markRows }] = await Promise.all([
     getPlannerUser(),
     admin.from("planner_trips").select("*").eq("id", tripId).maybeSingle(),
-    admin.from("planner_memberships").select("user_id, role, planner_users(name, email)").eq("trip_id", tripId),
+    admin.from("planner_memberships").select("user_id, role, planner_users(name, email)").eq("trip_id", tripId).eq("status", "active"),
     admin.from("planner_availability_marks").select("user_id, date, created_at").eq("trip_id", tripId),
   ]);
 

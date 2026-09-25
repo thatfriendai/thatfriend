@@ -14,6 +14,7 @@ import { acceptPendingInviteByReply, findPendingInvite } from "@/lib/planner/joi
 import { invitePhoneToTrip, extractPhoneNumbers, looksLikeInviteList } from "@/lib/planner/invitePhone";
 import { recordConsentEvent, handleOptKeywordFromBody, applyOptKeyword, type ConsentMethod } from "@/lib/planner/consent";
 import { routeInboundMessage, type HeldMedia } from "@/lib/planner/smsTripRouting";
+import { departMember, isLeaveCommand } from "@/lib/planner/membership";
 import * as say from "@/lib/planner/smsVoice";
 
 // "hello LISBON4K", "hi LISBON4K", "join LISBON4K!" — deterministic, not
@@ -242,6 +243,17 @@ export async function POST(request: Request) {
     const effectiveMedia = routing.status === "resolved_from_pending" ? routing.media : buildHeldMedia();
     const effectiveHasMedia = routing.status === "resolved_from_pending" ? routing.media.length > 0 : numMedia > 0;
     const membership = trip ? { trip_id: trip.id } : null;
+
+    // LEAVE — checked before consent/intent, same as STOP/START, and
+    // against effectiveBody so it still works when it was the message held
+    // pending "which trip?" disambiguation.
+    if (trip && effectiveBody && isLeaveCommand(effectiveBody)) {
+      const result = await departMember(admin, trip.id, user.id, { kind: "left" });
+      if (result.outcome === "left") return reply(say.leftTripReply(tripName));
+      if (result.outcome === "must_transfer_first") return reply(say.mustTransferFirstReply());
+      if (result.outcome === "already_gone") return reply(say.leftTripReply(tripName));
+      return reply(say.lookupFailedReply());
+    }
 
     // Any inbound message from here on is itself affirmative consent — a
     // real join-code attempt already logged its own reason above.

@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendUserText } from "@/lib/twilio/send";
 import { getOrCreateTripConversation, sendConversationMessage } from "@/lib/twilio/conversations";
+import { activeMembersOf } from "./membership";
 
 export type NudgeStage = "availability" | "preferences";
 export type NudgeMode = "group" | "individual";
@@ -17,23 +18,12 @@ export async function sendNudge(
   stage: NudgeStage,
   mode: NudgeMode
 ): Promise<{ sentCount: number } | { error: string }> {
-  const { data: members } = await admin
-    .from("planner_memberships")
-    .select("planner_users(id, name, phone, whatsapp_opt_in, notify_sms)")
-    .eq("trip_id", trip.id);
-
-  const nudgeable = (members ?? [])
-    .map(
-      (m) =>
-        m.planner_users as unknown as {
-          id: string;
-          name: string | null;
-          phone: string | null;
-          whatsapp_opt_in: boolean;
-          notify_sms: boolean;
-        } | null
-    )
-    .filter((m): m is NonNullable<typeof m> => Boolean(m?.phone));
+  // activeMembersOf excludes anyone who's left/been removed (P1-B) — never
+  // nudge someone who isn't really on this trip anymore.
+  const members = await activeMembersOf(admin, trip.id);
+  const nudgeable = members
+    .map((m) => ({ id: m.user_id, name: m.name, phone: m.phone, whatsapp_opt_in: m.whatsapp_opt_in, notify_sms: m.notify_sms }))
+    .filter((m): m is typeof m & { phone: string } => Boolean(m.phone));
 
   if (nudgeable.length === 0) {
     return { error: "Nobody on this trip has a phone number connected yet." };

@@ -2,6 +2,7 @@ import "server-only";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendUserText } from "@/lib/twilio/send";
 import { getOrCreateTripConversation, sendConversationMessage } from "@/lib/twilio/conversations";
+import { activeMembersOf } from "./membership";
 
 export interface VisitedPlace {
   id: string;
@@ -83,13 +84,9 @@ export async function sendRatingPrompt(
     }
   }
 
-  const { data: members } = await admin
-    .from("planner_memberships")
-    .select("planner_users(phone, whatsapp_opt_in, notify_sms)")
-    .eq("trip_id", trip.id);
-  const recipients = (members ?? [])
-    .map((m) => m.planner_users as unknown as { phone: string | null; whatsapp_opt_in: boolean; notify_sms: boolean } | null)
-    .filter((r): r is { phone: string; whatsapp_opt_in: boolean; notify_sms: boolean } => Boolean(r?.phone) && Boolean(r?.notify_sms));
+  // Never a departed member (P1-B).
+  const members = await activeMembersOf(admin, trip.id);
+  const recipients = members.filter((m) => m.phone && m.notify_sms) as (typeof members[number] & { phone: string })[];
 
   for (const recipient of recipients) {
     try {

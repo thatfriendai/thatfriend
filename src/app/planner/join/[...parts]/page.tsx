@@ -56,6 +56,7 @@ export default async function JoinPage({ params }: { params: Promise<{ parts: st
       .select("trip_id")
       .eq("trip_id", invite.tripId)
       .eq("user_id", user.id)
+      .eq("status", "active")
       .maybeSingle();
     alreadyMember = Boolean(membership);
   }

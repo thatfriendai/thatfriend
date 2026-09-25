@@ -7,6 +7,7 @@ import { CopyJoinCode } from "./CopyJoinCode";
 import { InviteButton } from "./InviteButton";
 import { InviteFriendByPhone } from "./InviteFriendByPhone";
 import { EmailInviteRow } from "./EmailInviteRow";
+import { RosterList } from "./RosterList";
 import { GroupTextCard } from "./GroupTextCard";
 import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
@@ -78,15 +79,16 @@ export default async function PlannerTripPage({
     { data: decisionRows },
     { data: pendingInviteRows },
     { data: emailInviteRows },
+    { data: activityRows },
     attention,
     { data: essentialRows },
     lastTime,
     { data: legRows },
     { data: rideRows },
   ] = await Promise.all([
-    admin.from("planner_memberships").select("role").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
+    admin.from("planner_memberships").select("role").eq("trip_id", id).eq("user_id", user.id).eq("status", "active").maybeSingle(),
     admin.from("planner_trips").select("*").eq("id", id).maybeSingle(),
-    admin.from("planner_memberships").select("user_id, role, planner_users(name, email, phone)").eq("trip_id", id),
+    admin.from("planner_memberships").select("user_id, role, planner_users(name, email, phone)").eq("trip_id", id).eq("status", "active"),
     admin.from("planner_invites").select("token").eq("trip_id", id).eq("channel", "link").limit(1).maybeSingle(),
     admin.from("planner_preferences").select("*").eq("trip_id", id).eq("user_id", user.id).maybeSingle(),
     admin.from("planner_availability_marks").select("date").eq("trip_id", id).eq("user_id", user.id),
@@ -122,6 +124,13 @@ export default async function PlannerTripPage({
       .eq("channel", "email")
       .is("accepted_by", null)
       .order("created_at", { ascending: true }),
+    // Low-key "X left/was removed" notices (P1-B) — the last few only.
+    admin
+      .from("planner_trip_activity")
+      .select("id, text")
+      .eq("trip_id", id)
+      .order("created_at", { ascending: false })
+      .limit(5),
     computeAttention(admin, id, user.id),
     admin.from("planner_trip_essentials").select("*").eq("trip_id", id).order("position", { ascending: true }),
     lastTimeFor(admin, id),
@@ -257,6 +266,8 @@ export default async function PlannerTripPage({
       person?.name || person?.email?.split("@")[0] || (person?.phone ? formatPhoneDisplay(person.phone) : null) || "Someone";
     return { userId: m.user_id as string, label, role: m.role };
   });
+
+  const recentActivity = activityRows ?? [];
 
   const stayDecisionRow = decisions.find((d) => d.kind === "stay") ?? null;
   let stayDecision: {
@@ -412,25 +423,16 @@ export default async function PlannerTripPage({
           {membership.role === "owner" && (
             <JoinRequests tripId={id} initial={pendingJoinRequests} />
           )}
-          <div className="flex flex-col gap-2">
-            {roster.map((m, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-3 rounded-xl border border-border bg-card px-4 py-3"
-              >
-                <div
-                  className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] text-cream"
-                  style={{ background: AVATAR_COLORS[i % AVATAR_COLORS.length] }}
-                >
-                  {initialsOf(m.label)}
-                </div>
-                <span className="text-[15px] text-ink-body">{m.label}</span>
-                <span className="ml-auto font-mono text-[11px] tracking-[0.08em] text-muted uppercase">
-                  {m.role}
-                </span>
-              </div>
-            ))}
-          </div>
+          <RosterList tripId={id} initial={roster} myUserId={user.id} avatarColors={AVATAR_COLORS} />
+          {recentActivity.length > 0 && (
+            <div className="mt-2 flex flex-col gap-1">
+              {recentActivity.map((a) => (
+                <p key={a.id} className="text-[12.5px] text-faint">
+                  {a.text}
+                </p>
+              ))}
+            </div>
+          )}
           {pendingInvites.length > 0 && (
             <div className="mt-2 flex flex-col gap-2">
               {pendingInvites.map((invite) => (

@@ -47,6 +47,7 @@ export async function invitePhoneToTrip(
     .select("trip_id")
     .eq("trip_id", trip.id)
     .eq("user_id", invitedUser.id)
+    .eq("status", "active")
     .maybeSingle();
   if (existingMembership) return { phone, status: "already_member" };
 

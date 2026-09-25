@@ -61,6 +61,7 @@ export default async function TripInviteLinkPage({ params }: { params: Promise<{
       .select("trip_id")
       .eq("trip_id", invite.tripId)
       .eq("user_id", user.id)
+      .eq("status", "active")
       .maybeSingle();
     alreadyMember = Boolean(membership);
   }

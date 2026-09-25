@@ -31,7 +31,7 @@ describe("joinTripById — traveler cap", () => {
       from: (table: string) => ({
         select: (_cols: string, opts?: { count?: string; head?: boolean }) => {
           const builder = {
-            eq: (_col: string, _val: unknown) => builder,
+            eq: () => builder,
             maybeSingle: async () => {
               if (table === "planner_trips") {
                 return { data: { id: "trip1", name: "Big Reunion", twilio_conversation_sid: null } };
