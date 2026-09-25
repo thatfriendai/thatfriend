@@ -6,12 +6,13 @@ low-impact enough to batch for later. Check this list before a friends
 round. Anything a tester is likely to hit should also be mentioned in
 BETA_GUIDE.md.
 
-Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Minor, batch for later" section and the muted-grey contrast issue below).
+Last full sweep: 2026-09-25 (after the P1/P2 feature batch — see the QA sweep PR). Earlier full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Minor, batch for later" section and the muted-grey contrast issue below).
 
 ## Needs a console or config change (do these before the next round)
 
 | What | Where |
 | --- | --- |
+| **Run the four new migrations before (or with) this deploy, in order:** `2026-09-26-sms-trip-routing.sql`, `2026-09-27-email-invite-status.sql`, `2026-09-28-leave-remove-trip.sql`, `2026-09-29-nudge-cooldown.sql`, `2026-09-29-tied-decisions.sql`. The 09-28 one is required: until it runs, trip pages 404 and texts fail, because the code filters on `planner_memberships.status`. | Supabase SQL editor, on staging and production |
 | Set `CRON_SECRET`. Without it the cron routes return 401 and stop running. | Vercel env: Production and Preview |
 | Set `META_APP_SECRET`. Without it production rejects every WhatsApp webhook with a 403. | Vercel env, taken from Meta App settings → Basic → App secret |
 | Run `supabase/migrations/2026-09-23-qa-hardening.sql`, which adds the OTP `attempts` column. Until it runs, one wrong code guess deletes the code, which is safe but annoying. | Supabase SQL editor, on staging and production |
@@ -202,8 +203,31 @@ those 3 the same way; the other 4 were already AA-compliant.
 
 ## Minor, batch for later
 
-Nothing open right now — the previous batch (UTC "today"/`hasEnded` checks,
-`toLocaleDateString(undefined, …)` hydration warnings, the weather
-destination split, the trip-name geocode fallback, multi-image MMS,
-`addMinutes` midnight clamping, the `/j/<token>` wrong-number Join button,
-and `DecisionDetail`'s stale stay-option sidebar) was fixed 2026-09-25.
+Found in the 2026-09-25 sweep, not fixed (P2):
+
+- **Ties:** the owner gets no in-app "needs you" prompt for a tied
+  decision, since `attention.ts` and `homeAttention.ts` only look at
+  `open`. Non-owners see "Pick the winner" on the Tied tab. The owner can
+  pick an option that wasn't tied for the lead. Options can be removed from
+  a tied or closed decision; if every tied leader is removed, the page
+  reads "It's a tie between ." with no names.
+- **Removing an option vs. settling a tie at the same moment** can leave a
+  closed decision with no winner (check-then-act in the option DELETE).
+- **Nights:** no upper cap on check-in/check-out (a typo'd year gives about
+  13,000 nights). "Edit dates" opens blank, so saving it clears the nights.
+- **Stays buttons:** delete and reopen in the Stays section, and Delete in
+  Decisions, fail silently and have no double-submit guard.
+- **Caps:** `MAX_STAYS_PER_TRIP` counts closed stays too. The general
+  decision form still caps at 6 options, not 10.
+- **Rides:** a suggested ride time that wraps past midnight has no "(+1)"
+  or "night before" marker.
+- **"Today" for trips** is New York time, in `hasEnded` and the SMS
+  routing's active-trip window, so West Coast evenings are a few hours off.
+- **Weather:** state matching is a substring match, so "arkansas" contains
+  "kansas".
+- **SMS before the 09-26 migration:** "switch to X" replies "switched" but
+  can't save the choice.
+- **Consent:** `acceptPendingInviteByReply` records a consent event even
+  when the person is refused because they were removed.
+- **Solo trips:** an owner on a one-person trip can't leave, since there's
+  nobody to transfer to and no delete. Needs a product decision.
