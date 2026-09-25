@@ -4,14 +4,18 @@ import type { PlaceKind } from "@/lib/supabase/planner-types";
 // stays plum #8A5A7A everywhere else). Stays inside the warm/plum family so
 // nothing here reads as a second brand color; adjacent entries are still
 // distinguishable. Day 1 intentionally matches the accent plum itself.
+// mauve/dusty lilac/ash rose are darkened from the design file's
+// #A9709A/#B08AA6/#9A7A8E (2.7-3.5:1 with the on-dark text — e.g. member
+// avatar initials — rendered on top) to the same hue/saturation at a lower
+// lightness, 4.5:1+; the other four were already AA-compliant as-is.
 export const DAY_COLORS = [
   "#8A5A7A", // plum — the accent, day 1
   "#6E5A7A", // iris
-  "#A9709A", // mauve
+  "#985B88", // mauve
   "#5E5A6E", // slate violet
-  "#B08AA6", // dusty lilac
+  "#8F6183", // dusty lilac
   "#7A5A6E", // wine
-  "#9A7A8E", // ash rose
+  "#86667A", // ash rose
 ] as const;
 
 export const KIND_OPTIONS: { kind: PlaceKind; color: string }[] = [

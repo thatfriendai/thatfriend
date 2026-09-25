@@ -80,11 +80,11 @@ the token (`HeroDemo.tsx`, `TripCover.tsx`, `TravelCard.tsx`,
 3.4–3.9:1) for the same reason. The e2e a11y check no longer reports a
 color-contrast warning on any of the 4 public pages.
 
-- **New, not yet fixed:** the member-avatar initials (white text on a
-  rotating tint palette — `#A9709A`, `#B08AA6`, etc.) fall as low as 2.7:1.
-  Different issue from the one above (a color palette, not the muted-grey
-  tokens) — found while re-running the a11y check on signed-in trip pages,
-  not part of the original sweep.
+**Also fixed 2026-09-25:** the day/avatar tint palette (`DAY_COLORS` in
+`itinerary.ts`, plus its separate copies in `cover.ts`'s `COVER_TINTS` and
+`guides.ts`'s `TYPE_COLORS`) had 3 of 7 colors — mauve, dusty lilac, ash
+rose — at 2.7–3.5:1 as member-avatar-initial backgrounds and text. Darkened
+those 3 the same way; the other 4 were already AA-compliant.
 
 ## Minor, batch for later
 

@@ -63,7 +63,7 @@ interface Person {
 
 const PEOPLE: Record<string, Person> = {
   maya: { name: "Maya", initials: "MA", color: "#6E5A7A" },
-  priya: { name: "Priya", initials: "PR", color: "#A9709A" },
+  priya: { name: "Priya", initials: "PR", color: "#985B88" }, // darkened from #A9709A, same as DAY_COLORS — was below AA with cream text on top
   jonah: { name: "Jonah", initials: "JO", color: "#5E5A6E" },
   you: { name: "You", initials: "YOU", color: "#8A5A7A" },
 };
@@ -1022,7 +1022,7 @@ export function HeroDemo({ autoplaySpeed = 1 }: { autoplaySpeed?: number }) {
               <div key={c.key} style={c.style} />
             ))}
           </div>
-          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, letterSpacing: "0.12em", textTransform: "uppercase", color: "#A9709A", marginBottom: 8 }}>
+          <div style={{ fontFamily: "'DM Mono', monospace", fontSize: 10.5, letterSpacing: "0.12em", textTransform: "uppercase", color: "#985B88", marginBottom: 8 }}>
             Decision 1 of 3 · confirmed
           </div>
           <div style={{ fontFamily: "'Instrument Serif', Georgia, serif", fontSize: 33, lineHeight: 1.08, marginBottom: 8 }}>

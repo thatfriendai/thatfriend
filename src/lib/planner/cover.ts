@@ -27,7 +27,10 @@ export function stripeFor(tint: string): string {
 }
 
 // Cycled per real trip (no category to tint by, unlike a guide's type).
-export const COVER_TINTS = ["#8A5A7A", "#6E5A7A", "#A9709A", "#5E5A6E", "#7A5A6E"];
+// #A9709A (mauve) is darkened to #985B88, same as DAY_COLORS in
+// itinerary.ts — it's used both as text and (with cream text on top of it)
+// as a button background, and was 3.5-3.8:1 either way, below AA.
+export const COVER_TINTS = ["#8A5A7A", "#6E5A7A", "#985B88", "#5E5A6E", "#7A5A6E"];
 
 export function tintFor(seed: string): string {
   let h = 2166136261;
