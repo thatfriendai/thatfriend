@@ -6,6 +6,7 @@ import { signOut } from "@/app/planner/actions";
 import { CopyJoinCode } from "./CopyJoinCode";
 import { InviteButton } from "./InviteButton";
 import { InviteFriendByPhone } from "./InviteFriendByPhone";
+import { EmailInviteRow } from "./EmailInviteRow";
 import { GroupTextCard } from "./GroupTextCard";
 import { ItineraryBoard } from "./ItineraryBoard";
 import { PlacesBoard } from "./PlacesBoard";
@@ -76,6 +77,7 @@ export default async function PlannerTripPage({
     { data: placeRows },
     { data: decisionRows },
     { data: pendingInviteRows },
+    { data: emailInviteRows },
     attention,
     { data: essentialRows },
     lastTime,
@@ -110,6 +112,15 @@ export default async function PlannerTripPage({
       .eq("trip_id", id)
       .is("joined_at", null)
       .gt("expires_at", new Date().toISOString())
+      .order("created_at", { ascending: true }),
+    // Email invites — the same "who's still pending" idea, but with a real
+    // send status (P1-A) instead of assumed delivery.
+    admin
+      .from("planner_invites")
+      .select("id, sent_to, status, error, token")
+      .eq("trip_id", id)
+      .eq("channel", "email")
+      .is("accepted_by", null)
       .order("created_at", { ascending: true }),
     computeAttention(admin, id, user.id),
     admin.from("planner_trip_essentials").select("*").eq("trip_id", id).order("position", { ascending: true }),
@@ -433,6 +444,18 @@ export default async function PlannerTripPage({
                   <span className="text-[15px] text-body">{formatPhoneDisplay(invite.phone as string)}</span>
                   <span className="ml-auto font-mono text-[11px] tracking-[0.08em] text-faint uppercase">Invited</span>
                 </div>
+              ))}
+            </div>
+          )}
+          {(emailInviteRows ?? []).length > 0 && (
+            <div className="mt-2 flex flex-col gap-2">
+              {(emailInviteRows ?? []).map((invite) => (
+                <EmailInviteRow
+                  key={invite.id}
+                  email={invite.sent_to as string}
+                  status={invite.status as "pending" | "sent" | "delivered" | "failed" | "bounced"}
+                  joinUrl={inviteLinkToken ? `${siteUrl}/join/${slugify(trip.destination ?? trip.name)}/${inviteLinkToken}` : null}
+                />
               ))}
             </div>
           )}

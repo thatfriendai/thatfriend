@@ -28,3 +28,6 @@ export const MAX_STAYS_PER_TRIP = 10;
 
 /** How long a phone's "active trip" SMS-routing context lasts without another message before it's treated as expired. */
 export const ACTIVE_TRIP_WINDOW_HOURS = 24;
+
+/** How many times a transient (network/5xx) email-invite send failure is retried before giving up. Permanent failures (bad address) never retry. */
+export const MAX_EMAIL_RETRIES = 2;

@@ -20,10 +20,17 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
 
 ## Needs a product decision
 
-- **P1 · Email invitees never get anything.** `/api/v2/trips/[id]/invites`
-  stores email invites and returns `delivered: true`, but nothing sends an
-  email. Options: send via Supabase `signInWithOtp`, add a real mailer, or
-  remove email invites from the new-trip form.
+- ~~**P1 · Email invitees never get anything.**~~ — **fixed 2026-09-27
+  (P1-A).** Sends for real now, via Resend (`src/lib/planner/email.ts`) —
+  needs `RESEND_API_KEY` set and `RESEND_FROM_EMAIL` on a verified domain
+  before it actually delivers (see `.env.local.example`); without it, a
+  send fails loudly instead of faking success. `planner_invites` tracks a
+  real `status` (`pending`/`sent`/`delivered`/`failed`/`bounced`; the last
+  two need a Resend webhook to fire, not built here — synchronous sends
+  only ever resolve `sent`/`failed`) with `sent_at`/`error`. Transient
+  failures retry up to `MAX_EMAIL_RETRIES`; permanent ones don't. "Who's
+  in" shows each pending email invite's status, and a failed one offers
+  "copy link instead."
 - **P1 · Nobody can leave a trip or be removed from one.** There's no route
   for either. A tester who joins the wrong trip is stuck there.
 - ~~**P1 · Texts from people on several trips go to the trip they joined
