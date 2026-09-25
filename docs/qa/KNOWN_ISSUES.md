@@ -120,8 +120,15 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
   a column) — editing re-enters both dates from scratch rather than
   prefilling the old ones; nothing else in the app tracks a stay's real
   booking dates today, so there was nothing to prefill from.
-- **P2 · Mixed currencies:** "best cost" is simply not marked, rather than
-  converting between currencies.
+- ~~**P2 · Mixed currencies.**~~ — **checked 2026-09-29 (P2-6), already
+  correct, no code changed.** `costsShareCurrency` in `stayComparison.ts`
+  already gates the "best cost" `best_in` tag on every priced option
+  sharing one currency (case/whitespace-insensitive; an option with no
+  currency set is treated as matching the rest, since that's how it's
+  displayed) — a real mix never gets a false "best" claim, it's just left
+  unmarked, exactly what the spec asked for. Already covered by
+  `tests/unit/decisions-fixes.test.ts`'s `costsShareCurrency` suite (same
+  currency → true, mixed → false, no-price/no-currency options ignored).
 - **P2 · Nudges have no cooldown.** Any member can re-text everyone who
   hasn't answered, as often as they like.
 - **P2 · The Stays section only shows the newest stay decision.** Older ones
