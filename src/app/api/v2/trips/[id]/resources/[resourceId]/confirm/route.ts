@@ -6,11 +6,10 @@ import { KIND_OPTIONS, hashPercent } from "@/lib/planner/itinerary";
 import { geocodePlace } from "@/lib/planner/geocode";
 import { isGoogleMapsUrl } from "@/lib/planner/mapsLink";
 import { loadExistingPlaces, findDuplicatePlace, type ExistingPlace } from "@/lib/planner/placeDedupe";
-
 // Same ceiling the extractor applies (src/lib/planner/extract.ts) — each
 // place costs a billed geocode call, so a hand-built request can't ask for
 // hundreds.
-const MAX_PLACES_PER_CONFIRM = 12;
+import { MAX_PLACES_PER_CONFIRM } from "@/config/limits";
 
 export async function POST(
   request: Request,

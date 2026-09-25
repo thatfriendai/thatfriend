@@ -4,6 +4,7 @@ import { generateToken, generateJoinCode } from "./tokens";
 import { addParticipantToConversation } from "@/lib/twilio/conversations";
 import { autoFriendTripMembers } from "./follows";
 import { toE164 } from "./phone";
+import { MAX_TRAVELERS_PER_TRIP } from "@/config/limits";
 
 /**
  * Whether the word after "join" was plausibly meant as a join code, so a
@@ -101,6 +102,14 @@ export async function joinTripById(admin: SupabaseClient, user: PlannerUserLite,
     .eq("user_id", user.id)
     .maybeSingle();
   if (existing) return { outcome: "already_member", tripName: trip.name };
+
+  const { count } = await admin
+    .from("planner_memberships")
+    .select("user_id", { count: "exact", head: true })
+    .eq("trip_id", trip.id);
+  if ((count ?? 0) >= MAX_TRAVELERS_PER_TRIP) {
+    return { outcome: "error", error: `This trip is already at its limit of ${MAX_TRAVELERS_PER_TRIP} travelers.` };
+  }
 
   const { error } = await admin
     .from("planner_memberships")

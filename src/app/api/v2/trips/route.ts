@@ -4,9 +4,7 @@ import { getPlannerUser } from "@/lib/planner/session";
 import { generateToken } from "@/lib/planner/tokens";
 import { sanitizeMarkDates, todayIn, tripRangeError } from "@/lib/planner/calendarDate";
 import { TRIP_TYPES, type TripPrivacy } from "@/lib/supabase/planner-types";
-
-/** Long enough for any real trip name; short enough that it can't break every header and SMS it appears in. */
-const MAX_NAME_LENGTH = 120;
+import { MAX_TRIP_NAME_LENGTH as MAX_NAME_LENGTH } from "@/config/limits";
 
 export async function POST(request: Request) {
   const user = await getPlannerUser();

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlannerUser } from "@/lib/planner/session";
+import { MAX_OPTIONS_PER_DECISION, MAX_STAYS_PER_TRIP } from "@/config/limits";
 
 interface IncomingOption {
   label?: unknown;
@@ -49,7 +50,7 @@ export async function POST(
   const rawOptions: IncomingOption[] = Array.isArray(body.options) ? body.options : [];
   const options = rawOptions
     .filter((o): o is IncomingOption & { label: string } => typeof o.label === "string" && o.label.trim().length > 0)
-    .slice(0, 6)
+    .slice(0, MAX_OPTIONS_PER_DECISION)
     .map((o) => ({
       label: o.label.trim().slice(0, 120),
       sub: typeof o.sub === "string" && o.sub.trim() ? o.sub.trim().slice(0, 200) : null,
@@ -65,6 +66,20 @@ export async function POST(
       { error: "A title and at least two options are required." },
       { status: 400 }
     );
+  }
+
+  if (kind === "stay") {
+    const { count } = await admin
+      .from("planner_decisions")
+      .select("id", { count: "exact", head: true })
+      .eq("trip_id", tripId)
+      .eq("kind", "stay");
+    if ((count ?? 0) >= MAX_STAYS_PER_TRIP) {
+      return NextResponse.json(
+        { error: `A trip can have at most ${MAX_STAYS_PER_TRIP} stay decisions.` },
+        { status: 400 }
+      );
+    }
   }
 
   const { data: decision, error: decisionError } = await admin

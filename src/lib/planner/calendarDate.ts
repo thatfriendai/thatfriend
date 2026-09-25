@@ -6,6 +6,7 @@
  * of UTC (Europe, Türkiye, Asia) — that's how a trip's days came out shifted
  * by one. Safe on both server and client.
  */
+import { MAX_TRIP_DAYS, MAX_AVAILABILITY_MARKS } from "@/config/limits";
 
 const DAY_MS = 86_400_000;
 
@@ -62,9 +63,6 @@ export function isValidCalendarDate(value: unknown): value is string {
   return fromUtcMs(toUtcMs(value)) === value;
 }
 
-/** Longest trip we accept — a guard against typos like 2026 → 2062, not a product limit anyone should hit. */
-export const MAX_TRIP_DAYS = 60;
-
 /**
  * Why a start/end pair can't be a trip's dates, as a message fit to show
  * the person — or null when it's fine. Shared by trip creation and date
@@ -77,21 +75,18 @@ export function tripRangeError(start: unknown, end: unknown): string | null {
   return null;
 }
 
-/** A year of days is more than anyone marks; the cap just bounds the write. */
-export const MAX_MARKS = 366;
-
 /**
  * The availability dates a request may save: real calendar dates,
  * deduped, within about a year back (a stale tab re-saving old marks
  * shouldn't fail) to two years out. Null when there are more than
- * MAX_MARKS — a bad client, not a person's availability.
+ * MAX_AVAILABILITY_MARKS — a bad client, not a person's availability.
  */
 export function sanitizeMarkDates(input: unknown, today: string): string[] | null {
   if (!Array.isArray(input)) return [];
   const earliest = addDays(today, -366);
   const latest = addDays(today, 2 * 366);
   const dates = [...new Set(input.filter(isValidCalendarDate))].filter((d) => d >= earliest && d <= latest);
-  return dates.length > MAX_MARKS ? null : dates;
+  return dates.length > MAX_AVAILABILITY_MARKS ? null : dates;
 }
 
 /**
