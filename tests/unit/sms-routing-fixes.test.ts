@@ -180,3 +180,22 @@ describe("whichTripReply / leaveWhichTripReply wording", () => {
     expect(text).toContain("LEAVE");
   });
 });
+
+describe("which-trip answers and LEAVE <trip> (regressions from the 2026-09-25 sweep)", () => {
+  const lisbon = { id: "t1", name: "Lisbon in the fall", destination: "Lisbon, Portugal", join_code: "LISBON4K" } as never;
+  const austin = { id: "t2", name: "Austin weekend", destination: "Austin, TX, USA", join_code: "AUSTINQ7" } as never;
+
+  it("treats 'Lisbon, thanks!' and 'portugal' as a bare answer, so the held link is kept", async () => {
+    const { isBareTripAnswer } = await import("@/lib/planner/smsTripRouting");
+    expect(isBareTripAnswer("Lisbon, thanks!", lisbon)).toBe(true);
+    expect(isBareTripAnswer("portugal", lisbon)).toBe(true);
+    expect(isBareTripAnswer("lisbon — what time is checkin?", lisbon)).toBe(false);
+  });
+
+  it("'leave for austin at 9?' is not 'LEAVE Austin'", async () => {
+    const { isBareTripAnswer } = await import("@/lib/planner/smsTripRouting");
+    expect(isBareTripAnswer("for austin at 9?", austin)).toBe(false);
+    expect(isBareTripAnswer("austin", austin)).toBe(true);
+    expect(isBareTripAnswer("Austin weekend", austin)).toBe(true);
+  });
+});

@@ -71,12 +71,9 @@ export async function POST(
     const phone = typeof entry.phone === "string" ? entry.phone.trim() : "";
     if (phone) phoneEntries.push(phone);
   }
-  if (invalidEmails.length > 0) {
-    return NextResponse.json(
-      { error: `That doesn't look like an email address: ${invalidEmails[0].slice(0, 80)}` },
-      { status: 400 }
-    );
-  }
+  // A typo'd address fails on its own (reported back in emailResults) —
+  // rejecting the whole request cancelled every other invite, phones
+  // included, and the new-trip form showed nothing.
 
   // A per-trip daily ceiling on email invites, counted from the rows this
   // route writes — the per-request cap alone doesn't stop the same request
@@ -109,7 +106,11 @@ export async function POST(
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000";
   const slug = slugify(trip.destination ?? trip.name);
 
-  const emailResults: { email: string; status: "sent" | "failed"; error: string | null }[] = [];
+  const emailResults: { email: string; status: "sent" | "failed"; error: string | null }[] = invalidEmails.map((email) => ({
+    email: email.slice(0, 80),
+    status: "failed",
+    error: "That doesn't look like an email address.",
+  }));
   for (const email of emailAddresses) {
     const token = generateToken();
     const { data: invite, error: insertError } = await admin

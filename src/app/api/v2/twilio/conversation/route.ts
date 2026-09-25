@@ -112,14 +112,6 @@ export async function POST(request: Request) {
       return ok();
     }
 
-    // Someone who left or was removed can still be bound to this thread if
-    // departMember's unbind failed (it's best-effort) — without this, their
-    // texts would keep saving places, voting and posting into a trip
-    // they're no longer on. Ignore them quietly, like any unknown sender.
-    if (!(await isActiveMember(admin, trip.id, user.id))) {
-      return ok();
-    }
-
     let media: ConversationMedia[] = [];
     try {
       media = params.Media ? JSON.parse(params.Media) : [];
@@ -213,6 +205,15 @@ export async function POST(request: Request) {
         await replyPrivately(say.joinCodeNotFoundReply());
         return ok();
       }
+    }
+
+    // Someone who left or was removed can still be bound to this thread if
+    // departMember's unbind failed (it's best-effort). Invite replies,
+    // STOP/START, LEAVE and join codes above still work for them — they may
+    // be joining another trip — but nothing they text from here on saves
+    // places, votes or posts into a trip they're no longer on.
+    if (!(await isActiveMember(admin, trip.id, user.id))) {
+      return ok();
     }
 
     // A join code for another trip was handled above, so anything else

@@ -190,6 +190,9 @@ const ANSWER_FILLER = new Set([
   "the", "a", "an", "for", "it", "its", "s", "is", "was", "that", "this", "one", "trip", "to", "about",
   "in", "on", "oh", "um", "uh", "ok", "okay", "yes", "yeah", "yep", "sorry", "i", "meant", "mean",
   "please", "pls", "plz", "first", "second", "last", "other", "lol", "haha",
+  // "Lisbon, thanks!" is still just the answer — without these the held
+  // link was dropped and the reply was treated as a thank-you.
+  "thanks", "thank", "you", "thx", "ty", "cheers", "k", "kk", "sure",
 ]);
 
 /**
@@ -202,7 +205,9 @@ const ANSWER_FILLER = new Set([
 export function isBareTripAnswer(text: string, trip: EligibleTrip): boolean {
   let rest = ` ${normalize(text)} `;
   if (!rest.trim()) return false;
-  const identifiers = [trip.name, trip.destination, trip.destination?.split(",")[0] ?? null, trip.join_code]
+  // Every comma part of the destination counts ("portugal" for
+  // "Lisbon, Portugal"), not just the city.
+  const identifiers = [trip.name, trip.destination, ...(trip.destination?.split(",") ?? []), trip.join_code]
     .filter((v): v is string => typeof v === "string")
     .map(normalize)
     .filter(Boolean)

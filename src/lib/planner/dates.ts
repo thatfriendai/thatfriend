@@ -78,8 +78,9 @@ export function upcomingMarks<T extends { date: string }>(marks: T[], earliest: 
  * Every contiguous window of 2-10 days within the marked span is scored by
  * its weakest day (a stretch is only as good as the day fewest people can
  * make), then the highest-scoring window wins — longer windows and higher
- * total coverage break ties. A single day is proposed only when no 2+ day
- * stretch works for most of the group and the day gets more people there. Mirrors convergence's floor/comfy language:
+ * total coverage break ties. A single day is proposed only when it gets
+ * more people there than any 2+ day stretch — by two or more, in groups of
+ * 4 or more. Mirrors convergence's floor/comfy language:
  * a full-coverage window "works for all N", otherwise "works for N of M".
  */
 export function computeDateProposal(
@@ -107,16 +108,21 @@ export function computeDateProposal(
     count: countByDate.get(date) ?? 0,
   }));
 
-  // A stretch of 2+ days that most of the group can make beats any single
-  // day: scoring one-day windows alongside longer ones let a single day
-  // everyone can make beat a whole weekend that works for 3 of 4 (the
-  // Austin weekend got proposed as Saturday alone). A single day
-  // (MIN_DATE_WINDOW) only wins when no stretch works for a majority and
-  // the day gets more people there — two ranges that just touch.
+  // A stretch of 2+ days beats a single day that gets one more person
+  // there — scoring one-day windows alongside longer ones proposed the
+  // Austin weekend (works for 3 of 4) as Saturday alone (all 4). Only in
+  // groups of 4+, though: in a group of 3, "one more person" is a third
+  // of the trip, so the Napa day trip keeps its day everyone can make. A
+  // single day (MIN_DATE_WINDOW) also wins whenever no stretch works for
+  // anyone, or two ranges only just touch.
   const multi = bestWindow(coverage, PREFERRED_MIN_WINDOW);
   const single = bestWindow(coverage, MIN_DATE_WINDOW);
   const best =
-    multi && (multi.score * 2 > totalMembers || !single || single.score <= multi.score) ? multi : single;
+    !multi || !single
+      ? (multi ?? single)
+      : single.score <= multi.score || (totalMembers >= 4 && single.score - multi.score <= 1)
+        ? multi
+        : single;
 
   if (!best) return { proposal: null, coverage };
 

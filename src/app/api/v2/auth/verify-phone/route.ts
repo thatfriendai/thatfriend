@@ -144,7 +144,9 @@ export async function POST(request: Request) {
     const { data: memberships } = await admin
       .from("planner_memberships")
       .select("planner_trips(twilio_conversation_sid)")
-      .eq("user_id", currentUser.id);
+      .eq("user_id", currentUser.id)
+      // Not trips they've left or been removed from.
+      .eq("status", "active");
     const conversationSids = (memberships ?? [])
       .map((m) => (m.planner_trips as unknown as { twilio_conversation_sid: string | null } | null)?.twilio_conversation_sid)
       .filter((sid): sid is string => Boolean(sid));

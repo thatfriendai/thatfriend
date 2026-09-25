@@ -97,3 +97,13 @@ describe("computeDateProposal — single days never beat a real weekend", () => 
     expect(proposal).toMatchObject({ start_date: "2026-10-24", end_date: "2026-10-24", label: "works for all 2" });
   });
 });
+
+describe("computeDateProposal — small groups keep the day everyone can make", () => {
+  it("Napa day trip (3 people): one day for all 3 beats two days for 2 of 3", () => {
+    const { proposal } = computeDateProposal(
+      [...marks("organizer", ["2026-10-24", "2026-10-25"]), ...marks("sameName", ["2026-10-24", "2026-10-25"]), ...marks("flaky", ["2026-10-24"])],
+      3
+    );
+    expect(proposal).toMatchObject({ start_date: "2026-10-24", end_date: "2026-10-24", label: "works for all 3" });
+  });
+});

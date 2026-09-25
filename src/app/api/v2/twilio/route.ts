@@ -18,6 +18,7 @@ import {
   matchNamedTrip,
   routeInboundMessage,
   type HeldMedia,
+  isBareTripAnswer,
 } from "@/lib/planner/smsTripRouting";
 import { departMember, isLeaveCommand } from "@/lib/planner/membership";
 import * as say from "@/lib/planner/smsVoice";
@@ -251,7 +252,11 @@ export async function POST(request: Request) {
       const namedLeave = body.match(LEAVE_NAMED_PATTERN);
       if (isLeaveCommand(body) || namedLeave) {
         const eligible = await eligibleTripsForPhone(admin, user.id);
-        const target = namedLeave && !isLeaveCommand(body) ? matchNamedTrip(namedLeave[1], eligible) : null;
+        // Only "LEAVE <trip>" and nothing else: matchNamedTrip finds a trip
+        // name anywhere in the text, so "leave for austin at 9?" used to
+        // drop the sender from Austin weekend.
+        const named = namedLeave && !isLeaveCommand(body) ? matchNamedTrip(namedLeave[1], eligible) : null;
+        const target = named && isBareTripAnswer(namedLeave![1], named) ? named : null;
         if (target) return leaveOrDepart(target.id, target.name);
         if (isLeaveCommand(body) && eligible.length >= 2) {
           return reply(say.leaveWhichTripReply(eligible.map((t) => t.name)));
