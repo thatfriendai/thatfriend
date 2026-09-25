@@ -129,8 +129,32 @@ Last full sweep: 2026-09-23. Last sweep: 2026-09-25 (fixed everything in the "Mi
   unmarked, exactly what the spec asked for. Already covered by
   `tests/unit/decisions-fixes.test.ts`'s `costsShareCurrency` suite (same
   currency → true, mixed → false, no-price/no-currency options ignored).
-- **P2 · Nudges have no cooldown.** Any member can re-text everyone who
-  hasn't answered, as often as they like.
+- ~~**P2 · Nudges have no cooldown.**~~ — **fixed 2026-09-29 (P2-7).** New
+  `planner_nudge_log` (one row per nudge actually sent, not per person)
+  gates every nudge on `NUDGE_COOLDOWN_HOURS` (24) — enforced inside
+  `sendNudge` itself, the one function shared by the web button, the daily
+  cron, and both "nudge" SMS intents, so none of the four can route around
+  it. Scoped per trip+stage (availability vs. preferences), not per
+  nudger or per target — nudging preferences doesn't block nudging
+  availability, but any member nudging blocks every other member from
+  re-nudging the same stage, since the point is protecting the people
+  being texted, not rate-limiting whoever clicked. The web button shows
+  "Nudged Xh ago" and disables itself while on cooldown, read from the
+  same log. Out of scope: the separate legacy `/trip/[id]` surface
+  (`WhatsAppNudge.tsx` → `sendNudges` in `actions.ts`) uses its own
+  non-`planner_` tables with no `activeMembersOf` filtering at all — a
+  different, older code path this fix doesn't touch.
+  <br><br>
+  **Also fixed along the way, found while live-verifying this:**
+  `activeMembersOf` (`src/lib/planner/membership.ts` — the shared "who's
+  really on this trip" query behind nudges, `notifyTrip`'s group texts,
+  and rating-capture targeting) has been silently returning **zero**
+  active members for every trip on staging — its `planner_users` join
+  became ambiguous once P1-B added a second FK (`removed_by`) from
+  `planner_memberships` to `planner_users`, and the missing error check
+  turned that into an empty list instead of a loud failure. Fixed with an
+  explicit `!planner_memberships_user_id_fkey` hint, same fix already
+  applied to the decisions query in `page.tsx` for the same reason.
 - **P2 · The Stays section only shows the newest stay decision.** Older ones
   are reachable from Decisions.
 

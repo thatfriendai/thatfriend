@@ -85,6 +85,7 @@ export default async function PlannerTripPage({
     lastTime,
     { data: legRows },
     { data: rideRows },
+    { data: lastNudgeRow },
   ] = await Promise.all([
     admin.from("planner_memberships").select("role").eq("trip_id", id).eq("user_id", user.id).eq("status", "active").maybeSingle(),
     admin.from("planner_trips").select("*").eq("id", id).maybeSingle(),
@@ -136,6 +137,14 @@ export default async function PlannerTripPage({
     lastTimeFor(admin, id),
     admin.from("planner_travel_legs").select("*").eq("trip_id", id),
     admin.from("planner_ride_groups").select("*").eq("trip_id", id).order("created_at", { ascending: true }),
+    admin
+      .from("planner_nudge_log")
+      .select("sent_at")
+      .eq("trip_id", id)
+      .eq("stage", "preferences")
+      .order("sent_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
   ]);
   if (!membership) notFound();
   if (!trip) notFound();
@@ -496,7 +505,7 @@ export default async function PlannerTripPage({
               othersJoined={roster.length - 1}
               pendingCount={pendingInvites.length}
             />
-            {roster.length > 1 && <NudgeButton tripId={id} />}
+            {roster.length > 1 && <NudgeButton tripId={id} lastNudgedAt={lastNudgeRow?.sent_at ?? null} />}
           </div>
         </div>
 

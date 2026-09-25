@@ -1075,3 +1075,25 @@ create index if not exists planner_ride_groups_trip_idx on planner_ride_groups (
 
 alter table planner_ride_groups enable row level security;
 grant all on planner_ride_groups to anon, authenticated, service_role;
+
+-- planner_nudge_log — P2-7. One row per nudge actually SENT (not per
+-- person nudged): sendNudge (src/lib/planner/nudge.ts) checks the most
+-- recent row for a (trip_id, stage) before sending, gating every one of
+-- its four callers (web button, daily cron, and both "nudge" SMS
+-- intents) on NUDGE_COOLDOWN_HOURS — the cooldown belongs to the stage,
+-- not to whoever clicked or whoever it's about, so nobody can route
+-- around it by nudging from a different channel or as a different member.
+create table if not exists planner_nudge_log (
+  id uuid primary key default gen_random_uuid(),
+  trip_id uuid not null references planner_trips (id) on delete cascade,
+  stage text not null check (stage in ('availability', 'preferences')),
+  mode text not null check (mode in ('individual', 'group')),
+  -- Null for the automated cron nudge — nobody clicked it.
+  sent_by uuid references planner_users (id) on delete set null,
+  target_count integer not null default 0,
+  sent_at timestamptz not null default now()
+);
+create index if not exists planner_nudge_log_trip_stage_idx on planner_nudge_log (trip_id, stage, sent_at desc);
+
+alter table planner_nudge_log enable row level security;
+grant all on planner_nudge_log to anon, authenticated, service_role;

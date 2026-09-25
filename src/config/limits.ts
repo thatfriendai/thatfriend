@@ -34,3 +34,6 @@ export const MIN_DATE_WINDOW = 1;
 
 /** How many times a transient (network/5xx) email-invite send failure is retried before giving up. Permanent failures (bad address) never retry. */
 export const MAX_EMAIL_RETRIES = 2;
+
+/** How long after a nudge (web button, cron, or the "nudge" SMS intent — any of them) before another one for the same trip+stage is allowed. A spam guard, not a product cap anyone should ever cheerfully hit. */
+export const NUDGE_COOLDOWN_HOURS = 24;

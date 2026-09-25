@@ -22,11 +22,24 @@ export interface ActiveMember {
  * remembered to add the filter.
  */
 export async function activeMembersOf(admin: SupabaseClient, tripId: string): Promise<ActiveMember[]> {
-  const { data } = await admin
+  // Explicit FK name required: planner_memberships now has two
+  // relationships to planner_users (user_id, and P1-B's removed_by) —
+  // PostgREST can't pick one on its own and fails the whole query with
+  // no data, which this silently swallowed (`data` just came back null,
+  // read as "no active members"). Found live-verifying P2-7: this broke
+  // nudges, notifyTrip's group texts, and rating-capture targeting for
+  // every trip, not just new ones — same class of bug as the
+  // decided_option_id fix already applied to the decisions query in
+  // page.tsx.
+  const { data, error } = await admin
     .from("planner_memberships")
-    .select("user_id, role, planner_users(name, email, phone, notify_sms, whatsapp_opt_in)")
+    .select("user_id, role, planner_users!planner_memberships_user_id_fkey(name, email, phone, notify_sms, whatsapp_opt_in)")
     .eq("trip_id", tripId)
     .eq("status", "active");
+  if (error) {
+    console.error("activeMembersOf query failed", error);
+    return [];
+  }
   return (data ?? []).map((m) => {
     const u = m.planner_users as unknown as {
       name: string | null;
